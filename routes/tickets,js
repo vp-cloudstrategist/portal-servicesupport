@@ -1,0 +1,25 @@
+const express = require('express');
+const router = express.Router(); 
+const pool = require('../config/db.js'); 
+
+
+router.get('/cards-info', async (req, res) => {
+  try {
+    const sql = `
+      SELECT
+        COUNT(*) AS total,
+        COUNT(CASE WHEN statu = 'aberto' THEN 1 END) AS abertos,
+        COUNT(CASE WHEN statu = 'resolvido' THEN 1 END) AS resolvidos,
+        COUNT(CASE WHEN statu = 'aprovacao' THEN 1 END) AS aprovacao,
+        COUNT(CASE WHEN statu = 'encerrado' THEN 1 END) AS encerrados
+      FROM tickets
+    `;
+    const [rows] = await pool.query(sql);
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Erro ao buscar informações dos cards:', error);
+    res.status(500).json({ erro: 'Erro ao consultar o banco de dados' });
+  }
+});
+
+module.exports = router;
