@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard - Nexxt Cloud</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+
+<body class="flex h-screen bg-white text-gray-800 overflow-hidden">
+
+<aside class="w-64 text-white flex flex-col justify-between p-6 h-full bg-cover bg-no-repeat bg-center" style="background-image: url('/images/sidebar.png'); background-color: #02092B;">  
+  <div>
+    <div class="flex justify-center items-center mb-10">
+      <img src="/images/logo.png" alt="Logo Nexxt Cloud" class="w-40 h-auto" />
+    </div>
+    <nav class="space-y-4 text-sm">
+      <button onclick="toggleModal('modalTicket', true)" class="flex items-center text-base hover:text-[#38BDF8]">
+        <img src="/images/abrir.png" alt="Ícone" class="w-8 h-8 mr-2" />
+        Abrir Ticket
+      </button>
+      <button onclick="toggleModal('modalCriarUsuario', true)" class="flex items-center text-base hover:text-[#38BDF8]">
+        <img src="/images/abrir.png" alt="Ícone" class="w-8 h-8 mr-2" />
+        Criar Usuário
+      </button>
+    </nav>
+  </div>
+  <div>
+    <button id="logout-button" class="flex items-center text-base hover:text-blue-400 mt-4">
+      <img src="/images/sair.png" alt="Ícone" class="w-8 h-8 mr-2" />
+      Sair do Sistema
+    </button>
+  </div>
+</aside>
+
+<main class="flex-1 p-2 overflow-auto">
+  <div class="flex items-center justify-end mb-2 pr-10">
+    <div class="flex items-center space-x-2 relative group">
+      <span class="text-gray-800 font-medium" id="nome-usuario">Carregando...</span>
+      <img src="/images/avatar.png" alt="Avatar" class="w-12 h-12 rounded-full cursor-pointer"/>
+      <div class="absolute left-1/2 top-full transform -translate-x-1/2 mt-2 w-40 bg-white border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-center">
+        <a href="#" onclick="toggleModal('modalConta', true)" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Conta</a>
+        <a href="#" id="logout-menu-button" class="block px-4 py-2 text-blue-600 hover:bg-red-100">Sair</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
+      <div class="flex justify-between items-start">
+        <img src="/images/total.png" alt="Ícone" class="w-15 h-12" />
+        <p id="card-total" class="text-3xl font-black text-black">--</p>
+      </div>
+      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Todos<br>Tickets</p></div>
+    </div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
+      <div class="flex justify-between items-start">
+        <img src="/images/aberto.png" alt="Ícone" class="w-15 h-12" />
+        <p id="card-abertos" class="text-3xl font-black text-black">--</p>
+      </div>
+      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Abertos</p></div>
+    </div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
+      <div class="flex justify-between items-start">
+        <img src="/images/resolvido.png" alt="Ícone" class="w-15 h-12" />
+        <p id="card-resolvidos" class="text-3xl font-black text-black">--</p>
+      </div>
+      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Resolvidos</p></div>
+    </div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
+      <div class="flex justify-between items-start">
+        <img src="/images/aguardando.png" alt="Ícone" class="w-15 h-12" />
+        <p id="card-aprovacao" class="text-3xl font-black text-black">--</p>
+      </div>
+      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets em<br>Aprovação</p></div>
+    </div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
+      <div class="flex justify-between items-start">
+        <img src="/images/encerrado.png" alt="Ícone" class="w-15 h-12" />
+        <p id="card-encerrados" class="text-3xl font-black text-black">--</p>
+      </div>
+      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Encerrados</p></div>
+    </div>
+  </div>
+
+  <div>
+    <h2 class="text-2xl font-bold text-[#0A0E2B] leading-tight">Tickets</h2>
+    <div class="overflow-auto rounded-lg shadow mb-20">
+      <table class="min-w-full text-sm border-collapse border border-gray-200 leading-tight">
+        <thead class="bg-[#D4EAFF] text-[#0A0E2B] text-base">
+          <tr>
+            <th class="py-1 px-1 border">Ticket#</th>
+            <th class="py-1 px-1 border">Título</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-tickets">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="fixed bottom-0 left-64 w-[calc(100%-16rem)] bg-white p-4 flex items-center justify-between text-sm z-50">
+  </footer>
+
+  <div id="modalTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+  </div>
+  
+  <div id="modalCriarUsuario" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg p-8 relative">
+        <button class="absolute top-3 right-4 text-gray-500 hover:text-blue-500 text-xl" onclick="toggleModal('modalCriarUsuario', false)">✖</button>
+        <div class="flex justify-center">
+            <div class="flex items-center mb-4">
+                <img src="/images/novo.png" alt="Ícone" class="w-12 h-10 mr-3">
+                <h2 class="text-2xl font-bold text-[#02092B]">Criar Usuário</h2>
+            </div>
+        </div>
+        
+        <form id="formCriarUsuario" class="space-y-4">
+            <div class="flex gap-4">
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Nome</label>
+                    <input type="text" name="nome" required class="w-full border rounded px-4 py-2" placeholder="Digite o nome do usuário" />
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Sobrenome</label>
+                    <input type="text" name="sobrenome" required class="w-full border rounded px-4 py-2" placeholder="Digite o sobrenome" />
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Apelido</label>
+                    <input type="text" name="apelido" class="w-full border rounded px-4 py-2" placeholder="Digite o apelido do usuário" />
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Telefone</label>
+                    <input type="text" name="telefone" class="w-full border rounded px-4 py-2" placeholder="Digite o telefone" />
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Empresa</label>
+                    <select name="empresa" class="w-full border rounded px-4 py-2">
+                        <option value="">Selecione a empresa</option>
+                        <option>Copa Energia</option>
+                    </select>
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Grupo Solucionador</label>
+                    <select name="grupo_solucionador" class="w-full border rounded px-4 py-2">
+                        <option value="">Grupo Solucionador</option>
+                        <option>Customer</option>
+                        <option>Cloud Support N1</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Login (Email)</label>
+                    <input type="email" name="login" required class="w-full border rounded px-4 py-2" placeholder="Digite o email" />
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Senha</label>
+                    <input type="password" name="password" required class="w-full border rounded px-4 py-2" placeholder="Digite a senha" />
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">TimeZone</label>
+                    <select name="timezone" class="w-full border rounded px-4 py-2">
+                        <option value="">Selecione o TimeZone</option>
+                        <option value="America/Sao_Paulo">São Paulo - BR UTC-3</option>
+                    </select>
+                </div>
+                <div class="w-1/2">
+                    <label class="block text-sm font-semibold text-gray-700">Idioma</label>
+                    <select name="idioma" class="w-full border rounded px-4 py-2">
+                        <option value="">Selecione o idioma</option>
+                        <option value="pt">Português</option>
+                        <option value="es">Espanhol</option>
+                        <option value="en">Inglês</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end pt-4">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Salvar</button>
+            </div>
+        </form>
+    </div>
+  </div>
+  <div id="modalConta" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+  </div>
+  
+  <div id="modalConfirmarLogout" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <div class="bg-white w-full max-w-md p-6 rounded-xl shadow-lg text-center">
+      <h2 class="text-xl font-bold text-blue-600 mb-2">Tem certeza que deseja sair?</h2>
+      <p class="text-gray-800 mb-4">Sua sessão será encerrada.</p>
+      <div class="flex justify-center gap-4">
+        <button id="confirm-logout-button" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700">Sim, sair</button>
+        <button onclick="toggleModal('modalConfirmarLogout', false)" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/js/pages/dashboard.js" defer></script>
+</body>
+</html>

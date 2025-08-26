@@ -1,40 +1,45 @@
+require('dotenv').config();
 const express = require('express');
+const path = require('path');
+const session = require('express-session');
+const requireLogin = require('./middleware/requireLogin.js');
+const ticketsRoutes = require('./routes/tickets.js');
+const authRoutes = require('./routes/auth.js');
+const userRoutes = require('./routes/users.js');
+
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-const pool = require('./config/db.js');
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/tickets', async (req, res) => {
-  try {
-    const [rows] = await pool.query("SELECT * FROM tickets");
-    res.json(rows);
-  } catch (error) {
-    console.error('Erro ao buscar tickets:', error);
-    res.status(500).send('Erro no servidor');
+app.use(session({
+  secret: 'seu-segredo-super-secreto-aqui', 
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 } 
+}));
+
+app.use('/api/auth', authRoutes);
+app.use('/api/tickets', ticketsRoutes);
+app.use('/api/users', userRoutes);
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'login.html'));
+});
+
+app.get('/dashboard', /*requireLogin,*/ (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
+});
+
+app.get('/', (req, res) => {
+  if (req.session.user) {
+    res.redirect('/dashboard');
+  } else {
+    res.redirect('/login');
   }
 });
 
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
-});
-
-const pool = require('.db.js');
-
-app.get('/api/cards-info', async (req, res) =>{
-    try{
-        const sql = `
-        SELECT
-        COUNT(*) AS total,
-        COUNT(CASE WHEN statu = 'aberto' THEN 1 END) AS abertos,
-        COUNT(CASE WHEN statu = 'resolvido' THEN 1 END) AS resolvidos,
-        COUNT(CASE WHEN statu = 'aprovacao' THEN 1 END) AS aprovacao,
-        COUNT(CASE WHEN statu = 'encerrado' THEN 1 END) AS encerrados
-        FROM tickets
-        `;
-        const[rows] = await pool.query(sql);
-        res.json(rows[0]);
-    }catch(error){
-        console.error("Erro ao buscar informações dos cards:", error);
-        res.status(500).json({erro: "Erro ao consultar banco de dados"});
-    }
 });
