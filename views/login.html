@@ -1,27 +1,47 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Login - Portal</title>
-    </head>
-<body>
-    <h1>Login do Portal</h1>
-    
-    <form id="login-form">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login - Nexxt Cloud</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/main.css"> </head>
+<body class="bg-[#0A0E2B] flex items-center justify-center min-h-screen text-white relative">
+  <div class="bg-white text-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+    <div class="flex justify-center mb-6">
+      <img src="/images/logo.png" alt="Logo Nexxt Cloud" class="h-14" />
+    </div>
+    <h2 class="text-2xl font-semibold mb-4">CLOUD SUPPORT</h2>
 
-        <div>
-            <label for="login">Login (seu email):</label>
-            <input type="email" id="login" name="login" required>
-        </div>
-        <div>
-            <label for="password">Senha:</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        <button type="submit">Entrar</button>
+    <form id="login-form" class="flex flex-col items-center">
+      <div class="w-full text-left mb-2 text-sm font-medium">Usuário</div>
+      <input id="login" name="login" type="email" placeholder="Digite seu usuário" required class="w-full border rounded p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"/>
+
+      <div class="w-full text-left mb-2 text-sm font-medium">Senha</div>
+      <div class="relative w-full mb-4">
+        <input id="password" name="password" type="password" placeholder="Digite sua senha" required class="w-full border rounded p-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"/>
+        <button type="button" id="togglePassword" class="absolute inset-y-0 right-2 flex items-center text-sm text-blue-600 hover:underline">Mostrar</button>
+      </div>
+
+      <div class="mb-4 w-full text-center">
+        <a href="javascript:void(0);" onclick="alert('Funcionalidade de Esqueci a Senha será implementada depois!')" class="text-sm text-blue-600 hover:underline">Esqueci minha senha</a>
+      </div>
+
+      <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-900 transition">Entrar</button>
     </form>
-    
-    <div id="error-message" style="color: red; margin-top: 10px;"></div>
+  </div>
 
-    <script src="/js/pages/login.js"></script>
+  <div id="popup-erro" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white text-red-700 rounded-lg shadow-lg p-6 text-center w-80">
+      <p id="popup-mensagem-erro" class="text-lg font-semibold mb-4"></p>
+      <button id="popup-fechar-button" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">OK</button>
+    </div>
+  </div>
+
+  <footer class="absolute bottom-4 w-full text-center text-xs text-gray-400">
+    Nexxt Cloud 2025 © Todos os direitos reservados.
+  </footer>
+
+  <script src="/js/pages/login.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 @font-face {
   font-family: 'Space Grotesk';
-  src: url('/fonts/SpaceGrotesk-Regular.ttf') format('opentype');
+  src: url('/fonts/SpaceGrotesk-Regular.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
 }

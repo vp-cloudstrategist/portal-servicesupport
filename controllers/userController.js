@@ -1,15 +1,8 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db.js');
 
-// controllers/userController.js
-
-// ... (outros 'require' no topo)
-
 exports.createUser = async (req, res) => {
-  // PONTO DE VERIFICAÇÃO 1: A rota foi chamada?
   console.log('--- ROTA POST /api/users ACIONADA ---');
-  
-  // PONTO DE VERIFICAÇÃO 2: O que recebemos do formulário?
   console.log('Dados recebidos do formulário:', req.body);
 
   const { nome, sobrenome, login, password, ...outrosCampos } = req.body;
@@ -34,13 +27,11 @@ exports.createUser = async (req, res) => {
     console.log('Executando query no banco de dados...');
     const [result] = await pool.query(sql, values);
     
-    // PONTO DE VERIFICAÇÃO 3: O usuário foi inserido?
     console.log('Usuário inserido com sucesso! ID:', result.insertId);
 
     res.status(201).json({ message: 'Usuário criado com sucesso!', userId: result.insertId });
 
   } catch (error) {
-    // PONTO DE VERIFICAÇÃO 4: Ocorreu algum erro no bloco try?
     console.error('ERRO CATASTRÓFICO NO BLOCO TRY-CATCH:', error);
     res.status(500).json({ message: 'Erro interno no servidor ao criar usuário.' });
   }
