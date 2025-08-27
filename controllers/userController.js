@@ -1,36 +1,52 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db.js');
 
+// controllers/userController.js
+
+// ... (outros 'require' no topo)
+
 exports.createUser = async (req, res) => {
-  const { nome, sobrenome, apelido, telefone, empresa, grupo_solucionador, login, password, timezone, idioma } = req.body;
+  // PONTO DE VERIFICAÇÃO 1: A rota foi chamada?
+  console.log('--- ROTA POST /api/users ACIONADA ---');
+  
+  // PONTO DE VERIFICAÇÃO 2: O que recebemos do formulário?
+  console.log('Dados recebidos do formulário:', req.body);
+
+  const { nome, sobrenome, login, password, ...outrosCampos } = req.body;
 
   if (!nome || !login || !password) {
+    console.log('VALIDAÇÃO FALHOU: Campos obrigatórios ausentes.');
     return res.status(400).json({ message: 'Nome, login e senha são obrigatórios.' });
   }
 
   try {
+    console.log('Iniciando criptografia da senha...');
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    
+    console.log('Senha criptografada com sucesso.');
+
     const sql = `
-      INSERT INTO user 
-      (nome, sobre, apeli, telef, empre, gsoluc, login, password, tzone, idioma, perfil, statu, criado_em) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      INSERT INTO user (nome, sobre, login, passwd, perfil, statu, criado) 
+      VALUES (?, ?, ?, ?, ?, ?, NOW())
     `;
-    const values = [nome, sobrenome, apelido, telefone, empresa, grupo_solucionador, login, hashedPassword, timezone, idioma, 'user', 'ativo'];
+    const values = [nome, sobrenome, login, hashedPassword, 'user', 'ativo'];
 
+    console.log('Executando query no banco de dados...');
     const [result] = await pool.query(sql, values);
+    
+    // PONTO DE VERIFICAÇÃO 3: O usuário foi inserido?
+    console.log('Usuário inserido com sucesso! ID:', result.insertId);
 
-    res.status(201).json({ message: 'Usuário criado com sucesso!', userId: result.insertId, login: login, data: new Date().toLocaleString('pt-BR') });
+    res.status(201).json({ message: 'Usuário criado com sucesso!', userId: result.insertId });
 
   } catch (error) {
-    console.error('Erro ao criar usuário:', error);
+    // PONTO DE VERIFICAÇÃO 4: Ocorreu algum erro no bloco try?
+    console.error('ERRO CATASTRÓFICO NO BLOCO TRY-CATCH:', error);
     res.status(500).json({ message: 'Erro interno no servidor ao criar usuário.' });
   }
 };
-
 exports.getCurrentUser = async (req, res) => {
-  const login = req.session.user.login; 
+  const login = req.session.user.login;
 
   if (!login) {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
@@ -38,7 +54,7 @@ exports.getCurrentUser = async (req, res) => {
 
   try {
     const sql = `
-      SELECT login, nome, sobrenome, apelido, telefone, empresa, grupo_solucionador, timezone, idioma 
+      SELECT login, nome, sobre as sobrenome, apeli as apelido, telef as telefone, empre as empresa, gsoluc as grupo_solucionador, tzone as timezone, idioma 
       FROM user WHERE login = ?
     `;
     const [rows] = await pool.query(sql, [login]);
@@ -54,19 +70,19 @@ exports.getCurrentUser = async (req, res) => {
   }
 };
 
+
 exports.updateCurrentUser = async (req, res) => {
   const login_atual = req.session.user.login;
   const { nome, sobrenome, apelido, telefone, empresa, grupo_solucionador, timezone, idioma, email: newLogin } = req.body;
 
   try {
     const sql = `
-      UPDATE user SET nome = ?, sobrenome = ?, apelido = ?, telefone = ?, empresa = ?, grupo_solucionador = ?, timezone = ?, idioma = ?, login = ? 
+      UPDATE user SET nome = ?, sobre = ?, apeli = ?, telef = ?, empre = ?, gsoluc = ?, tzone = ?, idioma = ?, login = ? 
       WHERE login = ?
     `;
     const values = [nome, sobrenome, apelido, telefone, empresa, grupo_solucionador, timezone, idioma, newLogin, login_atual];
     
     await pool.query(sql, values);
-
     req.session.user.login = newLogin;
     req.session.user.nome = nome;
     req.session.user.sobrenome = sobrenome;

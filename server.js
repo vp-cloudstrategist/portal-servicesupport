@@ -28,7 +28,7 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'login.html'));
 });
 
-app.get('/dashboard', /*requireLogin,*/ (req, res) => {
+app.get('/dashboard', requireLogin, (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
 });
 

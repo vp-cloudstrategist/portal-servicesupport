@@ -49,9 +49,11 @@ async function logout() {
     }
 }
 
+
 document.addEventListener('DOMContentLoaded', () => {
- // carregarDadosUsuario();
- // carregarInfoCards();
+  carregarDadosUsuario();
+  carregarInfoCards();
+
 
   const logoutButton = document.getElementById('logout-button');
   const logoutMenuButton = document.getElementById('logout-menu-button');
@@ -61,4 +63,37 @@ document.addEventListener('DOMContentLoaded', () => {
   if (logoutMenuButton) logoutMenuButton.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
   if (confirmLogoutButton) confirmLogoutButton.addEventListener('click', logout);
   
+  const formCriarUsuario = document.getElementById('formCriarUsuario');
+  
+  if (formCriarUsuario) {
+    formCriarUsuario.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(formCriarUsuario);
+      const data = Object.fromEntries(formData.entries());
+
+      try {
+        const response = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          alert('Sucesso: ' + result.message);
+          toggleModal('modalCriarUsuario', false);
+          formCriarUsuario.reset();
+        } else {
+          alert('Erro do Servidor: ' + result.message);
+        }
+      } catch (error) {
+        alert('Erro de Conexão: Não foi possível enviar os dados.');
+        console.error('Erro no fetch de criar usuário:', error);
+      }
+    });
+  } else {
+    console.error('ERRO CRÍTICO: O formulário com id="formCriarUsuario" não foi encontrado no HTML.');
+  }
 });
