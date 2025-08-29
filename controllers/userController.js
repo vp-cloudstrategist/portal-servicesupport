@@ -2,40 +2,50 @@ const bcrypt = require('bcryptjs');
 const pool = require('../config/db.js');
 
 exports.createUser = async (req, res) => {
-  console.log('--- ROTA POST /api/users ACIONADA ---');
-  console.log('Dados recebidos do formulário:', req.body);
-
-  const { nome, sobrenome, login, password, ...outrosCampos } = req.body;
-
+  console.log('Dados recebidos do formulário para criar usuário:', req.body);
+  const { 
+    nome, sobrenome, apelido, telefone, empresa, 
+    grupo_solucionador, login, password, timezone, idioma, foto 
+  } = req.body;
   if (!nome || !login || !password) {
-    console.log('VALIDAÇÃO FALHOU: Campos obrigatórios ausentes.');
     return res.status(400).json({ message: 'Nome, login e senha são obrigatórios.' });
   }
 
   try {
-    console.log('Iniciando criptografia da senha...');
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    console.log('Senha criptografada com sucesso.');
 
     const sql = `
-      INSERT INTO user (nome, sobre, login, passwd, perfil, statu, criado) 
-      VALUES (?, ?, ?, ?, ?, ?, NOW())
+      INSERT INTO user 
+      (nome, sobre, apeli, telef, empre, gsoluc, login, passwd, tzone, idioma, foto, perfil, statu, criado) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `;
-    const values = [nome, sobrenome, login, hashedPassword, 'user', 'ativo'];
+    const values = [
+      nome, 
+      sobrenome, 
+      apelido || null,
+      telefone || null,
+      empresa || null,
+      grupo_solucionador || null,
+      login, 
+      hashedPassword, 
+      timezone || null,
+      idioma || null,
+      foto,
+      'user', 
+      'ativo'
+    ];
 
-    console.log('Executando query no banco de dados...');
-    const [result] = await pool.query(sql, values);
-    
-    console.log('Usuário inserido com sucesso! ID:', result.insertId);
+    await pool.query(sql, values);
 
-    res.status(201).json({ message: 'Usuário criado com sucesso!', userId: result.insertId });
+    res.status(201).json({ message: 'Usuário criado com sucesso!' });
 
   } catch (error) {
-    console.error('ERRO CATASTRÓFICO NO BLOCO TRY-CATCH:', error);
+    console.error('Erro ao criar usuário:', error);
     res.status(500).json({ message: 'Erro interno no servidor ao criar usuário.' });
   }
 };
+
 exports.getCurrentUser = async (req, res) => {
   const login = req.session.user.login;
 
