@@ -1,11 +1,7 @@
-// routes/tickets.js
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db.js');
-const requireLogin = require('../middleware/requireLogin.js'); // Importa nosso "segurança"
-
-// ROTA: GET /api/tickets/cards-info
-// AGORA PROTEGIDA e INTELIGENTE
+const requireLogin = require('../middleware/requireLogin.js'); 
 router.get('/cards-info', requireLogin, async (req, res) => {
   try {
 
@@ -20,7 +16,7 @@ router.get('/cards-info', requireLogin, async (req, res) => {
         COUNT(CASE WHEN statu = 'aprovacao' THEN 1 END) AS aprovacao,
         COUNT(CASE WHEN statu = 'encerrado' THEN 1 END) AS encerrados
       FROM tickets
-      WHERE user_id = ?  -- <-- SUA SUGESTÃO EM AÇÃO!
+      WHERE user_id = ? 
     `;
     
     const [rows] = await pool.query(sql, [userId]);
