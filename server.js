@@ -49,3 +49,6 @@ app.get('/forgot-password', (req, res) => {
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'reset-password.html'));
 });
+app.get('/api/ping', (req, res) => {
+  res.status(200).send('Pong!');
+});
