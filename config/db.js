@@ -1,11 +1,11 @@
-require('dotenv').config(); 
+// config/db.js (VERSÃO DE TESTE FINAL - HARDCODED)
 const mysql = require('mysql2/promise');
+
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
+  host: "localhost",
+  user: "appservice",
+  password: ")O9i8u7y6t5r4",
+  database: "service",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -13,11 +13,11 @@ const pool = mysql.createPool({
 
 pool.getConnection()
   .then(conn => {
-    console.log(' Conexão com o banco de dados bem-sucedida!');
+    console.log('✅✅✅ CONEXÃO HARDCODED BEM-SUCEDIDA!');
     conn.release(); 
   })
   .catch(err => {
-    console.error(' Erro na conexão com o banco de dados:', err.message);
+    console.error('❌❌❌ FALHA NA CONEXÃO HARDCODED:', err.message);
   });
 
 module.exports = pool;
