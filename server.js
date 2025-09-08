@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
-  secret: 'seu-segredo-super-secreto-aqui', 
+  secret: process.env.SESSION_SECRET, 
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 } 
@@ -48,7 +48,4 @@ app.get('/forgot-password', (req, res) => {
 });
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'reset-password.html'));
-});
-app.get('/api/ping', (req, res) => {
-  res.status(200).send('Pong!');
 });
