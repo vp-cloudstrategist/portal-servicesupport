@@ -1,8 +1,4 @@
 require('dotenv').config();
-console.log("--- VALORES DE EMAIL SENDO USADOS ---");
-console.log("USUÁRIO:", process.env.EMAIL_USER);
-console.log("SENHA:", process.env.EMAIL_PASS);
-console.log("-----------------------------------");
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
