@@ -45,7 +45,7 @@ exports.forgotPassword = async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM user WHERE login = ?', [email]);
     if (rows.length === 0) {
-      return res.status(200).json({ message: 'Se um usuário com este email existir...' });
+      return res.status(200).json({ message: 'Se um usuário com este email existir um e-mail será enviado!' });
     }
     const user = rows[0];
     const emailBase64 = Buffer.from(user.login).toString('base64');
@@ -65,7 +65,7 @@ exports.forgotPassword = async (req, res) => {
       html: `<p>Olá ${user.nome},</p><p>Clique no link para criar uma nova senha:</p><a href="${resetLink}">Redefinir Senha</a>`
     });
     
-    res.status(200).json({ message: 'Se um usuário com este email existir...' });
+    res.status(200).json({ message: 'Se um usuário com este email existir um e-mail será enviado!' });
   } catch (error) {
     console.error('Erro no forgotPassword:', error);
     res.status(500).json({ message: 'Erro interno no servidor.' });
