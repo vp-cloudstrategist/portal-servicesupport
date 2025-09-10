@@ -88,24 +88,3 @@ exports.resetPassword = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
-
-exports.resetPassword = async (req, res) => {
-    const { user: emailBase64, password } = req.body;
-
-    if (!emailBase64 || !password) {
-        return res.status(400).json({ message: 'Informações inválidas.' });
-    }
-
-    try {
-        const email = Buffer.from(emailBase64, 'base64').toString('ascii');
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        const updateUserSql = 'UPDATE user SET passwd = ? WHERE login = ?';
-        await pool.query(updateUserSql, [hashedPassword, email]);
-        res.status(200).json({ message: 'Senha redefinida com sucesso!' });
-
-    } catch (error) {
-        console.error('Erro no resetPassword:', error);
-        res.status(500).json({ message: 'Erro interno no servidor.' });
-    }
-};
