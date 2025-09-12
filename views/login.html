@@ -1,40 +1,49 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="h-full">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login - Nexxt Cloud</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/css/main.css"> </head>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
 <body class="bg-[#0A0E2B] flex items-center justify-center min-h-screen text-white relative">
+
   <div class="bg-white text-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md text-center">
     <div class="flex justify-center mb-6">
       <img src="/images/logo.png" alt="Logo Nexxt Cloud" class="h-14" />
     </div>
-    <h2 class="text-2xl font-semibold mb-4">CLOUD SUPPORT</h2>
+    <h2 class="text-2xl font-semibold mb-4 text-[#0A0E2B]">CLOUD SUPPORT</h2>
 
     <form id="login-form" class="flex flex-col items-center">
-      <div class="w-full text-left mb-2 text-sm font-medium">Usuário</div>
-      <input id="login" name="login" type="email" placeholder="Digite seu usuário" required class="w-full border rounded p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"/>
+      <div class="w-full text-left mb-2 text-sm font-medium text-gray-600">Usuário</div>
+      <input id="login" name="login" type="email" placeholder="Digite seu usuário" required class="w-full border rounded p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-gray-800"/>
 
-      <div class="w-full text-left mb-2 text-sm font-medium">Senha</div>
+      <div class="w-full text-left mb-2 text-sm font-medium text-gray-600">Senha</div>
       <div class="relative w-full mb-4">
-        <input id="password" name="password" type="password" placeholder="Digite sua senha" required class="w-full border rounded p-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"/>
-        <button type="button" id="togglePassword" class="absolute inset-y-0 right-2 flex items-center text-sm text-blue-600 hover:underline">Mostrar</button>
+        <input id="password" name="password" type="password" placeholder="Digite sua senha" required class="w-full border rounded p-2 pr-16 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-gray-800"/>
+        <button type="button" id="togglePassword" class="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-blue-600 hover:underline">Mostrar</button>
       </div>
 
       <div class="mb-4 w-full text-center">
-       <a href="/forgot-password" class="text-sm text-blue-600 hover:underline">Esqueci minha senha</a>
+        <button type="button" onclick="toggleForgotPasswordModal(true)" class="text-sm text-blue-600 hover:underline">Esqueci minha senha</button>
       </div>
+      
+      <div id="error-message" class="text-sm text-red-600 h-4 mb-4"></div>
 
-      <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-900 transition">Entrar</button>
+      <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-700 transition">Entrar</button>
     </form>
   </div>
-
-  <div id="popup-erro" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-    <div class="bg-white text-red-700 rounded-lg shadow-lg p-6 text-center w-80">
-      <p id="popup-mensagem-erro" class="text-lg font-semibold mb-4"></p>
-      <button id="popup-fechar-button" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">OK</button>
+  
+  <div id="modalEsqueciSenha" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white text-gray-800 rounded-xl shadow-lg p-10 text-center w-[30rem] relative">
+        <button onclick="toggleForgotPasswordModal(false)" class="absolute top-4 right-6 text-gray-500 hover:text-blue-500 text-2xl font-bold">×</button>
+        <h3 class="text-2xl font-bold mb-6 text-[#0A0E2B]">RECUPERAR SENHA</h3>
+        <form id="forgot-password-form">
+            <input type="email" id="forgot-email" name="email" placeholder="Digite seu e-mail" required class="w-full border rounded p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"/>
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-900 transition">Enviar link</button>
+        </form>
+        <div id="forgot-message-container" class="mt-4 text-sm"></div>
     </div>
   </div>
 
@@ -43,56 +52,5 @@
   </footer>
 
   <script src="/js/pages/login.js"></script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="pt-BR" class="h-full bg-gray-50">
-<head>
-    <meta charset="UTF-8">
-    <title>Login - Portal Service Support</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/css/main.css">
-</head>
-<body class="h-full">
-    <div class="flex min-h-full flex-col justify-center items-center px-6 py-12 lg:px-8">
-        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
-            <img class="mx-auto h-12 w-auto" src="/images/logo.png" alt="Nexxt Cloud Logo">
-            <h2 class="mt-6 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
-                Acesse sua conta
-            </h2>
-        </div>
-
-        <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm bg-white p-8 shadow-xl rounded-lg">
-            <form id="login-form" class="space-y-6">
-                <div>
-                    <label for="login" class="block text-sm font-medium leading-6 text-gray-900">Login (Email)</label>
-                    <div class="mt-2"><input id="login" name="login" type="email" required class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300"></div>
-                </div>
-                <div>
-                    <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Senha</label>
-                    <div class="mt-2"><input id="password" name="password" type="password" required class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300"></div>
-                </div>
-                <div id="error-message" class="text-sm text-red-600 h-4"></div>
-                <div><button type="submit" class="flex w-full justify-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">Entrar</button></div>
-            </form>
-            <div class="mt-4 w-full text-center">
-                <button onclick="toggleForgotPasswordModal(true)" class="text-sm font-semibold text-blue-600 hover:underline">Esqueci minha senha</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modalEsqueciSenha" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white text-gray-800 rounded-xl shadow-lg p-10 text-center w-[30rem] relative">
-            <button onclick="toggleForgotPasswordModal(false)" class="absolute top-4 right-6 text-gray-500 hover:text-blue-500 text-2xl font-bold">×</button>
-            <h3 class="text-2xl font-bold mb-6 text-[#0A0E2B]">RECUPERAR SENHA</h3>
-            
-            <form id="forgot-password-form">
-                <input type="email" id="forgot-email" name="email" placeholder="Digite seu e-mail" required class="w-full border rounded p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"/>
-                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-900 transition">Enviar link</button>
-            </form>
-            <div id="forgot-message-container" class="mt-4 text-sm"></div>
-        </div>
-    </div>
-    <script src="/js/pages/login.js"></script>
 </body>
 </html>

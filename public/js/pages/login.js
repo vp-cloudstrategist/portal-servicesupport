@@ -4,17 +4,19 @@ function toggleForgotPasswordModal(show) {
         modal.classList.toggle('hidden', !show);
     }
 }
+
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
-    const errorMessageDiv = document.getElementById('error-message'); 
+    const errorMessageDiv = document.getElementById('error-message');
+    const togglePasswordBtn = document.getElementById('togglePassword');
+    const passwordField = document.getElementById('password');
     const forgotPasswordForm = document.getElementById('forgot-password-form');
     const forgotMessageContainer = document.getElementById('forgot-message-container');
     if (loginForm) {
         loginForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-
             const login = document.getElementById('login').value;
-            const password = document.getElementById('password').value;
+            const password = passwordField.value;
             if (errorMessageDiv) errorMessageDiv.textContent = '';
 
             try {
@@ -23,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ login: login, password: password }),
                 });
-
                 const result = await response.json();
 
                 if (response.ok) {
@@ -34,6 +35,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 if (errorMessageDiv) errorMessageDiv.textContent = 'Erro de conexão com o servidor.';
             }
+        });
+    }
+    if (togglePasswordBtn && passwordField) {
+        togglePasswordBtn.addEventListener('click', () => {
+            const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordField.setAttribute('type', type);
+            togglePasswordBtn.textContent = type === 'password' ? 'Mostrar' : 'Ocultar';
         });
     }
     if (forgotPasswordForm) {

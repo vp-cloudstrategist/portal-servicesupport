@@ -85,7 +85,7 @@ exports.forgotPassword = async (req, res) => {
       from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
       to: user.login,
       subject: 'Recuperação de Senha',
-      html: emailHtml // Usando nosso novo template HTML
+      html: emailHtml 
     });
     
     res.status(200).json({ message: 'Se um usuário com este email existir, um link será enviado.' });
