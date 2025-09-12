@@ -45,3 +45,54 @@
   <script src="/js/pages/login.js"></script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Portal Service Support</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="h-full">
+    <div class="flex min-h-full flex-col justify-center items-center px-6 py-12 lg:px-8">
+        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+            <img class="mx-auto h-12 w-auto" src="/images/logo.png" alt="Nexxt Cloud Logo">
+            <h2 class="mt-6 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
+                Acesse sua conta
+            </h2>
+        </div>
+
+        <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm bg-white p-8 shadow-xl rounded-lg">
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="login" class="block text-sm font-medium leading-6 text-gray-900">Login (Email)</label>
+                    <div class="mt-2"><input id="login" name="login" type="email" required class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300"></div>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Senha</label>
+                    <div class="mt-2"><input id="password" name="password" type="password" required class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300"></div>
+                </div>
+                <div id="error-message" class="text-sm text-red-600 h-4"></div>
+                <div><button type="submit" class="flex w-full justify-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">Entrar</button></div>
+            </form>
+            <div class="mt-4 w-full text-center">
+                <button onclick="toggleForgotPasswordModal(true)" class="text-sm font-semibold text-blue-600 hover:underline">Esqueci minha senha</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalEsqueciSenha" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white text-gray-800 rounded-xl shadow-lg p-10 text-center w-[30rem] relative">
+            <button onclick="toggleForgotPasswordModal(false)" class="absolute top-4 right-6 text-gray-500 hover:text-blue-500 text-2xl font-bold">×</button>
+            <h3 class="text-2xl font-bold mb-6 text-[#0A0E2B]">RECUPERAR SENHA</h3>
+            
+            <form id="forgot-password-form">
+                <input type="email" id="forgot-email" name="email" placeholder="Digite seu e-mail" required class="w-full border rounded p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"/>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-900 transition">Enviar link</button>
+            </form>
+            <div id="forgot-message-container" class="mt-4 text-sm"></div>
+        </div>
+    </div>
+    <script src="/js/pages/login.js"></script>
+</body>
+</html>
