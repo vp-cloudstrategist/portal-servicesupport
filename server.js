@@ -43,6 +43,7 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Servidor rodando em http://localhost:${port}`);
 });
+
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'reset-password.html'));
 });

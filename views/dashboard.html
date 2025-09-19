@@ -21,15 +21,24 @@
         <img src="/images/abrir.png" alt="Ícone" class="w-8 h-8 mr-2" />
         Abrir Ticket
       </button>
-      <button onclick="toggleModal('modalCriarUsuario', true)" class="flex items-center text-base hover:text-[#38BDF8]">
-        <img src="/images/abrir.png" alt="Ícone" class="w-8 h-8 mr-2" />
-        Criar Usuário
-      </button>
     </nav>
   </div>
   <div>
-    <button id="logout-button" class="flex items-center text-base hover:text-blue-400 mt-4">
-      <img src="/images/sair.png" alt="Ícone" class="w-8 h-8 mr-2" />
+    <div id="admin-menu" class="hidden mb-4">
+      <div class="relative" data-menu>
+        <button data-menu-button class="flex items-center text-base hover:text-[#38BDF8] w-full text-left">
+          <img src="/images/avatar.png" alt="Ícone de Administração" class="w-8 h-8 mr-2 rounded-full" />
+          <span>Administração</span>
+          <svg class="w-4 h-4 ml-auto transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        <div data-menu-content class="hidden mt-2 space-y-2 pl-10">
+          <a href="#" onclick="toggleModal('modalCriarUsuario', true)" class="block text-sm hover:text-[#38BDF8]">Criar Novo Usuário</a>
+          <a href="#" class="block text-sm hover:text-[#38BDF8]">Gerenciar Usuários</a>
+        </div>
+      </div>
+    </div>
+    <button id="logout-button" class="flex items-center text-base hover:text-blue-400">
+      <img src="/images/sair.png" alt="Ícone de Sair" class="w-8 h-8 mr-2" />
       Sair do Sistema
     </button>
   </div>
@@ -48,41 +57,19 @@
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-      <div class="flex justify-between items-start">
-        <img src="/images/total.png" alt="Ícone" class="w-15 h-12" />
-        <p id="card-total" class="text-3xl font-black text-black">--</p>
-      </div>
-      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Todos<br>Tickets</p></div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full"><div class="flex justify-between items-start"><img src="/images/total.png" alt="Ícone Tickets" class="w-15 h-12" /><p id="card-total" class="text-3xl font-black text-black">--</p></div><div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Todos<br>Tickets</p></div></div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full"><div class="flex justify-between items-start"><img src="/images/aberto.png" alt="Ícone Tickets" class="w-15 h-12" /><p id="card-abertos" class="text-3xl font-black text-black">--</p></div><div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Abertos</p></div></div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full"><div class="flex justify-between items-start"><img src="/images/resolvido.png" alt="Ícone Tickets" class="w-15 h-12" /><p id="card-resolvidos" class="text-3xl font-black text-black">--</p></div><div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Resolvidos</p></div></div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full"><div class="flex justify-between items-start"><img src="/images/aguardando.png" alt="Ícone Tickets" class="w-15 h-12" /><p id="card-aprovacao" class="text-3xl font-black text-black">--</p></div><div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets em<br>Aprovação</p></div></div>
+    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full"><div class="flex justify-between items-start"><img src="/images/encerrado.png" alt="Ícone Tickets" class="w-15 h-12" /><p id="card-encerrados" class="text-3xl font-black text-black">--</p></div><div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Encerrados</p></div></div>
+  </div>
+
+  <div class="mb-6">
+    <div class="flex items-center gap-2 mb-4">
+      <img src="/images/filtro.png" alt="Filtro" class="w-8 h-8 cursor-pointer" id="btn-toggle-filtros" />
+      <span id="filtrosTexto" class="font-medium text-gray-800">Mostrar filtros</span>
     </div>
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-      <div class="flex justify-between items-start">
-        <img src="/images/aberto.png" alt="Ícone" class="w-15 h-12" />
-        <p id="card-abertos" class="text-3xl font-black text-black">--</p>
-      </div>
-      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Abertos</p></div>
-    </div>
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-      <div class="flex justify-between items-start">
-        <img src="/images/resolvido.png" alt="Ícone" class="w-15 h-12" />
-        <p id="card-resolvidos" class="text-3xl font-black text-black">--</p>
-      </div>
-      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Resolvidos</p></div>
-    </div>
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-      <div class="flex justify-between items-start">
-        <img src="/images/aguardando.png" alt="Ícone" class="w-15 h-12" />
-        <p id="card-aprovacao" class="text-3xl font-black text-black">--</p>
-      </div>
-      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets em<br>Aprovação</p></div>
-    </div>
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-      <div class="flex justify-between items-start">
-        <img src="/images/encerrado.png" alt="Ícone" class="w-15 h-12" />
-        <p id="card-encerrados" class="text-3xl font-black text-black">--</p>
-      </div>
-      <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Encerrados</p></div>
-    </div>
+    <div id="filtrosContainer" class="grid grid-cols-1 md:grid-cols-[repeat(4,minmax(0,1fr))_auto] gap-4 hidden"></div>
   </div>
 
   <div>
@@ -90,108 +77,79 @@
     <div class="overflow-auto rounded-lg shadow mb-20">
       <table class="min-w-full text-sm border-collapse border border-gray-200 leading-tight">
         <thead class="bg-[#D4EAFF] text-[#0A0E2B] text-base">
-          <tr>
-            <th class="py-1 px-1 border">Ticket#</th>
-            <th class="py-1 px-1 border">Título</th>
-          </tr>
+          <tr><th class="py-1 px-1 border">Ticket#</th><th class="py-1 px-1 border">Título</th></tr>
         </thead>
-        <tbody id="tabela-tickets">
-        </tbody>
+        <tbody id="tabela-tickets"></tbody>
       </table>
     </div>
   </div>
 
-  <footer class="fixed bottom-0 left-64 w-[calc(100%-16rem)] bg-white p-4 flex items-center justify-between text-sm z-50">
-  </footer>
+  <footer class="fixed bottom-0 left-64 w-[calc(100%-16rem)] bg-white p-4"></footer>
 
-  <div id="modalTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
-  </div>
-  
+  <div id="modalTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden"></div>
   <div id="modalCriarUsuario" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
-    <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg p-8 relative">
-        <button class="absolute top-3 right-4 text-gray-500 hover:text-blue-500 text-xl" onclick="toggleModal('modalCriarUsuario', false)">✖</button>
-        <div class="flex justify-center">
-            <div class="flex items-center mb-4">
-                <img src="/images/novo.png" alt="Ícone" class="w-12 h-10 mr-3">
-                <h2 class="text-2xl font-bold text-[#02092B]">Criar Usuário</h2>
-            </div>
-        </div>
-        
-        <form id="formCriarUsuario" class="space-y-4">
+      <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg p-8 relative">
+        <button class="absolute top-3 right-4 text-gray-500 hover:text-blue-500 text-xl" onclick="toggleModal('modalCriarUsuario', false)">×</button>
+        <div class="flex justify-center mb-6"><div class="flex items-center"><img src="/images/novo.png" alt="Ícone" class="w-12 h-10 mr-3"><h2 class="text-2xl font-bold text-[#02092B]">Criar Novo Usuário</h2></div></div>
+        <form id="formCriarUsuario" class="space-y-4" novalidate>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700">Tipo de Perfil</label>
+            <select id="selectPerfil" name="perfil" required class="w-full border rounded px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400">
+              <option value="">-- Selecione o perfil --</option>
+              <option value="user">Usuário Cliente</option>
+              <option value="support">Suporte (Interno)</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div id="campos-user" class="hidden space-y-4 border-t pt-4">
             <div class="flex gap-4">
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Nome</label>
-                    <input type="text" name="nome" required class="w-full border rounded px-4 py-2" placeholder="Digite o nome do usuário" />
-                </div>
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Sobrenome</label>
-                    <input type="text" name="sobrenome" required class="w-full border rounded px-4 py-2" placeholder="Digite o sobrenome" />
-                </div>
+              <div class="w-1/2"><label class="block text-sm font-semibold text-gray-700">Nome</label><input type="text" name="nome_user" class="w-full border rounded px-4 py-2" placeholder="Nome do usuário" /></div>
+              <div class="w-1/2"><label class="block text-sm font-semibold text-gray-700">Sobrenome</label><input type="text" name="sobrenome_user" class="w-full border rounded px-4 py-2" placeholder="Sobrenome do usuário" /></div>
             </div>
             <div class="flex gap-4">
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Apelido</label>
-                    <input type="text" name="apelido" class="w-full border rounded px-4 py-2" placeholder="Digite o apelido do usuário" />
-                </div>
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Telefone</label>
-                    <input type="text" name="telefone" class="w-full border rounded px-4 py-2" placeholder="Digite o telefone" />
-                </div>
+              <div class="w-1/2"><label class="block text-sm font-semibold text-gray-700">Email (Login)</label><input type="email" name="login_user" class="w-full border rounded px-4 py-2" placeholder="Email de login" /></div>
+              <div class="w-1/2"><label class="block text-sm font-semibold text-gray-700">Telefone</label><input type="text" name="telefone_user" class="w-full border rounded px-4 py-2" placeholder="Telefone de contato" /></div>
             </div>
             <div class="flex gap-4">
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Empresa</label>
-                    <select name="empresa" class="w-full border rounded px-4 py-2">
-                        <option value="">Selecione a empresa</option>
-                        <option>Copa Energia</option>
-                    </select>
-                </div>
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Grupo Solucionador</label>
-                    <select name="grupo_solucionador" class="w-full border rounded px-4 py-2">
-                        <option value="">Grupo Solucionador</option>
-                        <option>Customer</option>
-                        <option>Cloud Support N1</option>
-                    </select>
-                </div>
+              <div class="w-1/2"><label class="block text-sm font-semibold text-gray-700">Empresa</label><input type="text" name="empresa_user" class="w-full border rounded px-4 py-2" placeholder="Nome da empresa" /></div>
+              <div class="w-1/2">
+                <label class="block text-sm font-semibold text-gray-700">Senha</label>
+                <input type="password" name="password_user" id="password-user-input" class="w-full border rounded px-4 py-2" placeholder="Crie uma senha" />
+                <ul id="password-user-reqs" class="text-xs text-gray-500 mt-1 space-y-1">
+                    <li id="req-user-length" style="color: rgb(107, 114, 128);">Mínimo 8 caracteres</li>
+                    <li id="req-user-lower" style="color: rgb(107, 114, 128);">Uma letra minúscula</li>
+                    <li id="req-user-upper" style="color: rgb(107, 114, 128);">Uma letra maiúscula</li>
+                    <li id="req-user-number" style="color: rgb(107, 114, 128);">Um número</li>
+                    <li id="req-user-special" style="color: rgb(107, 114, 128);">Um caractere especial</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div id="campos-support" class="hidden space-y-4 border-t pt-4">
+            <div class="flex gap-4">
+              <div class="w-1/2"><label class="block text-sm font-semibold text-gray-700">Nome</label><input type="text" name="nome_support" class="w-full border rounded px-4 py-2" placeholder="Nome do agente" /></div>
+              <div class="w-1/2"><label class="block text-sm font-semibold text-gray-700">Sobrenome</label><input type="text" name="sobrenome_support" class="w-full border rounded px-4 py-2" placeholder="Sobrenome do agente" /></div>
             </div>
             <div class="flex gap-4">
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Login (Email)</label>
-                    <input type="email" name="login" required class="w-full border rounded px-4 py-2" placeholder="Digite o email" />
-                </div>
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Senha</label>
-                    <input type="password" name="password" required class="w-full border rounded px-4 py-2" placeholder="Digite a senha" />
-                </div>
+              <div class="w-1/2"><label class="block text-sm font-semibold text-gray-700">Email (Login)</label><input type="email" name="login_support" class="w-full border rounded px-4 py-2" placeholder="Email de login" /></div>
+              <div class="w-1/2">
+                <label class="block text-sm font-semibold text-gray-700">Senha</label>
+                <input type="password" name="password_support" id="password-support-input" class="w-full border rounded px-4 py-2" placeholder="Crie uma senha" />
+                <ul id="password-support-reqs" class="text-xs text-gray-500 mt-1 space-y-1">
+                    <li id="req-support-length" style="color: rgb(107, 114, 128);">Mínimo 8 caracteres</li>
+                    <li id="req-support-lower" style="color: rgb(107, 114, 128);">Uma letra minúscula</li>
+                    <li id="req-support-upper" style="color: rgb(107, 114, 128);">Uma letra maiúscula</li>
+                    <li id="req-support-number" style="color: rgb(107, 114, 128);">Um número</li>
+                    <li id="req-support-special" style="color: rgb(107, 114, 128);">Um caractere especial</li>
+                </ul>
+              </div>
             </div>
-            <div class="flex gap-4">
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">TimeZone</label>
-                    <select name="timezone" class="w-full border rounded px-4 py-2">
-                        <option value="">Selecione o TimeZone</option>
-                        <option value="America/Sao_Paulo">São Paulo - BR UTC-3</option>
-                    </select>
-                </div>
-                <div class="w-1/2">
-                    <label class="block text-sm font-semibold text-gray-700">Idioma</label>
-                    <select name="idioma" class="w-full border rounded px-4 py-2">
-                        <option value="">Selecione o idioma</option>
-                        <option value="pt">Português</option>
-                        <option value="es">Espanhol</option>
-                        <option value="en">Inglês</option>
-                    </select>
-                </div>
-            </div>
-            <div class="flex justify-end pt-4">
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Salvar</button>
-            </div>
+          </div>
+          <div id="botao-salvar-container" class="flex justify-end pt-4 hidden"><button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Salvar Usuário</button></div>
         </form>
-    </div>
+      </div>
   </div>
-  <div id="modalConta" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
-  </div>
-  
+  <div id="modalConta" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden"></div>
   <div id="modalConfirmarLogout" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
     <div class="bg-white w-full max-w-md p-6 rounded-xl shadow-lg text-center">
       <h2 class="text-xl font-bold text-blue-600 mb-2">Tem certeza que deseja sair?</h2>
@@ -200,6 +158,13 @@
         <button id="confirm-logout-button" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700">Sim, sair</button>
         <button onclick="toggleModal('modalConfirmarLogout', false)" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">Cancelar</button>
       </div>
+    </div>
+  </div>
+  <div id="modalStatus" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+    <div class="bg-white w-full max-w-md p-6 rounded-xl shadow-lg text-center">
+        <h2 id="statusTitulo" class="text-xl font-bold mb-2"></h2>
+        <p id="statusMensagem" class="text-gray-800 mb-4"></p>
+        <button id="statusBotaoFechar" class="px-6 py-2 text-white rounded">OK</button>
     </div>
   </div>
 </main>
