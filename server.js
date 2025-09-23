@@ -40,10 +40,18 @@ app.get('/', (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
-});
-
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'reset-password.html'));
+});
+
+app.get('/force-reset-password', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'force-reset-password.html'));
+});
+
+app.get('/verify-2fa', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'verify-2fa.html'));
+});
+
+app.listen(port, () => {
+  console.log(`Servidor rodando em http://localhost:${port}`);
 });

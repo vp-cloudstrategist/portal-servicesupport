@@ -2,9 +2,14 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController.js'); 
 
-router.post('/login', authController.login);
 
-module.exports = router;
+router.post('/login', authController.login);
+router.post('/verify-2fa', authController.verify2FA);
+
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
+
+
 router.get('/session', (req, res) => {
   if (req.session.user) {
     res.status(200).json(req.session.user);
@@ -23,8 +28,5 @@ router.post('/logout', (req, res) => {
   });
 });
 
-router.post('/forgot-password', authController.forgotPassword);
-
-router.post('/reset-password', authController.resetPassword);
-
+router.post('/force-reset-password', authController.forceResetPassword);
 module.exports = router;

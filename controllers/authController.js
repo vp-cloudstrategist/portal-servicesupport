@@ -3,10 +3,10 @@ const pool = require('../config/db.js');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
+// VERIFICAÇÃO DE SENHA E ENVIO DE CÓDIGO 2FA PARA TODOS
 exports.login = async (req, res) => {
   try {
     const { login, password } = req.body;
-
     if (!login || !password) {
       return res.status(400).json({ message: 'Login e senha são obrigatórios.' });
     }
@@ -14,25 +14,55 @@ exports.login = async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM user WHERE login = ?', [login]);
     const user = rows[0];
 
-    if (!user) {
-      return res.status(401).json({ message: 'Credenciais inválidas.' });
-    }
+    if (!user) { return res.status(401).json({ message: 'Credenciais inválidas.' }); }
 
     const isMatch = await bcrypt.compare(password, user.passwd);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Credenciais inválidas.' });
+    if (!isMatch) { return res.status(401).json({ message: 'Credenciais inválidas.' }); }
+    if (user.statu === 'novo') {
+        req.session.forceResetLogin = user.login;
+        return res.status(202).json({ 
+            message: 'Redefinição de senha obrigatória para primeiro acesso.',
+            login: user.login 
+        });
     }
 
-    req.session.user = {
-      id: user.id,
-      nome: user.nome,
-      login: user.login,
-      sobrenome: user.sobre,
-      perfil: user.perfil
-    };
+    const otpToken = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); 
+    await pool.query('UPDATE user SET otp_token = ?, otp_expires_at = ? WHERE id = ?', [otpToken, expiresAt, user.id]);
 
-    res.status(200).json({ message: 'Login bem-sucedido!' });
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; font-size:14px; color:#333; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:8px;">
+        <div style="background-color:#f8f8f8; padding:20px; text-align:center;">
+          <img src="https://support.nexxtcloud.app/app/logo.png" alt="Nexxt Cloud" style="width:150px;">
+        </div>
+        <div style="padding:30px; text-align:center; line-height:1.5;">
+          <h2 style="color:#0c1231;">Seu Código de Verificação</h2>
+          <p>Olá <strong>${user.nome}</strong>,</p>
+          <p>Use o código abaixo para completar seu login no Portal Nexxt Cloud Support.</p>
+          <div style="margin:30px 0;">
+            <p style="background-color:#e9ecef; font-size:24px; font-weight:bold; padding:10px 20px; border-radius:6px; display:inline-block; letter-spacing: 5px;">
+              ${otpToken}
+            </p>
+          </div>
+          <p style="font-size:12px; color:#777;">Este código é válido por 10 minutos.</p>
+        </div>
+        <div style="background-color:#f8f8f8; padding:20px; text-align:center; font-size:12px; color:#555;">
+          Nexxt Cloud © 2025 • Todos os direitos reservados
+        </div>
+      </div>
+    `;
+    const transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST, port: process.env.EMAIL_PORT, secure: false, 
+        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    await transporter.sendMail({
+        from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
+        to: user.login,
+        subject: 'Seu Código de Verificação',
+        html: emailHtml
+    });
+    
+    return res.status(206).json({ message: 'Verificação de dois fatores necessária.', login: user.login });
 
   } catch (error) {
     console.error('Erro no login:', error);
@@ -40,6 +70,28 @@ exports.login = async (req, res) => {
   }
 };
 
+// VERIFICAÇÃO DO CÓDIGO 2FA
+exports.verify2FA = async (req, res) => {
+    try {
+        const { login, otpToken } = req.body;
+        if (!login || !otpToken) {
+            return res.status(400).json({ message: 'Login e código são obrigatórios.' });
+        }
+        const [rows] = await pool.query('SELECT * FROM user WHERE login = ?', [login]);
+        const user = rows[0];
+        if (!user || user.otp_token !== otpToken || new Date() > new Date(user.otp_expires_at)) {
+            return res.status(401).json({ message: 'Código inválido ou expirado.' });
+        }
+        await pool.query('UPDATE user SET otp_token = NULL, otp_expires_at = NULL WHERE id = ?', [user.id]);
+        req.session.user = { id: user.id, nome: user.nome, login: user.login, sobrenome: user.sobre, perfil: user.perfil };
+        res.status(200).json({ message: 'Login verificado com sucesso!' });
+    } catch (error) {
+        console.error('Erro na verificação 2FA:', error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};
+
+// RECUPERAÇÃO DE SENHA
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -48,11 +100,8 @@ exports.forgotPassword = async (req, res) => {
       return res.status(200).json({ message: 'Se um usuário com este email existir, um link será enviado.' });
     }
     const user = rows[0];
-
     const emailBase64 = Buffer.from(user.login).toString('base64');
     const resetLink = `https://service.nexxtcloud.app/reset-password?user=${emailBase64}`;
-
-    //Template de email
     const emailHtml = `
       <div style="background-color:#ffffff; padding:30px; text-align:center;">
         <img src="https://support.nexxtcloud.app/app/logo.png" alt="Nexxt Cloud" width="200">
@@ -73,21 +122,18 @@ exports.forgotPassword = async (req, res) => {
         Nexxt Cloud © 2025 • Todos os direitos reservados
       </div>
     `;
-
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: process.env.EMAIL_PORT,
       secure: false, 
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     });
-
     await transporter.sendMail({
       from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
       to: user.login,
       subject: 'Recuperação de Senha',
       html: emailHtml 
     });
-    
     res.status(200).json({ message: 'Se um usuário com este email existir, um link será enviado.' });
   } catch (error) {
     console.error('Erro no forgotPassword:', error);
@@ -95,6 +141,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
+// RESETAR A SENHA
 exports.resetPassword = async (req, res) => {
     const { user: emailBase64, password } = req.body;
     if (!emailBase64 || !password) {
@@ -110,4 +157,49 @@ exports.resetPassword = async (req, res) => {
         console.error('Erro no resetPassword:', error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
+};
+exports.logout = (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      console.error('Erro ao fazer logout:', err);
+      return res.status(500).json({ message: 'Não foi possível fazer logout.' });
+    }
+    res.clearCookie('connect.sid'); 
+    res.status(200).json({ message: 'Logout bem-sucedido.' });
+  });
+};
+exports.forceResetPassword = async (req, res) => {
+  const { newPassword, confirmPassword } = req.body;
+  const login = req.session.forceResetLogin;
+
+  // Validações básicas
+  if (!login) {
+    return res.status(403).json({ message: 'Acesso não autorizado. Por favor, faça o login novamente.' });
+  }
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ message: 'As senhas não coincidem.' });
+  }
+
+  // Validação de força da senha (Regex)
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  if (!passwordRegex.test(newPassword)) {
+    return res.status(400).json({ 
+      message: 'A senha não atende aos requisitos mínimos de segurança.' 
+    });
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    await pool.query(
+      "UPDATE user SET passwd = ?, statu = 'ativo' WHERE login = ?",
+      [hashedPassword, login]
+    );
+    delete req.session.forceResetLogin;
+
+    res.status(200).json({ message: 'Senha atualizada com sucesso! Você já pode fazer login com sua nova senha.' });
+  } catch (error) {
+    console.error("Erro ao forçar redefinição de senha:", error);
+    res.status(500).json({ message: 'Erro interno no servidor.' });
+  }
 };

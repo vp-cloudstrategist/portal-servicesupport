@@ -1,41 +1,62 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db.js');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
-// Função para CRIAR um usuário (Admin)
+// Função para CRIAR um usuário (COM SENHA ALEATÓRIA)
 exports.createUser = async (req, res) => {
-  const { perfil, nome, sobrenome, login, password, telefone, empresa } = req.body;
+  const { perfil, nome, sobrenome, login, telefone, empresa } = req.body;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!login || !emailRegex.test(login)) {
+      return res.status(400).json({ message: 'Formato de e-mail inválido.' });
+  }
 
-  // Validação principal agora inclui sobrenome
-  if (!perfil || !nome || !sobrenome || !login || !password) {
-    return res.status(400).json({ message: 'Nome, sobrenome, login e senha são obrigatórios.' });
+  if (!perfil || !nome || !sobrenome || !login) {
+    return res.status(400).json({ message: 'Todos os campos do formulário selecionado são obrigatórios.' });
   }
   if (perfil === 'user' && (!telefone || !empresa)) {
     return res.status(400).json({ message: 'Para Usuário Cliente, os campos Telefone e Empresa também são obrigatórios.'});
   }
   
-  // Validações de formato
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(login)) {
-    return res.status(400).json({ message: 'Formato de email inválido.' });
-  }
-  
-  const senhaRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
-  if (!senhaRegex.test(password)) {
-    return res.status(400).json({ message: 'A senha não atende aos requisitos mínimos de segurança.' });
-  }
-
   try {
+    const senhaTemporaria = crypto.randomBytes(8).toString('hex') + 'A1!';
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(senhaTemporaria, salt);
     
     const sql = `
       INSERT INTO user (perfil, nome, sobre, login, passwd, telef, empre, statu, criado) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'novo', NOW())
     `;
-    const values = [perfil, nome, sobrenome, login, hashedPassword, telefone || null, empresa || null, 'ativo'];
-
+    const values = [perfil, nome, sobrenome, login, hashedPassword, telefone || null, empresa || null];
     await pool.query(sql, values);
-    res.status(201).json({ message: `Usuário do tipo '${perfil}' criado com sucesso!` });
+
+    const emailHtml = `
+        <div style="font-family: Arial, sans-serif; text-align:center; max-width:600px; margin:auto; border:1px solid #ddd;">
+            <div style="background-color:#f8f8f8; padding:20px;">
+                <img src="https://support.nexxtcloud.app/app/logo.png" alt="Nexxt Cloud" style="width:150px;">
+            </div>
+            <div style="padding:30px; line-height:1.5;">
+                <h2 style="color:#0c1231;">Bem-vindo ao Portal de Suporte</h2>
+                <p>Olá <strong>${nome}</strong>,</p>
+                <p>Uma conta foi criada para você em nosso portal. Use as seguintes credenciais para seu primeiro acesso:</p>
+                <p style="margin-top:20px;"><strong>Login:</strong> ${login}</p>
+                <p><strong>Senha Temporária:</strong> <span style="font-weight:bold; font-size:18px; color: #d9534f;">${senhaTemporaria}</span></p>
+                <p style="margin-top:20px;">Por segurança, você será solicitado a criar uma nova senha pessoal após o login.</p>
+            </div>
+        </div>
+    `;
+    const transporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST, port: process.env.EMAIL_PORT, secure: false, 
+        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    await transporter.sendMail({
+        from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
+        to: login,
+        subject: 'Bem-vindo ao Portal de Suporte Nexxt Cloud',
+        html: emailHtml
+    });
+
+    res.status(201).json({ message: `Usuário '${nome}' criado com sucesso! Um email com a senha temporária foi enviado.` });
 
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -46,7 +67,7 @@ exports.createUser = async (req, res) => {
   }
 };
 
-// Função para o próprio usuário BUSCAR seus dados
+// --- Funções existentes (sem alterações) ---
 exports.getCurrentUser = async (req, res) => {
   const login = req.session.user.login;
   if (!login) {
@@ -55,18 +76,13 @@ exports.getCurrentUser = async (req, res) => {
   try {
     const sql = `SELECT login, nome, sobre as sobrenome, telef as telefone, empre as empresa, perfil FROM user WHERE login = ?`;
     const [rows] = await pool.query(sql, [login]);
-    if (rows.length > 0) {
-      res.status(200).json(rows[0]);
-    } else {
-      res.status(404).json({ message: 'Usuário não encontrado.' });
-    }
+    if (rows.length > 0) { res.status(200).json(rows[0]); } 
+    else { res.status(404).json({ message: 'Usuário não encontrado.' }); }
   } catch (error) {
     console.error('Erro ao carregar dados do usuário:', error);
     res.status(500).json({ message: 'Erro no servidor ao carregar dados.' });
   }
 };
-
-// Função para o próprio usuário ATUALIZAR seus dados
 exports.updateCurrentUser = async (req, res) => {
   const login_atual = req.session.user.login;
   const { nome, sobrenome, telefone, empresa, email: newLogin } = req.body;
@@ -74,19 +90,15 @@ exports.updateCurrentUser = async (req, res) => {
     const sql = `UPDATE user SET nome = ?, sobre = ?, telef = ?, empre = ?, login = ? WHERE login = ?`;
     const values = [nome, sobrenome, telefone, empresa, newLogin, login_atual];
     await pool.query(sql, values);
-    
     req.session.user.login = newLogin;
     req.session.user.nome = nome;
     req.session.user.sobrenome = sobrenome;
-
     res.status(200).json({ message: 'Dados atualizados com sucesso!' });
   } catch (error) {
     console.error('Erro ao atualizar dados:', error);
     res.status(500).json({ message: 'Erro no servidor ao atualizar dados.' });
   }
 };
-
-// Função para o Admin LISTAR TODOS os usuários
 exports.getAllUsers = async (req, res) => {
     try {
         const [users] = await pool.query('SELECT id, nome, sobre, login, perfil, statu FROM user');
@@ -96,8 +108,6 @@ exports.getAllUsers = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
-
-// Função para o Admin ATUALIZAR QUALQUER usuário pelo ID
 exports.updateUserById = async (req, res) => {
     const { id } = req.params;
     const { nome, sobrenome, perfil } = req.body;
