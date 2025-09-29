@@ -6,6 +6,7 @@ const requireLogin = require('./middleware/requireLogin.js');
 const ticketsRoutes = require('./routes/tickets.js');
 const authRoutes = require('./routes/auth.js');
 const userRoutes = require('./routes/users.js');
+const companyRoutes = require('./routes/companies.js');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ app.use(session({
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/companies', companyRoutes);
 
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'login.html'));

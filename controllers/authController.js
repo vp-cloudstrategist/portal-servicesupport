@@ -169,37 +169,90 @@ exports.logout = (req, res) => {
   });
 };
 exports.forceResetPassword = async (req, res) => {
-  const { newPassword, confirmPassword } = req.body;
-  const login = req.session.forceResetLogin;
+    const { novaSenha } = req.body;
+    const login = req.session.forceResetLogin;
 
-  // Validações básicas
-  if (!login) {
-    return res.status(403).json({ message: 'Acesso não autorizado. Por favor, faça o login novamente.' });
-  }
-  if (newPassword !== confirmPassword) {
-    return res.status(400).json({ message: 'As senhas não coincidem.' });
-  }
+    if (!login) {
+        return res.status(401).json({ message: 'Sessão inválida ou expirada. Por favor, faça login novamente.' });
+    }
 
-  // Validação de força da senha (Regex)
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  if (!passwordRegex.test(newPassword)) {
-    return res.status(400).json({ 
-      message: 'A senha não atende aos requisitos mínimos de segurança.' 
-    });
-  }
+    // Validação da força da senha (continua igual)
+    const erros = [];
+    if (!novaSenha || novaSenha.length < 8) {
+        erros.push('A senha deve ter pelo menos 8 caracteres.');
+    }
+    if (!/[A-Z]/.test(novaSenha)) {
+        erros.push('A senha deve conter pelo menos 1 letra maiúscula.');
+    }
+    if (!/[a-z]/.test(novaSenha)) {
+        erros.push('A senha deve conter pelo menos 1 letra minúscula.');
+    }
+    if (!/[0-9]/.test(novaSenha)) {
+        erros.push('A senha deve conter pelo menos 1 número.');
+    }
+    if (!/[^a-zA-Z0-9]/.test(novaSenha)) {
+        erros.push('A senha deve conter pelo menos 1 caractere especial.');
+    }
 
-  try {
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-    await pool.query(
-      "UPDATE user SET passwd = ?, statu = 'ativo' WHERE login = ?",
-      [hashedPassword, login]
-    );
-    delete req.session.forceResetLogin;
+    if (erros.length > 0) {
+        return res.status(400).json({ message: erros[0] });
+    }
 
-    res.status(200).json({ message: 'Senha atualizada com sucesso! Você já pode fazer login com sua nova senha.' });
-  } catch (error) {
-    console.error("Erro ao forçar redefinição de senha:", error);
-    res.status(500).json({ message: 'Erro interno no servidor.' });
-  }
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(novaSenha, salt);
+
+        // Atualiza senha e status
+        await pool.query("UPDATE user SET passwd = ?, statu = 'ativo' WHERE login = ?", [hashedPassword, login]);
+
+        // --- NOVO: LÓGICA DE 2FA INICIA AQUI ---
+        // Busca os dados do usuário para poder enviar o email
+        const [rows] = await pool.query('SELECT * FROM user WHERE login = ?', [login]);
+        const user = rows[0];
+
+        // Gera e salva o código 2FA (mesma lógica da função de login)
+        const otpToken = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+        await pool.query('UPDATE user SET otp_token = ?, otp_expires_at = ? WHERE id = ?', [otpToken, expiresAt, user.id]);
+
+        // Envia o email com o código 2FA
+        const emailHtml = `
+            <div style="font-family: Arial, sans-serif; font-size:14px; color:#333; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:8px;">
+              <div style="background-color:#f8f8f8; padding:20px; text-align:center;">
+                <img src="https://support.nexxtcloud.app/app/logo.png" alt="Nexxt Cloud" style="width:150px;">
+              </div>
+              <div style="padding:30px; text-align:center; line-height:1.5;">
+                <h2 style="color:#0c1231;">Seu Código de Verificação</h2>
+                <p>Olá <strong>${user.nome}</strong>,</p>
+                <p>Use o código abaixo para completar seu login no Portal Nexxt Cloud Support.</p>
+                <div style="margin:30px 0;">
+                  <p style="background-color:#e9ecef; font-size:24px; font-weight:bold; padding:10px 20px; border-radius:6px; display:inline-block; letter-spacing: 5px;">
+                    ${otpToken}
+                  </p>
+                </div>
+                <p style="font-size:12px; color:#777;">Este código é válido por 10 minutos.</p>
+              </div>
+            </div>
+        `;
+        const transporter = nodemailer.createTransport({
+            host: process.env.EMAIL_HOST, port: process.env.EMAIL_PORT, secure: false, 
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+        });
+        await transporter.sendMail({
+            from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
+            to: user.login,
+            subject: 'Seu Código de Verificação',
+            html: emailHtml
+        });
+        
+        // Remove a sessão temporária
+        delete req.session.forceResetLogin;
+
+        // ALTERADO: Responde com status 206, indicando que o próximo passo é o 2FA
+        return res.status(206).json({ message: 'Senha atualizada! Prossiga com a verificação de dois fatores.', login: user.login });
+
+    } catch (error) {
+        console.error('Erro ao forçar a troca de senha:', error);
+        res.status(500).json({ message: 'Erro interno no servidor. Tente novamente.' });
+    }
 };
