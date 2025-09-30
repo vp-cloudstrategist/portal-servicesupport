@@ -3,11 +3,10 @@ const express = require('express');
 const path = require('path');
 const session = require('express-session');
 const requireLogin = require('./middleware/requireLogin.js');
-const ticketsRoutes = require('./routes/tickets.js');
 const authRoutes = require('./routes/auth.js');
 const userRoutes = require('./routes/users.js');
 const companyRoutes = require('./routes/companies.js');
-
+const ticketRoutes = require('./routes/tickets');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -20,9 +19,8 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 } 
 }));
-
+app.use('/api/tickets', ticketRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/tickets', ticketsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/companies', companyRoutes);
 
