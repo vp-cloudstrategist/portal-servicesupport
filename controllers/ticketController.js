@@ -202,3 +202,26 @@ exports.getAreas = getOptions('ticket_areas');
 exports.getAlertas = getOptions('ticket_alertas');
 exports.getGrupos = getOptions('ticket_grupos');
 exports.getTiposSolicitacao = getOptions('ticket_tipos_solicitacao');
+
+exports.getGruposByArea = async (req, res) => {
+    try {
+        const { areaId } = req.params;
+        const [rows] = await pool.query('SELECT id, nome FROM ticket_grupos WHERE area_id = ? ORDER BY nome ASC', [areaId]);
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error("Erro ao buscar grupos por área:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};
+
+
+exports.getAlertasByArea = async (req, res) => {
+    try {
+        const { areaId } = req.params;
+        const [rows] = await pool.query('SELECT id, nome FROM ticket_alertas WHERE area_id = ? ORDER BY nome ASC', [areaId]);
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error("Erro ao buscar alertas por área:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};

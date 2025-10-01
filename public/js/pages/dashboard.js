@@ -31,10 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let paginaAtual = 1;
     let ticketIdToDelete = null;
-
-    // =======================================================
-    // NOVO: VARIÁVEIS PARA ARMAZENAR ARQUIVOS COLADOS
-    // =======================================================
+    let currentUser = null;
     let pastedFileCreate = null;
     let pastedFileEdit = null;
     
@@ -78,37 +75,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 foundImage = true;
                 const imageFile = item.getAsFile();
                 
-                fileStoreCallback(imageFile); // Armazena o arquivo
+                fileStoreCallback(imageFile); 
 
-                // Cria um container para a imagem e o botão de remover
                 const wrapper = document.createElement('div');
-                wrapper.className = 'relative inline-block mt-2'; // inline-block para o tamanho se ajustar ao conteúdo
+                wrapper.className = 'relative inline-block mt-2'; 
 
-                // Cria a pré-visualização da imagem
                 const img = document.createElement('img');
                 img.src = URL.createObjectURL(imageFile);
                 img.className = 'max-w-[200px] max-h-[200px] rounded border border-gray-300';
                 
-                // Cria o botão de remover 'X'
                 const removeBtn = document.createElement('button');
                 removeBtn.textContent = '×';
-                removeBtn.type = 'button'; // Impede que o botão envie o formulário
+                removeBtn.type = 'button';
                 removeBtn.className = 'absolute top-0 right-0 -mt-2 -mr-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xl font-bold leading-none hover:bg-red-700 focus:outline-none transition-transform transform hover:scale-110';
                 removeBtn.title = 'Remover imagem';
                 
-                // Adiciona o evento de clique para o botão remover
                 removeBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    fileStoreCallback(null);      // Limpa a variável que guarda o arquivo
-                    previewElement.innerHTML = ''; // Limpa a pré-visualização do HTML
+                    fileStoreCallback(null);     
+                    previewElement.innerHTML = ''; 
                 });
 
-                // Monta a pré-visualização
                 wrapper.appendChild(img);
                 wrapper.appendChild(removeBtn);
                 previewElement.appendChild(wrapper);
 
-                break; // Para após a primeira imagem
+                break; 
             }
         }
 
@@ -243,19 +235,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Funções de Usuário, Empresa, Logout ---
-    async function carregarDadosUsuario() {
+     async function carregarDadosUsuario() {
         try {
             const response = await fetch('/api/auth/session');
             if (!response.ok) {
                 window.location.href = '/login';
                 return;
             }
-            const usuario = await response.json();
+            currentUser = await response.json(); 
             const nomeUsuarioEl = document.getElementById('nome-usuario');
-            if (nomeUsuarioEl) nomeUsuarioEl.textContent = `${usuario.nome || ''} ${usuario.sobrenome || ''}`.trim();
+            if (nomeUsuarioEl) nomeUsuarioEl.textContent = `${currentUser.nome || ''} ${currentUser.sobrenome || ''}`.trim();
 
-            if (adminMenu && usuario.perfil === 'admin') {
+            if (adminMenu && currentUser.perfil === 'admin') {
                 adminMenu.classList.remove('hidden');
             }
         } catch (error) {
@@ -303,46 +294,81 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Funções de Tickets ---
-    async function popularDropdownsTicket() {
-        const endpoints = {
-            areas: '/api/tickets/options/areas',
-            grupos: '/api/tickets/options/grupos',
-            tipos: '/api/tickets/options/tipos-solicitacao',
-            alertas: '/api/tickets/options/alertas'
-        };
 
-        const popular = async (selectId, url, placeholder) => {
-            const select = document.getElementById(selectId);
-            if (!select) return;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`Falha na requisição para ${url}`);
-                const items = await response.json();
-                select.innerHTML = `<option value="">-- ${placeholder} --</option>`;
-                if (Array.isArray(items)) {
-                    items.forEach(item => {
-                        const option = document.createElement('option');
-                        option.value = item.id;
-                        option.textContent = item.nome;
-                        select.appendChild(option);
-                    });
-                }
-            } catch (error) {
-                console.error(`Erro ao popular o seletor #${selectId}:`, error);
-                select.innerHTML = `<option value="">Erro ao carregar</option>`;
-            }
-        };
+     function popularDropdown(selectId, data, placeholder) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
 
-        popular('ticket-area', endpoints.areas, 'Selecione a Área');
-        popular('edit-ticket-area', endpoints.areas, 'Selecione a Área');
-        popular('ticket-grupo', endpoints.grupos, 'Selecione o Grupo');
-        popular('edit-ticket-grupo', endpoints.grupos, 'Selecione o Grupo');
-        popular('ticket-tipo', endpoints.tipos, 'Selecione o Tipo');
-        popular('edit-ticket-tipo', endpoints.tipos, 'Selecione o Tipo');
-        popular('ticket-alerta', endpoints.alertas, 'Selecione o Alerta');
-        popular('edit-ticket-alerta', endpoints.alertas, 'Selecione o Alerta');
-    }
+        select.innerHTML = `<option value="">-- ${placeholder} --</option>`;
+        if (Array.isArray(data)) {
+            data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.nome;
+                select.appendChild(option);
+            });
+        }
+    }
+      async function handleAreaChange(areaSelectElement, grupoSelectId, alertaSelectId) {
+        const areaId = areaSelectElement.value;
+        const grupoSelect = document.getElementById(grupoSelectId);
+        const alertaSelect = document.getElementById(alertaSelectId);
+
+        popularDropdown(grupoSelectId, [], 'Selecione uma Área primeiro');
+        popularDropdown(alertaSelectId, [], 'Selecione uma Área primeiro');
+        grupoSelect.disabled = true;
+        alertaSelect.disabled = true;
+
+        if (areaId) {
+            grupoSelect.innerHTML = '<option value="">Carregando...</option>';
+            alertaSelect.innerHTML = '<option value="">Carregando...</option>';
+            
+            try {
+                
+                const [gruposRes, alertasRes] = await Promise.all([
+                    fetch(`/api/tickets/options/areas/${areaId}/grupos`),
+                    fetch(`/api/tickets/options/areas/${areaId}/alertas`)
+                ]);
+
+                if (!gruposRes.ok || !alertasRes.ok) {
+                    throw new Error('Falha ao buscar dados dependentes.');
+                }
+                
+                const grupos = await gruposRes.json();
+                const alertas = await alertasRes.json();
+
+                popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
+                popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
+
+                grupoSelect.disabled = false;
+                alertaSelect.disabled = false;
+
+            } catch (error) {
+                console.error("Erro ao carregar grupos e alertas:", error);
+                popularDropdown(grupoSelectId, [], 'Erro ao carregar');
+                popularDropdown(alertaSelectId, [], 'Erro ao carregar');
+            }
+        }
+    }
+      async function popularDropdownsTicket() {
+        const fetchAndPopulate = async (selectId, url, placeholder) => {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Falha na requisição para ${url}`);
+                const items = await response.json();
+                popularDropdown(selectId, items, placeholder);
+            } catch (error) {
+                console.error(`Erro ao popular o seletor #${selectId}:`, error);
+                popularDropdown(selectId, [], 'Erro ao carregar');
+            }
+        };
+
+        fetchAndPopulate('ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
+        fetchAndPopulate('edit-ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
+        fetchAndPopulate('ticket-tipo', '/api/tickets/options/tipos-solicitacao', 'Selecione o Tipo');
+        fetchAndPopulate('edit-ticket-tipo', '/api/tickets/options/tipos-solicitacao', 'Selecione o Tipo');
+    }
+
 
     async function carregarInfoCards() {
         try {
@@ -393,66 +419,74 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function abrirModalEditar(ticketId) {
-    // MODIFICADO: Limpa dados de paste ao abrir o modal
-    pastedFileEdit = null;
-    const preview = document.getElementById('paste-preview-edit');
-    if(preview) preview.innerHTML = '';
+   async function abrirModalEditar(ticketId) {
+        pastedFileEdit = null;
+        const preview = document.getElementById('paste-preview-edit');
+        if(preview) preview.innerHTML = '';
 
-    try {
-        const response = await fetch(`/api/tickets/${ticketId}`);
-        if (!response.ok) throw new Error('Ticket não encontrado');
-        const ticket = await response.json();
+        try {
+            const response = await fetch(`/api/tickets/${ticketId}`);
+            if (!response.ok) throw new Error('Ticket não encontrado');
+            const ticket = await response.json();
 
-        const formatForInput = (dateString) => {
-            if (!dateString) return '';
-            const date = new Date(dateString);
-            date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-            return date.toISOString().slice(0, 16);
-        };
+            const formatForInput = (dateString) => {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+                return date.toISOString().slice(0, 16);
+            };
 
-        document.getElementById('edit-ticket-id').value = ticket.id;
-        document.getElementById('edit-ticket-area').value = ticket.area_id;
-        document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
-        document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
-        document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
-        document.getElementById('edit-ticket-prioridade').value = ticket.prioridade;
-        document.getElementById('edit-ticket-status').value = ticket.status;
-        document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-        document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
-        document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
-        document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
-        
-        const linkContainer = document.getElementById('current-attachment-container');
-        const linkSpan = document.getElementById('current-attachment-link');
-        const removeAnexoInput = document.getElementById('edit-remove-anexo');
 
-        removeAnexoInput.value = '0';
-        linkContainer.classList.add('hidden');
+            document.getElementById('edit-ticket-id').value = ticket.id;
+            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
+            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade;
+            document.getElementById('edit-ticket-status').value = ticket.status;
+            document.getElementById('edit-ticket-descricao').value = ticket.descricao;
+            document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
+            document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
+            document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
+            
+            const linkContainer = document.getElementById('current-attachment-container');
+            const linkSpan = document.getElementById('current-attachment-link');
+            const removeAnexoInput = document.getElementById('edit-remove-anexo');
+            removeAnexoInput.value = '0';
+            linkContainer.classList.add('hidden');
+            if (ticket.anexo_path) {
+                const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
+                linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
+                linkContainer.classList.remove('hidden');
+            }
 
-        if (ticket.anexo_path) {
-            const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
-            linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
-            linkContainer.classList.remove('hidden');
-        }
-        
-        toggleModal('modalEditarTicket', true);
-    } catch (error) {
-        console.error("Erro ao abrir modal de edição:", error);
-        showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
-    }
-}
+            const areaSelect = document.getElementById('edit-ticket-area');
+            areaSelect.value = ticket.area_id;
 
-    document.getElementById('btn-remove-anexo')?.addEventListener('click', () => {
-    document.getElementById('current-attachment-container').classList.add('hidden');
-    document.getElementById('edit-remove-anexo').value = '1';
-    const fileInput = document.querySelector('#formEditarTicket input[name="anexo"]');
-    if (fileInput) {
-        fileInput.value = '';
-    }
-});
+            await handleAreaChange(areaSelect, 'edit-ticket-grupo', 'edit-ticket-alerta');
+        
+            document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
+            document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
+
+            const deleteButton = document.getElementById('btn-delete-ticket');
+            if (deleteButton) {
+                if (currentUser && currentUser.perfil === 'admin') {
+                    deleteButton.classList.remove('hidden');
+                } else {
+                    deleteButton.classList.add('hidden');
+                }
+            }
+            
+            toggleModal('modalEditarTicket', true);
+        } catch (error) {
+            console.error("Erro ao abrir modal de edição:", error);
+            showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
+        }
+    }
   
-    // Eventos de Logout e Admin
+    document.getElementById('ticket-area')?.addEventListener('change', (event) => {
+        handleAreaChange(event.target, 'ticket-grupo', 'ticket-alerta');
+    });
+    document.getElementById('edit-ticket-area')?.addEventListener('change', (event) => {
+        handleAreaChange(event.target, 'edit-ticket-grupo', 'edit-ticket-alerta');
+    });
     document.getElementById('logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
     document.getElementById('logout-menu-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
     document.getElementById('confirm-logout-button')?.addEventListener('click', logout);
@@ -608,14 +642,10 @@ document.addEventListener('DOMContentLoaded', () => {
         draggedItemKey = null;
     });
     
-    // =======================================================
-    // MODIFICADO: SUBMISSÃO DO FORMULÁRIO DE CRIAR TICKET
-    // =======================================================
     formAbrirTicket?.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(formAbrirTicket);
 
-        // Verifica se uma imagem foi colada e anexa ao formulário
         const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
         if (pastedFileCreate && (!fileInput.files || fileInput.files.length === 0)) {
             formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
@@ -640,26 +670,22 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleModal('modalTicket', false);
             showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
         } finally {
-            // Limpa o arquivo colado e a pré-visualização após a tentativa de envio
+ 
             pastedFileCreate = null;
             const preview = document.getElementById('paste-preview-create');
             if(preview) preview.innerHTML = '';
         }
     });
     
-    // =======================================================
-    // MODIFICADO: SUBMISSÃO DO FORMULÁRIO DE EDITAR TICKET
-    // =======================================================
     formEditarTicket?.addEventListener('submit', async (event) => {
         event.preventDefault();
         const ticketId = document.getElementById('edit-ticket-id').value;
         const formData = new FormData(formEditarTicket);
 
-        // Verifica se uma imagem foi colada e anexa ao formulário
         const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
         if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
             formData.set('anexo', pastedFileEdit, pastedFileEdit.name);
-            formData.set('remove_anexo', '0'); // Garante que o anexo antigo não seja removido se um novo foi colado
+            formData.set('remove_anexo', '0'); 
         }
 
         try {
@@ -680,7 +706,6 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleModal('modalEditarTicket', false);
             showStatusModal('Erro de Conexão', 'Não foi possível salvar as alterações.', true);
         } finally {
-            // Limpa o arquivo colado e a pré-visualização após a tentativa de envio
             pastedFileEdit = null;
             const preview = document.getElementById('paste-preview-edit');
             if(preview) preview.innerHTML = '';

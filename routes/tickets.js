@@ -30,4 +30,8 @@ router.delete('/:id', requireLogin, ticketController.deleteTicket);
 // --- Rotas com parâmetros (devem vir por último) ---
 router.get('/:id', requireLogin, ticketController.getTicketById);
 router.put('/:id', requireLogin, upload.single('anexo'), ticketController.updateTicket);
+
+router.get('/options/areas/:areaId/grupos', requireLogin, ticketController.getGruposByArea);
+router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
+
 module.exports = router;    
