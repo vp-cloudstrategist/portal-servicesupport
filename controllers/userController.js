@@ -39,17 +39,24 @@ exports.createUser = async (req, res) => {
         const values = [perfil, nomeCapitalized, sobrenomeCapitalized, login, hashedPassword, telefone || null, company_id || null];
         await pool.query(sql, values);
 
-        const emailHtml = `
+         const emailHtml = `
             <div style="font-family: Arial, sans-serif; text-align:center; max-width:600px; margin:auto; border:1px solid #ddd;">
                 <div style="background-color:#f8f8f8; padding:20px;">
                     <img src="https://support.nexxtcloud.app/app/logo.png" alt="Nexxt Cloud" style="width:150px;">
                 </div>
                 <div style="padding:30px; line-height:1.5;">
                     <h2 style="color:#0c1231;">Bem-vindo ao Portal de Suporte</h2>
-                    <p>Olá <strong>${nomeCapitalized}</strong>,</p>
+                    <p>Olá <strong>${nome}</strong>,</p>
                     <p>Uma conta foi criada para você em nosso portal. Use as seguintes credenciais para seu primeiro acesso:</p>
                     <p style="margin-top:20px;"><strong>Login:</strong> ${login}</p>
                     <p><strong>Senha Temporária:</strong> <span style="font-weight:bold; font-size:18px; color: #d9534f;">${senhaTemporaria}</span></p>
+                    
+                    <div style="margin:30px 0;">
+                        <a href="https://service.nexxtcloud.app/login" style="background-color:#2979FF; color:white; padding:12px 25px; text-decoration:none; border-radius:5px; font-weight:bold; font-size:16px;">
+                            Acessar o Portal
+                        </a>
+                    </div>
+                    
                     <p style="margin-top:20px;">Por segurança, você será solicitado a criar uma nova senha pessoal após o login.</p>
                 </div>
             </div>
