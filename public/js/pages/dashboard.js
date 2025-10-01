@@ -61,6 +61,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const visibilityList = document.getElementById('column-visibility-list');
     const orderList = document.getElementById('column-order-list');
 
+    const statusSelect = document.getElementById('edit-ticket-status');
+    if (statusSelect) {
+        statusSelect.addEventListener('change', (event) => {
+            const newStatus = event.target.value;
+            const fimAlarmeInput = document.getElementById('edit-alarme-fim');
+            if (newStatus === 'Resolvido' || newStatus === 'Encerrado') {
+                if (fimAlarmeInput) {
+                    const now = new Date();
+                    
+                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    const localDateTime = now.toISOString().slice(0, 16);
+                    
+                    fimAlarmeInput.value = localDateTime;
+                }
+            }
+        });
+    }
+
      function handlePaste(event, targetTextarea, previewElement, fileStoreCallback) {
         event.preventDefault();
         
