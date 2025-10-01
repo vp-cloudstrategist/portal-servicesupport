@@ -6,8 +6,8 @@ exports.createTicket = async (req, res) => {
     const user_id = req.session.user.id;
     const anexo_path = req.file ? req.file.path : null;
 
-    if (!area_id || !alerta_id || !grupo_id || !tipo_solicitacao_id || !prioridade || !alarme_inicio || !horario_acionamento) {
-        return res.status(400).json({ message: 'Os campos Área, Alerta, Grupo, Tipo, Prioridade, Início do Alarme e Horário de Acionamento são obrigatórios.' });
+    if (!area_id || !alerta_id || !grupo_id || !prioridade || !alarme_inicio || !horario_acionamento) {
+        return res.status(400).json({ message: 'Os campos Área, Alerta, Grupo,Prioridade, Início do Alarme e Horário de Acionamento são obrigatórios.' });
     }
 
     try {
@@ -19,7 +19,7 @@ exports.createTicket = async (req, res) => {
         `;
         // MODIFICADO: Garante que campos vazios sejam salvos como NULL no banco de dados
         const values = [
-            user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade, descricao || null,
+            user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id||null, prioridade, descricao || null,
             alarme_inicio, alarme_fim || null, anexo_path, horario_acionamento, 'Aberto'
         ];
         
