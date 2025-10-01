@@ -2,24 +2,23 @@ const pool = require('../config/db.js');
 const fs = require('fs');
 
 exports.createTicket = async (req, res) => {
-    const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade, descricao, alarme_inicio, alarme_fim, horario_acionamento } = req.body;
+    const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento } = req.body;
     const user_id = req.session.user.id;
     const anexo_path = req.file ? req.file.path : null;
 
-    if (!area_id || !alerta_id || !grupo_id || !prioridade || !alarme_inicio || !horario_acionamento) {
-        return res.status(400).json({ message: 'Os campos Área, Alerta, Grupo,Prioridade, Início do Alarme e Horário de Acionamento são obrigatórios.' });
+    if (!area_id || !alerta_id || !grupo_id || !prioridade_id || !alarme_inicio || !horario_acionamento) {
+        return res.status(400).json({ message: 'Todos os campos, exceto Descrição, Fim do Alarme e Anexo, são obrigatórios.' });
     }
 
     try {
         const sql = `
             INSERT INTO tickets (
-                user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade, descricao, 
+                user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, 
                 alarme_inicio, alarme_fim, anexo_path, horario_acionamento, status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        // MODIFICADO: Garante que campos vazios sejam salvos como NULL no banco de dados
         const values = [
-            user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id||null, prioridade, descricao || null,
+            user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id || null, prioridade_id, descricao || null,
             alarme_inicio, alarme_fim || null, anexo_path, horario_acionamento, 'Aberto'
         ];
         
@@ -42,32 +41,34 @@ exports.getAllTickets = async (req, res) => {
         'id_desc': 'ORDER BY t.id DESC',
         'data_criacao_desc': 'ORDER BY t.data_criacao DESC',
         'status_asc': 'ORDER BY t.status ASC',
-        'prioridade_asc': 'ORDER BY FIELD(t.prioridade, "Urgente", "Alta", "Média", "Baixa"), t.id DESC',
+        'prioridade_asc': 'ORDER BY p.id',
         'acionamento_desc': 'ORDER BY t.horario_acionamento DESC', 
-        'acionamento_asc': 'ORDER BY t.horario_acionamento ASC'  
+        'acionamento_asc': 'ORDER BY t.horario_acionamento ASC'
     };
-    const orderClause = orderMap[ordenar] || 'ORDER BY t.id DESC';
+    const orderClause = orderMap[req.query.ordenar || 'id_desc'] || 'ORDER BY t.id DESC';
 
     try {
         const [[{ total }]] = await pool.query("SELECT COUNT(*) as total FROM tickets");
         const [tickets] = await pool.query(`
             SELECT 
-                t.id, t.status, t.prioridade, t.data_criacao,
+                t.id, t.status, t.data_criacao,
                 t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
                 a.nome as area_nome,
                 al.nome as alerta_nome,
                 g.nome as grupo_nome,
-                u.nome as user_nome
+                u.nome as user_nome,
+                p.nome as prioridade_nome -- Busca o NOME da prioridade e renomeia para prioridade_nome
             FROM tickets t
             LEFT JOIN ticket_areas a ON t.area_id = a.id
             LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
             LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
             LEFT JOIN user u ON t.user_id = u.id
+            LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id -- Faz o JOIN com a tabela de prioridades
             ${orderClause} 
             LIMIT ? OFFSET ?
-        `, [limite, offset]);
+        `, [parseInt(req.query.limite || '20', 10), (parseInt(req.query.pagina || '1', 10) - 1) * parseInt(req.query.limite || '20', 10)]);
         
-        res.status(200).json({ pagina, total, tickets });
+        res.status(200).json({ pagina: parseInt(req.query.pagina || '1', 10), total, tickets });
     } catch (error) {
         console.error("Erro ao buscar tickets:", error);
         res.status(500).json({ message: 'Erro ao buscar tickets.' });
@@ -137,23 +138,22 @@ exports.updateTicket = async (req, res) => {
             newAnexoPath = oldAnexoPath;
         }
 
-        const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade, status, descricao, alarme_inicio, alarme_fim } = ticketData;
+       const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, descricao, alarme_inicio, alarme_fim } = ticketData;
         
         const sql = `
             UPDATE tickets SET 
                 area_id = ?, alerta_id = ?, grupo_id = ?, tipo_solicitacao_id = ?, 
-                prioridade = ?, status = ?, descricao = ?, alarme_inicio = ?, alarme_fim = ?,
+                prioridade_id = ?, status = ?, descricao = ?, alarme_inicio = ?, alarme_fim = ?,
                 anexo_path = ?, horario_acionamento = ?
             WHERE id = ?
         `;
         const values = [
-            area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade, status, descricao || null,
+            area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, descricao || null,
             alarme_inicio, alarme_fim || null, newAnexoPath, horario_acionamento, id
         ];
 
         await pool.query(sql, values);
         res.status(200).json({ message: `Ticket #${id} atualizado com sucesso!` });
-
     } catch (error) {
         console.error("Erro ao atualizar ticket:", error);
         res.status(500).json({ message: 'Erro interno no servidor.' });

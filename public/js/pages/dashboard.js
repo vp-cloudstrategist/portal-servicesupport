@@ -36,19 +36,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let pastedFileEdit = null;
     
     let columnConfig = [
-    { key: 'id', title: 'Ticket#', visible: true },
-    { key: 'area_nome', title: 'Área', visible: true },
-    { key: 'data_criacao', title: 'Criação', visible: false },
-    { key: 'user_nome', title: 'Usuário', visible: true },
-    { key: 'prioridade', title: 'Prioridade', visible: true },
-    { key: 'status', title: 'Status', visible: true },
-    { key: 'alerta_nome', title: 'Alerta', visible: false },
-    { key: 'grupo_nome', title: 'Grupo Resp.', visible: false },
-    { key: 'alarme_inicio', title: 'Início Alarme', visible: false },
-    { key: 'alarme_fim', title: 'Fim Alarme', visible: false },
-    { key: 'horario_acionamento', title: 'Acionamento', visible: true }, 
-    { key: 'actions', title: 'Ações', visible: true }
-];
+        { key: 'id', title: 'Ticket#', visible: true },
+        { key: 'area_nome', title: 'Área', visible: true },
+        { key: 'data_criacao', title: 'Criação', visible: false },
+        { key: 'user_nome', title: 'Usuário', visible: true },
+        { key: 'prioridade_nome', title: 'Prioridade', visible: true }, 
+        { key: 'status', title: 'Status', visible: true },
+        { key: 'alerta_nome', title: 'Alerta', visible: false },
+        { key: 'grupo_nome', title: 'Grupo Resp.', visible: false },
+        { key: 'alarme_inicio', title: 'Início Alarme', visible: false },
+        { key: 'alarme_fim', title: 'Fim Alarme', visible: false },
+        { key: 'horario_acionamento', title: 'Acionamento', visible: true }, 
+        { key: 'actions', title: 'Ações', visible: true }
+    ];
 
     const ticketsTable = document.getElementById('tickets-table');
     const adminMenu = document.getElementById('admin-menu');
@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(data)) {
             data.forEach(item => {
                 const option = document.createElement('option');
-                option.value = item.id || item.nome; 
+                option.value = item.id; 
                 option.textContent = item.nome;
                 select.appendChild(option);
             });
@@ -458,73 +458,79 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-   async function abrirModalEditar(ticketId) {
-        pastedFileEdit = null;
-        const preview = document.getElementById('paste-preview-edit');
-        if(preview) preview.innerHTML = '';
+  async function abrirModalEditar(ticketId) {
+    pastedFileEdit = null;
+    const preview = document.getElementById('paste-preview-edit');
+    if(preview) preview.innerHTML = '';
 
-        try {
-            const response = await fetch(`/api/tickets/${ticketId}`);
-            if (!response.ok) throw new Error('Ticket não encontrado');
-            const ticket = await response.json();
+    try {
+        const response = await fetch(`/api/tickets/${ticketId}`);
+        if (!response.ok) throw new Error('Ticket não encontrado');
+        const ticket = await response.json();
 
-            const formatForInput = (dateString) => {
-                if (!dateString) return '';
-                const date = new Date(dateString);
-                date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-                return date.toISOString().slice(0, 16);
-            };
-            document.getElementById('edit-ticket-id').value = ticket.id;
-            document.getElementById('edit-ticket-status').value = ticket.status;
-            document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-            document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
-            document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
-            document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
-            
-            
-            const linkContainer = document.getElementById('current-attachment-container');
-            const linkSpan = document.getElementById('current-attachment-link');
-            const removeAnexoInput = document.getElementById('edit-remove-anexo');
-            removeAnexoInput.value = '0';
-            linkContainer.classList.add('hidden');
-            if (ticket.anexo_path) {
-                const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
-                linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
-                linkContainer.classList.remove('hidden');
-            }
-
-            const areaSelect = document.getElementById('edit-ticket-area');
-            areaSelect.value = ticket.area_id;
-
-            await handleAreaChange(areaSelect, 'edit-ticket-grupo', 'edit-ticket-alerta');
+        const formatForInput = (dateString) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+            return date.toISOString().slice(0, 16);
+        };
         
-            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
-            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade;
-            document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
-            document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
-
-            const deleteButton = document.getElementById('btn-delete-ticket');
-            if (deleteButton) {
-                if (currentUser && currentUser.perfil === 'admin') {
-                    deleteButton.classList.remove('hidden');
-                } else {
-                    deleteButton.classList.add('hidden');
-                }
-            }
-            
-            toggleModal('modalEditarTicket', true);
-        } catch (error) {
-            console.error("Erro ao abrir modal de edição:", error);
-            showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
+        // Preenche os campos simples
+        document.getElementById('edit-ticket-id').value = ticket.id;
+        document.getElementById('edit-ticket-status').value = ticket.status;
+        document.getElementById('edit-ticket-descricao').value = ticket.descricao;
+        document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
+        document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
+        document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
+        
+        const linkContainer = document.getElementById('current-attachment-container');
+        const linkSpan = document.getElementById('current-attachment-link');
+        const removeAnexoInput = document.getElementById('edit-remove-anexo');
+        removeAnexoInput.value = '0';
+        linkContainer.classList.add('hidden');
+        if (ticket.anexo_path) {
+            const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
+            linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
+            linkContainer.classList.remove('hidden');
         }
+
+        // Define a Área primeiro
+        const areaSelect = document.getElementById('edit-ticket-area');
+        areaSelect.value = ticket.area_id;
+
+        // CHAMA a função handleAreaChange com TODOS os campos dependentes e ESPERA a conclusão
+        await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
+    
+        // SÓ DEPOIS que os campos foram populados, seleciona os valores corretos
+        document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
+        document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id; // Corrigido para prioridade_id
+        document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
+        document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
+
+        // Lógica do botão de deletar
+        const deleteButton = document.getElementById('btn-delete-ticket');
+        if (deleteButton) {
+            if (currentUser && currentUser.perfil === 'admin') {
+                deleteButton.classList.remove('hidden');
+            } else {
+                deleteButton.classList.add('hidden');
+            }
+        }
+        
+        toggleModal('modalEditarTicket', true);
+    } catch (error) {
+        console.error("Erro ao abrir modal de edição:", error);
+        showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
     }
+}
   
-     document.getElementById('ticket-area')?.addEventListener('change', (event) => {
-        handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
-    });
-    document.getElementById('edit-ticket-area')?.addEventListener('change', (event) => {
-        handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
-    });
+    document.getElementById('ticket-area')?.addEventListener('change', (event) => {
+    handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
+});
+
+document.getElementById('edit-ticket-area')?.addEventListener('change', (event) => {
+    handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
+});
     document.getElementById('logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
     document.getElementById('logout-menu-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
     document.getElementById('confirm-logout-button')?.addEventListener('click', logout);
