@@ -313,7 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-     function popularDropdown(selectId, data, placeholder) {
+     
+    function popularDropdown(selectId, data, placeholder) {
         const select = document.getElementById(selectId);
         if (!select) return;
 
@@ -321,50 +322,72 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(data)) {
             data.forEach(item => {
                 const option = document.createElement('option');
-                option.value = item.id;
+                option.value = item.id || item.nome; 
                 option.textContent = item.nome;
                 select.appendChild(option);
             });
         }
     }
-      async function handleAreaChange(areaSelectElement, grupoSelectId, alertaSelectId) {
+      async function handleAreaChange(areaSelectElement, tipoSelectId, prioridadeSelectId, grupoSelectId, alertaSelectId) {
         const areaId = areaSelectElement.value;
+    
+        const tipoSelect = document.getElementById(tipoSelectId);
+        const prioridadeSelect = document.getElementById(prioridadeSelectId);
         const grupoSelect = document.getElementById(grupoSelectId);
         const alertaSelect = document.getElementById(alertaSelectId);
-
-        popularDropdown(grupoSelectId, [], 'Selecione uma Área primeiro');
-        popularDropdown(alertaSelectId, [], 'Selecione uma Área primeiro');
-        grupoSelect.disabled = true;
-        alertaSelect.disabled = true;
-
+    
+        // Mapeia os selects e seus placeholders
+        const selects = [
+            { element: tipoSelect, placeholder: 'Selecione uma Área' },
+            { element: prioridadeSelect, placeholder: 'Selecione uma Área' },
+            { element: grupoSelect, placeholder: 'Selecione uma Área' },
+            { element: alertaSelect, placeholder: 'Selecione uma Área' },
+        ];
+    
+        // Reseta e desabilita todos os selects filhos
+        selects.forEach(s => {
+            if (s.element) {
+                popularDropdown(s.element.id, [], s.placeholder);
+                s.element.disabled = true;
+            }
+        });
+    
         if (areaId) {
-            grupoSelect.innerHTML = '<option value="">Carregando...</option>';
-            alertaSelect.innerHTML = '<option value="">Carregando...</option>';
+            selects.forEach(s => {
+                if (s.element) s.element.innerHTML = '<option value="">Carregando...</option>';
+            });
             
             try {
-                
-                const [gruposRes, alertasRes] = await Promise.all([
+                const [tiposRes, prioridadesRes, gruposRes, alertasRes] = await Promise.all([
+                    fetch(`/api/tickets/options/areas/${areaId}/tipos`),
+                    fetch(`/api/tickets/options/areas/${areaId}/prioridades`),
                     fetch(`/api/tickets/options/areas/${areaId}/grupos`),
                     fetch(`/api/tickets/options/areas/${areaId}/alertas`)
                 ]);
-
-                if (!gruposRes.ok || !alertasRes.ok) {
-                    throw new Error('Falha ao buscar dados dependentes.');
+    
+                if (!tiposRes.ok || !prioridadesRes.ok || !gruposRes.ok || !alertasRes.ok) {
+                    throw new Error('Falha ao buscar dados dependentes da área.');
                 }
                 
-                const grupos = await gruposRes.json();
-                const alertas = await alertasRes.json();
-
+                const [tipos, prioridades, grupos, alertas] = await Promise.all([
+                    tiposRes.json(),
+                    prioridadesRes.json(),
+                    gruposRes.json(),
+                    alertasRes.json()
+                ]);
+                popularDropdown(tipoSelectId, tipos, 'Selecione o Tipo');
+                popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
                 popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
                 popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
-
-                grupoSelect.disabled = false;
-                alertaSelect.disabled = false;
-
+                selects.forEach(s => {
+                    if (s.element) s.element.disabled = false;
+                });
+    
             } catch (error) {
-                console.error("Erro ao carregar grupos e alertas:", error);
-                popularDropdown(grupoSelectId, [], 'Erro ao carregar');
-                popularDropdown(alertaSelectId, [], 'Erro ao carregar');
+                console.error("Erro ao carregar dados da área:", error);
+                selects.forEach(s => {
+                    if (s.element) popularDropdown(s.element.id, [], 'Erro ao carregar');
+                });
             }
         }
     }
@@ -383,8 +406,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fetchAndPopulate('ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
         fetchAndPopulate('edit-ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
-        fetchAndPopulate('ticket-tipo', '/api/tickets/options/tipos-solicitacao', 'Selecione o Tipo');
-        fetchAndPopulate('edit-ticket-tipo', '/api/tickets/options/tipos-solicitacao', 'Selecione o Tipo');
     }
 
 
@@ -453,16 +474,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
                 return date.toISOString().slice(0, 16);
             };
-
-
             document.getElementById('edit-ticket-id').value = ticket.id;
-            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
-            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade;
             document.getElementById('edit-ticket-status').value = ticket.status;
             document.getElementById('edit-ticket-descricao').value = ticket.descricao;
             document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
             document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
             document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
+            
             
             const linkContainer = document.getElementById('current-attachment-container');
             const linkSpan = document.getElementById('current-attachment-link');
@@ -480,6 +498,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await handleAreaChange(areaSelect, 'edit-ticket-grupo', 'edit-ticket-alerta');
         
+            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
+            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade;
             document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
             document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
 
@@ -499,11 +519,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
   
-    document.getElementById('ticket-area')?.addEventListener('change', (event) => {
-        handleAreaChange(event.target, 'ticket-grupo', 'ticket-alerta');
+     document.getElementById('ticket-area')?.addEventListener('change', (event) => {
+        handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
     });
     document.getElementById('edit-ticket-area')?.addEventListener('change', (event) => {
-        handleAreaChange(event.target, 'edit-ticket-grupo', 'edit-ticket-alerta');
+        handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
     });
     document.getElementById('logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
     document.getElementById('logout-menu-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));

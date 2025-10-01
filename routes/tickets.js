@@ -17,9 +17,12 @@ const upload = multer({ storage: storage });
 
 // --- Rotas para buscar as opções dos seletores (dropdowns) ---
 router.get('/options/areas', requireLogin, ticketController.getAreas);
-router.get('/options/alertas', requireLogin, ticketController.getAlertas);
-router.get('/options/grupos', requireLogin, ticketController.getGrupos);
-router.get('/options/tipos-solicitacao', requireLogin, ticketController.getTiposSolicitacao);
+// Rotas para opções dependentes da Área
+router.get('/options/areas/:areaId/grupos', requireLogin, ticketController.getGruposByArea);
+router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
+router.get('/options/areas/:areaId/tipos', requireLogin, ticketController.getTiposByArea);
+router.get('/options/areas/:areaId/prioridades', requireLogin, ticketController.getPrioridadesByArea);
+
 
 // --- Rotas para funcionalidades principais de tickets ---
 router.get('/cards-info', requireLogin, ticketController.getCardInfo);
@@ -31,7 +34,4 @@ router.delete('/:id', requireLogin, ticketController.deleteTicket);
 router.get('/:id', requireLogin, ticketController.getTicketById);
 router.put('/:id', requireLogin, upload.single('anexo'), ticketController.updateTicket);
 
-router.get('/options/areas/:areaId/grupos', requireLogin, ticketController.getGruposByArea);
-router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
-
-module.exports = router;    
+module.exports = router;
