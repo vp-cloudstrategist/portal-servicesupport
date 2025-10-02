@@ -46,22 +46,22 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'grupo_nome', title: 'Grupo Resp.', visible: false },
         { key: 'alarme_inicio', title: 'Início Alarme', visible: false },
         { key: 'alarme_fim', title: 'Fim Alarme', visible: false },
-        { key: 'horario_acionamento', title: 'Acionamento', visible: true }, 
+        { key: 'horario_acionamento', title: 'Atendimento', visible: true }, 
         { key: 'actions', title: 'Ações', visible: true }
     ];
 
-    const ticketsTable = document.getElementById('tickets-table');
-    const adminMenu = document.getElementById('admin-menu');
-    const formCriarUsuario = document.getElementById('formCriarUsuario');
-    const formCriarEmpresa = document.getElementById('formCriarEmpresa');
-    const tabelaTicketsBody = ticketsTable?.querySelector('tbody');
-    const formAbrirTicket = document.getElementById('formAbrirTicket');
-    const formEditarTicket = document.getElementById('formEditarTicket');
-    const btnCustomize = document.getElementById('btn-customize-view');
-    const visibilityList = document.getElementById('column-visibility-list');
-    const orderList = document.getElementById('column-order-list');
+     const ticketsTable = document.getElementById('tickets-table');
+    const adminMenu = document.getElementById('admin-menu');
+    const formCriarUsuario = document.getElementById('formCriarUsuario');
+    const formCriarEmpresa = document.getElementById('formCriarEmpresa');
+    const tabelaTicketsBody = ticketsTable?.querySelector('tbody');
+    const formAbrirTicket = document.getElementById('formAbrirTicket');
+    const formEditarTicket = document.getElementById('formEditarTicket');
+    const btnCustomize = document.getElementById('btn-customize-view');
+    const visibilityList = document.getElementById('column-visibility-list');
+    const orderList = document.getElementById('column-order-list');
 
-    const statusSelect = document.getElementById('edit-ticket-status');
+    const statusSelect = document.getElementById('edit-ticket-status');
     if (statusSelect) {
         statusSelect.addEventListener('change', (event) => {
             const newStatus = event.target.value;
@@ -69,10 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newStatus === 'Resolvido' || newStatus === 'Encerrado') {
                 if (fimAlarmeInput) {
                     const now = new Date();
-                    
                     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                     const localDateTime = now.toISOString().slice(0, 16);
-                    
                     fimAlarmeInput.value = localDateTime;
                 }
             }
@@ -314,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
      
-    function popularDropdown(selectId, data, placeholder) {
+      function popularDropdown(selectId, data, placeholder) {
         const select = document.getElementById(selectId);
         if (!select) return;
 
@@ -322,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(data)) {
             data.forEach(item => {
                 const option = document.createElement('option');
-                option.value = item.id; 
+                option.value = item.id; // Sempre usa o ID
                 option.textContent = item.nome;
                 select.appendChild(option);
             });
@@ -459,70 +457,66 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
   async function abrirModalEditar(ticketId) {
-    pastedFileEdit = null;
-    const preview = document.getElementById('paste-preview-edit');
-    if(preview) preview.innerHTML = '';
+        pastedFileEdit = null;
+        const preview = document.getElementById('paste-preview-edit');
+        if(preview) preview.innerHTML = '';
 
-    try {
-        const response = await fetch(`/api/tickets/${ticketId}`);
-        if (!response.ok) throw new Error('Ticket não encontrado');
-        const ticket = await response.json();
+        try {
+            const response = await fetch(`/api/tickets/${ticketId}`);
+            if (!response.ok) throw new Error('Ticket não encontrado');
+            const ticket = await response.json();
 
-        const formatForInput = (dateString) => {
-            if (!dateString) return '';
-            const date = new Date(dateString);
-            date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-            return date.toISOString().slice(0, 16);
-        };
-        
-        // Preenche os campos simples
-        document.getElementById('edit-ticket-id').value = ticket.id;
-        document.getElementById('edit-ticket-status').value = ticket.status;
-        document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-        document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
-        document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
-        document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
-        
-        const linkContainer = document.getElementById('current-attachment-container');
-        const linkSpan = document.getElementById('current-attachment-link');
-        const removeAnexoInput = document.getElementById('edit-remove-anexo');
-        removeAnexoInput.value = '0';
-        linkContainer.classList.add('hidden');
-        if (ticket.anexo_path) {
-            const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
-            linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
-            linkContainer.classList.remove('hidden');
-        }
-
-        // Define a Área primeiro
-        const areaSelect = document.getElementById('edit-ticket-area');
-        areaSelect.value = ticket.area_id;
-
-        // CHAMA a função handleAreaChange com TODOS os campos dependentes e ESPERA a conclusão
-        await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
-    
-        // SÓ DEPOIS que os campos foram populados, seleciona os valores corretos
-        document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
-        document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id; // Corrigido para prioridade_id
-        document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
-        document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
-
-        // Lógica do botão de deletar
-        const deleteButton = document.getElementById('btn-delete-ticket');
-        if (deleteButton) {
-            if (currentUser && currentUser.perfil === 'admin') {
-                deleteButton.classList.remove('hidden');
-            } else {
-                deleteButton.classList.add('hidden');
+            const formatForInput = (dateString) => {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+                return date.toISOString().slice(0, 16);
+            };
+            
+            document.getElementById('edit-ticket-id').value = ticket.id;
+            document.getElementById('edit-ticket-status').value = ticket.status;
+            document.getElementById('edit-ticket-descricao').value = ticket.descricao;
+            document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
+            document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
+            document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
+            
+            const linkContainer = document.getElementById('current-attachment-container');
+            const linkSpan = document.getElementById('current-attachment-link');
+            const removeAnexoInput = document.getElementById('edit-remove-anexo');
+            removeAnexoInput.value = '0';
+            linkContainer.classList.add('hidden');
+            if (ticket.anexo_path) {
+                const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
+                linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
+                linkContainer.classList.remove('hidden');
             }
-        }
+
+            const areaSelect = document.getElementById('edit-ticket-area');
+            areaSelect.value = ticket.area_id;
+
+            await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
         
-        toggleModal('modalEditarTicket', true);
-    } catch (error) {
-        console.error("Erro ao abrir modal de edição:", error);
-        showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
+            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
+            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id; 
+            document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
+            document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
+
+            const deleteButton = document.getElementById('btn-delete-ticket');
+            if (deleteButton) {
+                if (currentUser && currentUser.perfil === 'admin') {
+                    deleteButton.classList.remove('hidden');
+                } else {
+                    deleteButton.classList.add('hidden');
+                }
+            }
+            
+            toggleModal('modalEditarTicket', true);
+        } catch (error) {
+            console.error("Erro ao abrir modal de edição:", error);
+            showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
+        }
     }
-}
+
   
     document.getElementById('ticket-area')?.addEventListener('change', (event) => {
     handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
