@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (errorMessage2FA) errorMessage2FA.textContent = '';
 
             try {
-                const response = await fetch('/api/auth/verify2FA', { 
+               const response = await fetch('/api/auth/verify-2fa', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ login: loginParaVerificar, otpToken: otpToken })

@@ -33,5 +33,5 @@ router.delete('/:id', requireLogin, ticketController.deleteTicket);
 // --- Rotas com parâmetros (devem vir por último) ---
 router.get('/:id', requireLogin, ticketController.getTicketById);
 router.put('/:id', requireLogin, upload.single('anexo'), ticketController.updateTicket);
-
+router.get('/debug/prioridades', requireLogin, ticketController.debugPrioridades);
 module.exports = router;

@@ -7,35 +7,35 @@ function toggleModal(modalId, show) {
 }
 
 function showStatusModal(title, message, isError = false, onConfirm = null) {
-    const modal = document.getElementById('modalStatus');
-    const statusTitulo = document.getElementById('statusTitulo');
-    const statusMensagem = document.getElementById('statusMensagem');
-    const statusBotaoFechar = document.getElementById('statusBotaoFechar');
+    const modal = document.getElementById('modalStatus');
+    const statusTitulo = document.getElementById('statusTitulo');
+    const statusMensagem = document.getElementById('statusMensagem');
+    const statusBotaoFechar = document.getElementById('statusBotaoFechar');
 
-    if (modal && statusTitulo && statusMensagem && statusBotaoFechar) {
-        statusTitulo.innerHTML = title;
-        statusMensagem.innerHTML = message.replace(/\n/g, '<br>');
-        statusBotaoFechar.className = isError ? "px-6 py-2 text-white rounded bg-red-600 hover:bg-red-700" : "px-6 py-2 text-white rounded bg-green-600 hover:bg-green-700";
-        statusTitulo.className = isError ? "text-xl font-bold mb-2 text-red-600" : "text-xl font-bold mb-2 text-green-600";
-        
-        statusBotaoFechar.onclick = () => {
-            modal.classList.add('hidden');
-            if (onConfirm) onConfirm();
-        };
-        modal.classList.remove('hidden');
-    }
+    if (modal && statusTitulo && statusMensagem && statusBotaoFechar) {
+        statusTitulo.innerHTML = title;
+        statusMensagem.innerHTML = message.replace(/\n/g, '<br>');
+        statusBotaoFechar.className = isError ? "px-6 py-2 text-white rounded bg-red-600 hover:bg-red-700" : "px-6 py-2 text-white rounded bg-green-600 hover:bg-green-700";
+        statusTitulo.className = isError ? "text-xl font-bold mb-2 text-red-600" : "text-xl font-bold mb-2 text-green-600";
+        
+        statusBotaoFechar.onclick = () => {
+            modal.classList.add('hidden');
+            if (onConfirm) onConfirm();
+        };
+        modal.classList.remove('hidden');
+    }
 }
 
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    let paginaAtual = 1;
-    let ticketIdToDelete = null;
+    let paginaAtual = 1;
+    let ticketIdToDelete = null;
     let currentUser = null;
     let pastedFileCreate = null;
     let pastedFileEdit = null;
     
-    let columnConfig = [
+    let columnConfig = [
         { key: 'id', title: 'Ticket#', visible: true },
         { key: 'area_nome', title: 'Área', visible: true },
         { key: 'data_criacao', title: 'Criação', visible: false },
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'actions', title: 'Ações', visible: true }
     ];
 
-     const ticketsTable = document.getElementById('tickets-table');
+    const ticketsTable = document.getElementById('tickets-table');
     const adminMenu = document.getElementById('admin-menu');
     const formCriarUsuario = document.getElementById('formCriarUsuario');
     const formCriarEmpresa = document.getElementById('formCriarEmpresa');
@@ -171,62 +171,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-  function renderTable(tickets) {
-    if (!ticketsTable) return;
-    const thead = ticketsTable.querySelector('thead tr');
-    const tbody = ticketsTable.querySelector('tbody');
-    if (!thead || !tbody) return;
+   function renderTable(tickets) {
+        if (!ticketsTable) return;
+        const thead = ticketsTable.querySelector('thead tr');
+        const tbody = ticketsTable.querySelector('tbody');
+        if (!thead || !tbody) return;
 
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-    const visibleColumns = columnConfig.filter(col => col.visible);
-    visibleColumns.forEach(col => {
-        thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
-    });
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+        const visibleColumns = columnConfig.filter(col => col.visible);
+        visibleColumns.forEach(col => {
+            thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
+        });
 
-    if (!tickets || tickets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${visibleColumns.length}" class="text-center p-4">Nenhum ticket encontrado.</td></tr>`;
-    } else {
-        let tableContent = '';
-        tickets.forEach(ticket => {
-            let rowHtml = '<tr class="border-t text-center hover:bg-gray-50">';
-            visibleColumns.forEach(col => {
-                let cellValue = '';
-                const formatDateTime = (dateString) => {
-                    if (!dateString) return 'N/A';
-                    return new Date(dateString).toLocaleString('pt-BR', {
-                        day: '2-digit', month: '2-digit', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit'
-                    });
-                };
+        if (!tickets || tickets.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${visibleColumns.length}" class="text-center p-4">Nenhum ticket encontrado.</td></tr>`;
+        } else {
+            let tableContent = '';
+            tickets.forEach(ticket => {
+                let rowHtml = '<tr class="border-t text-center hover:bg-gray-50">';
+                visibleColumns.forEach(col => {
+                    let cellValue = '';
+                    const formatDateTime = (dateString) => {
+                        if (!dateString) return 'N/A';
+                        return new Date(dateString).toLocaleString('pt-BR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    };
 
-                switch (col.key) {
-                    case 'data_criacao':
-                        cellValue = new Date(ticket.data_criacao).toLocaleDateString('pt-BR');
-                        break;
-                    case 'alarme_inicio':
-                        cellValue = formatDateTime(ticket.alarme_inicio);
-                        break;
-                    case 'alarme_fim':
-                        cellValue = formatDateTime(ticket.alarme_fim);
-                        break;
-                    case 'horario_acionamento':
-                        cellValue = formatDateTime(ticket.horario_acionamento);
-                        break;
-                    case 'actions':
-                        cellValue = `<button class="p-1 btn-edit-ticket" data-id="${ticket.id}"><img src="/images/editar.png" alt="Editar" class="w-5 h-5" /></button>`;
-                        break;
-                    default:
-                        cellValue = ticket[col.key] || 'N/A';
-                }
-                rowHtml += `<td class="py-2 px-2 border">${cellValue}</td>`;
-            });
-            rowHtml += '</tr>';
-            tableContent += rowHtml;
-        });
-        tbody.innerHTML = tableContent;
-    }
-}
+                    switch (col.key) {
+                        case 'data_criacao':
+                            cellValue = new Date(ticket.data_criacao).toLocaleDateString('pt-BR');
+                            break;
+                        case 'alarme_inicio':
+                        case 'alarme_fim':
+                        case 'horario_acionamento':
+                            cellValue = formatDateTime(ticket[col.key]);
+                            break;
+                        case 'actions':
+                            cellValue = `<button class="p-1 btn-edit-ticket" data-id="${ticket.id}"><img src="/images/editar.png" alt="Editar" class="w-5 h-5" /></button>`;
+                            break;
+                        default:
+                            cellValue = ticket[col.key] || 'N/A';
+                    }
+                    rowHtml += `<td class="py-2 px-2 border">${cellValue}</td>`;
+                });
+                rowHtml += '</tr>';
+                tableContent += rowHtml;
+            });
+            tbody.innerHTML = tableContent;
+        }
+    }
 
     function populateCustomizerModal() {
         if (!visibilityList || !orderList) return;
@@ -315,12 +311,11 @@ document.addEventListener('DOMContentLoaded', () => {
       function popularDropdown(selectId, data, placeholder) {
         const select = document.getElementById(selectId);
         if (!select) return;
-
         select.innerHTML = `<option value="">-- ${placeholder} --</option>`;
         if (Array.isArray(data)) {
             data.forEach(item => {
                 const option = document.createElement('option');
-                option.value = item.id; // Sempre usa o ID
+                option.value = item.id;
                 option.textContent = item.nome;
                 select.appendChild(option);
             });
@@ -389,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-      async function popularDropdownsTicket() {
+       async function popularDropdownsTicket() {
         const fetchAndPopulate = async (selectId, url, placeholder) => {
             try {
                 const response = await fetch(url);
@@ -401,7 +396,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 popularDropdown(selectId, [], 'Erro ao carregar');
             }
         };
-
         fetchAndPopulate('ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
         fetchAndPopulate('edit-ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
     }
@@ -525,6 +519,29 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('edit-ticket-area')?.addEventListener('change', (event) => {
     handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
 });
+ document.getElementById('btn-cancel-create')?.addEventListener('click', () => {
+        formAbrirTicket.reset(); // Limpa todos os campos do formulário
+        
+        ['ticket-grupo', 'ticket-alerta', 'ticket-tipo', 'ticket-prioridade'].forEach(id => {
+            const select = document.getElementById(id);
+            if(select) {
+                select.innerHTML = '';
+                select.disabled = true;
+            }
+        });
+
+        const preview = document.getElementById('paste-preview-create');
+        if (preview) preview.innerHTML = '';
+        pastedFileCreate = null;
+        
+        toggleModal('modalTicket', false); 
+    });
+
+    document.getElementById('btn-cancel-edit')?.addEventListener('click', () => {
+  
+        toggleModal('modalEditarTicket', false);
+    });
+
     document.getElementById('logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
     document.getElementById('logout-menu-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
     document.getElementById('confirm-logout-button')?.addEventListener('click', logout);

@@ -245,3 +245,13 @@ exports.getPrioridadesByArea = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
+exports.debugPrioridades = async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM ticket_prioridades;');
+        console.log('DEBUG: Conteúdo da tabela ticket_prioridades:', rows);
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error("Erro no debug:", error);
+        res.status(500).json({ message: 'Erro ao executar o debug.', error });
+    }
+};
