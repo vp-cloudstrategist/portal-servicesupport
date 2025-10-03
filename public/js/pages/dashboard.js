@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ticketsTable = document.getElementById('tickets-table');
     const adminMenu = document.getElementById('admin-menu');
     const formCriarUsuario = document.getElementById('formCriarUsuario');
-    const formCriarEmpresa = document.getElementById('formCriarEmpresa');
+    const formCriarArea = document.getElementById('formCriarArea');
     const tabelaTicketsBody = ticketsTable?.querySelector('tbody');
     const formAbrirTicket = document.getElementById('formAbrirTicket');
     const formEditarTicket = document.getElementById('formEditarTicket');
@@ -277,36 +277,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function carregarEmpresas() {
-        const selectsDeEmpresa = document.querySelectorAll('.company-select-dropdown');
-        if (selectsDeEmpresa.length === 0) return;
-
-        try {
-            const response = await fetch('/api/companies');
-            if (!response.ok) throw new Error('Falha ao buscar empresas.');
-            const companies = await response.json();
-
-            selectsDeEmpresa.forEach(select => {
-                select.innerHTML = '<option value="">-- Selecione uma empresa --</option>';
-                companies.forEach(company => {
-                    const option = document.createElement('option');
-                    option.value = company.id;
-                    option.textContent = company.name;
-                    select.appendChild(option);
-                });
-                if (companies.length === 1) {
-                    select.value = companies[0].id;
-                }
-            });
-        } catch (error) {
-            console.error(error);
-            selectsDeEmpresa.forEach(select => {
-                select.innerHTML = '<option value="">Erro ao carregar empresas</option>';
-            });
-        }
-    }
-
-
      
       function popularDropdown(selectId, data, placeholder) {
         const select = document.getElementById(selectId);
@@ -398,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         fetchAndPopulate('ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
         fetchAndPopulate('edit-ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
+        fetchAndPopulate('selectArea', '/api/tickets/options/areas', 'Selecione a Área');
     }
 
 
@@ -558,31 +529,30 @@ document.getElementById('edit-ticket-area')?.addEventListener('change', (event) 
         });
     }
 
-    // Formulários de Criação
-    if (formCriarEmpresa) {
-        formCriarEmpresa.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const name = formCriarEmpresa.querySelector('input[name="company_name"]').value;
-            try {
-                const response = await fetch('/api/companies', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name }),
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    showStatusModal('Sucesso!', result.message, false);
-                    toggleModal('modalCriarEmpresa', false);
-                    formCriarEmpresa.reset();
-                    carregarEmpresas();
-                } else {
-                    showStatusModal('Erro!', result.message, true);
-                }
-            } catch (error) {
-                showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
-            }
-        });
-    }
+  if (formCriarArea) { 
+    formCriarArea.addEventListener('submit', async (event) => { 
+        event.preventDefault();
+        const nome = formCriarArea.querySelector('input[name="area_name"]').value; 
+        try {
+            const response = await fetch('/api/tickets/options/areas', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome }), 
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showStatusModal('Sucesso!', result.message, false);
+                toggleModal('modalCriarArea', false);
+                formCriarArea.reset(); 
+                popularDropdownsTicket(); 
+            } else {
+                showStatusModal('Erro!', result.message, true);
+            }
+        } catch (error) {
+            showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
+        }
+    });
+}
     
     if (formCriarUsuario) {
         const selectPerfil = document.getElementById('selectPerfil');
@@ -604,7 +574,7 @@ document.getElementById('edit-ticket-area')?.addEventListener('change', (event) 
                 data.sobrenome = formCriarUsuario.querySelector('input[name="sobrenome_user"]').value;
                 data.login = formCriarUsuario.querySelector('input[name="login_user"]').value;
                 data.telefone = formCriarUsuario.querySelector('input[name="telefone_user"]').value;
-                data.company_id = formCriarUsuario.querySelector('#selectEmpresa').value;
+                data.area_id = formCriarUsuario.querySelector('#selectArea').value;
                 emailInput = data.login;
             } else if (perfil === 'support' || perfil === 'admin') {
                 data.nome = formCriarUsuario.querySelector('input[name="nome_support"]').value;
@@ -617,8 +587,8 @@ document.getElementById('edit-ticket-area')?.addEventListener('change', (event) 
             if (!emailInput || !emailRegex.test(emailInput)) {
                 return showStatusModal('Erro de Validação', 'Por favor, insira um formato de e-mail válido.', true);
             }
-            if (perfil === 'user' && !data.company_id) {
-                return showStatusModal('Erro de Validação', 'Por favor, selecione uma empresa.', true);
+           if (perfil === 'user' && !data.area_id) {
+                return showStatusModal('Erro de Validação', 'Por favor, selecione uma área.', true);
             }
 
             try {
@@ -641,6 +611,24 @@ document.getElementById('edit-ticket-area')?.addEventListener('change', (event) 
             }
         });
     }
+ const btnCancelCreateUser = document.getElementById('btn-cancel-create-user');
+    if (btnCancelCreateUser) {
+        btnCancelCreateUser.addEventListener('click', () => {
+            const formCriarUsuario = document.getElementById('formCriarUsuario');
+            const selectPerfil = document.getElementById('selectPerfil');
+
+            // 1. Limpa todos os campos do formulário
+            formCriarUsuario.reset();
+            
+            // 2. Garante que os campos condicionais sejam escondidos novamente
+            if(selectPerfil) {
+                selectPerfil.dispatchEvent(new Event('change'));
+            }
+
+            // 3. Fecha o modal
+            toggleModal('modalCriarUsuario', false);
+        });
+    }
 
     // Eventos de Tickets e Customização
     btnCustomize?.addEventListener('click', () => {
@@ -817,7 +805,6 @@ document.getElementById('edit-ticket-area')?.addEventListener('change', (event) 
     // =======================================================
     loadColumnConfig();
     carregarDadosUsuario();
-    carregarEmpresas();
     popularDropdownsTicket();
     carregarInfoCards();
     carregarTickets();

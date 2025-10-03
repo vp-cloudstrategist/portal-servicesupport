@@ -3,6 +3,7 @@ const router = express.Router();
 const ticketController = require('../controllers/ticketController');
 const requireLogin = require('../middleware/requireLogin');
 const multer = require('multer');
+const requireAdmin = require('../middleware/requireAdmin');
 
 // --- Configuração do Multer para Upload de Arquivos ---
 const storage = multer.diskStorage({
@@ -22,7 +23,7 @@ router.get('/options/areas/:areaId/grupos', requireLogin, ticketController.getGr
 router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
 router.get('/options/areas/:areaId/tipos', requireLogin, ticketController.getTiposByArea);
 router.get('/options/areas/:areaId/prioridades', requireLogin, ticketController.getPrioridadesByArea);
-
+router.post('/options/areas', requireAdmin, ticketController.createArea);
 
 // --- Rotas para funcionalidades principais de tickets ---
 router.get('/cards-info', requireLogin, ticketController.getCardInfo);
@@ -33,5 +34,4 @@ router.delete('/:id', requireLogin, ticketController.deleteTicket);
 // --- Rotas com parâmetros (devem vir por último) ---
 router.get('/:id', requireLogin, ticketController.getTicketById);
 router.put('/:id', requireLogin, upload.single('anexo'), ticketController.updateTicket);
-router.get('/debug/prioridades', requireLogin, ticketController.debugPrioridades);
 module.exports = router;

@@ -245,13 +245,19 @@ exports.getPrioridadesByArea = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
-exports.debugPrioridades = async (req, res) => {
+exports.createArea = async (req, res) => {
+    const { nome } = req.body; 
+    if (!nome) {
+        return res.status(400).json({ message: 'O nome da área é obrigatório.' });
+    }
     try {
-        const [rows] = await pool.query('SELECT * FROM ticket_prioridades;');
-        console.log('DEBUG: Conteúdo da tabela ticket_prioridades:', rows);
-        res.status(200).json(rows);
+        const [result] = await pool.query('INSERT INTO ticket_areas (nome) VALUES (?)', [nome]);
+        res.status(201).json({ message: 'Área cadastrada com sucesso!', areaId: result.insertId });
     } catch (error) {
-        console.error("Erro no debug:", error);
-        res.status(500).json({ message: 'Erro ao executar o debug.', error });
+        if (error.code === 'ER_DUP_ENTRY') {
+             return res.status(409).json({ message: 'Essa área já está cadastrada.' });
+        }
+        console.error("Erro ao criar área:", error);
+        res.status(500).json({ message: 'Erro no servidor ao cadastrar área.' });
     }
 };

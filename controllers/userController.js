@@ -9,7 +9,7 @@ const capitalize = (str) => {
 };
 
 exports.createUser = async (req, res) => {
-    let { perfil, nome, sobrenome, login, telefone, company_id } = req.body;
+    let { perfil, nome, sobrenome, login, telefone, area_id } = req.body;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!login || !emailRegex.test(login)) {
@@ -19,9 +19,9 @@ exports.createUser = async (req, res) => {
     if (!perfil || !nome || !sobrenome || !login) {
         return res.status(400).json({ message: 'Todos os campos do formulário selecionado são obrigatórios.' });
     }
-    if (perfil === 'user' && (!telefone || !company_id)) {
-        return res.status(400).json({ message: 'Para Usuário Cliente, os campos Telefone e Empresa também são obrigatórios.' });
-    }
+    if (perfil === 'user' && (!telefone || !area_id)) { // MUDOU
+    return res.status(400).json({ message: 'Para Usuário Cliente, os campos Telefone e Área também são obrigatórios.' }); // MUDOU
+}
 
     try {
         // NOVO: Aplica a capitalização no nome e sobrenome
@@ -32,11 +32,11 @@ exports.createUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(senhaTemporaria, salt);
 
-        const sql = `
-          INSERT INTO user (perfil, nome, sobre, login, passwd, telef, company_id, statu, criado) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'novo', NOW())
-        `;
-        const values = [perfil, nomeCapitalized, sobrenomeCapitalized, login, hashedPassword, telefone || null, company_id || null];
+       const sql = `
+            INSERT INTO user (perfil, nome, sobre, login, passwd, telef, area_id, statu, criado) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'novo', NOW())
+            `;
+        const values = [perfil, nomeCapitalized, sobrenomeCapitalized, login, hashedPassword, telefone || null, area_id || null];
         await pool.query(sql, values);
 
          const emailHtml = `
@@ -92,11 +92,11 @@ exports.getCurrentUser = async (req, res) => {
     }
     try {
         const sql = `
-            SELECT u.login, u.nome, u.sobre as sobrenome, u.telef as telefone, c.name as empresa, u.perfil 
+            SELECT u.login, u.nome, u.sobre as sobrenome, u.telef as telefone, ta.nome as area_nome, u.perfil 
             FROM user u
-            LEFT JOIN companies c ON u.company_id = c.id
+            LEFT JOIN ticket_areas ta ON u.area_id = ta.id
             WHERE u.login = ?
-        `;
+            `;
         const [rows] = await pool.query(sql, [login]);
         if (rows.length > 0) {
             res.status(200).json(rows[0]);
