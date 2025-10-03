@@ -34,6 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUser = null;
     let pastedFileCreate = null;
     let pastedFileEdit = null;
+    let currentAlertsList = [];
+     let allUsersCache = [];
     
     let columnConfig = [
         { key: 'id', title: 'Ticket#', visible: true },
@@ -60,6 +62,188 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCustomize = document.getElementById('btn-customize-view');
     const visibilityList = document.getElementById('column-visibility-list');
     const orderList = document.getElementById('column-order-list');
+
+     const btnGerenciarUsuarios = document.getElementById('btn-gerenciar-usuarios');
+    const btnAbrirModalCriarUsuario = document.getElementById('btn-abrir-modal-criar-usuario');
+    const btnAbrirModalListaUsuarios = document.getElementById('btn-abrir-modal-lista-usuarios');
+    const userListContainer = document.getElementById('user-list-container');
+    const searchUserListInput = document.getElementById('search-user-list');
+    const formEditarUsuarioAdmin = document.getElementById('formEditarUsuarioAdmin');
+    const nomeUsuarioEditandoSpan = document.getElementById('nome-usuario-editando');
+
+    // Abre o modal principal de gerenciamento
+    btnGerenciarUsuarios?.addEventListener('click', () => {
+        toggleModal('modalGerenciarUsuarios', true);
+    });
+
+    // No modal de gerenciamento, abre o modal de CRIAR usuário
+    btnAbrirModalCriarUsuario?.addEventListener('click', () => {
+        toggleModal('modalGerenciarUsuarios', false);
+        toggleModal('modalCriarUsuario', true);
+    });
+
+    // No modal de gerenciamento, abre a LISTA de usuários para edição
+    btnAbrirModalListaUsuarios?.addEventListener('click', async () => {
+        toggleModal('modalGerenciarUsuarios', false);
+        toggleModal('modalListaUsuarios', true);
+        userListContainer.innerHTML = '<p class="text-center text-gray-500">Carregando usuários...</p>';
+
+        try {
+            const response = await fetch('/api/users');
+            if (!response.ok) throw new Error('Falha ao buscar usuários');
+            allUsersCache = await response.json();
+            renderUserList(allUsersCache);
+        } catch (error) {
+            console.error(error);
+            userListContainer.innerHTML = '<p class="text-center text-red-500">Erro ao carregar usuários.</p>';
+        }
+    });
+
+    // Renderiza a lista de usuários no modal
+    function renderUserList(users) {
+        if (users.length === 0) {
+            userListContainer.innerHTML = '<p class="text-center text-gray-500">Nenhum usuário encontrado.</p>';
+            return;
+        }
+        userListContainer.innerHTML = users.map(user => `
+            <div class="p-3 border-b hover:bg-gray-50 cursor-pointer user-list-item" data-user-id="${user.id}">
+                <p class="font-semibold">${user.nome} ${user.sobre}</p>
+                <p class="text-sm text-gray-600">${user.login} - Perfil: ${user.perfil}</p>
+            </div>
+        `).join('');
+    }
+
+    // Filtra a lista de usuários enquanto o admin digita
+    searchUserListInput?.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const filteredUsers = allUsersCache.filter(user => 
+            user.nome.toLowerCase().includes(searchTerm) ||
+            user.sobre.toLowerCase().includes(searchTerm) ||
+            user.login.toLowerCase().includes(searchTerm)
+        );
+        renderUserList(filteredUsers);
+    });
+
+    // Abre o modal de edição ao clicar em um usuário na lista
+    userListContainer?.addEventListener('click', async (e) => {
+        const userItem = e.target.closest('.user-list-item');
+        if (!userItem) return;
+
+        const userId = userItem.dataset.userId;
+        toggleModal('modalListaUsuarios', false);
+        toggleModal('modalEditarUsuarioAdmin', true);
+        
+        // Preenche o dropdown de áreas no formulário de edição
+        popularDropdown('admin-edit-user-area', await getAreasList(), 'Selecione uma Área');
+
+        try {
+            const response = await fetch(`/api/users/${userId}`);
+            if (!response.ok) throw new Error('Falha ao buscar dados do usuário');
+            const user = await response.json();
+
+            // Popula o formulário com os dados do usuário
+            nomeUsuarioEditandoSpan.textContent = `${user.nome} ${user.sobre}`;
+            formEditarUsuarioAdmin.elements['id'].value = user.id;
+            formEditarUsuarioAdmin.elements['nome'].value = user.nome;
+            formEditarUsuarioAdmin.elements['sobre'].value = user.sobre;
+            formEditarUsuarioAdmin.elements['login'].value = user.login;
+            formEditarUsuarioAdmin.elements['telef'].value = user.telef || '';
+            formEditarUsuarioAdmin.elements['perfil'].value = user.perfil;
+            formEditarUsuarioAdmin.elements['area_id'].value = user.area_id || '';
+            formEditarUsuarioAdmin.elements['novaSenha'].value = ''; // Limpa o campo de senha
+        } catch (error) {
+            console.error(error);
+            showStatusModal('Erro', 'Não foi possível carregar os dados deste usuário.', true, () => {
+                toggleModal('modalEditarUsuarioAdmin', false);
+            });
+        }
+    });
+
+    // Salva as alterações feitas pelo admin no formulário de edição
+    formEditarUsuarioAdmin?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(formEditarUsuarioAdmin);
+        const userId = formData.get('id');
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const response = await fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+
+            if (!response.ok) throw new Error(result.message);
+
+            showStatusModal('Sucesso!', result.message, false, () => {
+                toggleModal('modalEditarUsuarioAdmin', false);
+                btnAbrirModalListaUsuarios.click(); 
+            });
+
+        } catch (error) {
+            showStatusModal('Erro', error.message, true);
+        }
+    });
+    const btnMinhaConta = document.getElementById('btn-minha-conta');
+const formMinhaConta = document.getElementById('formMinhaConta');
+
+btnMinhaConta?.addEventListener('click', async () => {
+    toggleModal('modalMinhaConta', true);
+
+    try {
+        const response = await fetch('/api/users/me');
+        if (!response.ok) throw new Error('Não foi possível carregar seus dados.');
+        const user = await response.json();
+        formMinhaConta.elements['nome'].value = user.nome || '';
+        formMinhaConta.elements['sobrenome'].value = user.sobrenome || '';
+        formMinhaConta.elements['login'].value = user.login || '';
+        formMinhaConta.elements['telefone'].value = user.telefone || '';
+        formMinhaConta.elements['perfil'].value = user.perfil || '';
+        formMinhaConta.elements['area_nome'].value = user.area_nome || 'N/A';
+        formMinhaConta.elements['novaSenha'].value = '';
+
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true, () => {
+            toggleModal('modalMinhaConta', false);
+        });
+    }
+});
+
+formMinhaConta?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(formMinhaConta);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const response = await fetch('/api/users/me', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.message);
+
+        showStatusModal('Sucesso!', result.message, false, () => {
+            toggleModal('modalMinhaConta', false);
+            document.getElementById('nome-usuario').textContent = `${data.nome} ${data.sobrenome}`;
+        });
+
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true);
+    }
+});
+    
+    async function getAreasList() {
+        try {
+            const response = await fetch('/api/tickets/options/areas');
+            if (!response.ok) return [];
+            return await response.json();
+        } catch (error) {
+            return [];
+        }
+    }
 
     const statusSelect = document.getElementById('edit-ticket-status');
     if (statusSelect) {
@@ -201,6 +385,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
 
                     switch (col.key) {
+                        case 'id': 
+                            cellValue = `#INC-${ticket.id}`;
+                             break;
                         case 'data_criacao':
                             cellValue = new Date(ticket.data_criacao).toLocaleDateString('pt-BR');
                             break;
@@ -338,6 +525,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     gruposRes.json(),
                     alertasRes.json()
                 ]);
+
+                currentAlertsList = alertas;
+
                 popularDropdown(tipoSelectId, tipos, 'Selecione o Tipo');
                 popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
                 popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
@@ -518,6 +708,100 @@ document.getElementById('edit-ticket-area')?.addEventListener('change', (event) 
     document.getElementById('confirm-logout-button')?.addEventListener('click', logout);
     document.getElementById('cancel-logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', false));
 
+    const btnShowAddAlerta = document.getElementById('btn-show-add-alerta');
+const addAlertaContainer = document.getElementById('add-alerta-container');
+const inputNewAlerta = document.getElementById('input-new-alerta');
+const btnCancelAddAlerta = document.getElementById('btn-cancel-add-alerta');
+const btnSaveNewAlerta = document.getElementById('btn-save-new-alerta');
+const suggestionsList = document.getElementById('alerta-suggestions-list');
+
+// Mostrar o campo de input
+btnShowAddAlerta?.addEventListener('click', () => {
+    addAlertaContainer.classList.remove('hidden');
+    btnShowAddAlerta.classList.add('hidden');
+    inputNewAlerta.focus();
+});
+
+// Esconder e limpar o campo
+const resetAddAlertaForm = () => {
+    addAlertaContainer.classList.add('hidden');
+    btnShowAddAlerta.classList.remove('hidden');
+    inputNewAlerta.value = '';
+    suggestionsList.innerHTML = '';
+    btnSaveNewAlerta.disabled = false;
+};
+btnCancelAddAlerta?.addEventListener('click', resetAddAlertaForm);
+
+// Lógica de autocompletar e verificação de duplicados
+inputNewAlerta?.addEventListener('input', () => {
+    const query = inputNewAlerta.value.trim().toLowerCase();
+    suggestionsList.innerHTML = '';
+    btnSaveNewAlerta.disabled = false;
+
+    if (!query) return;
+
+    // Verifica se já existe um alerta EXATAMENTE com esse nome
+    const exactMatch = currentAlertsList.find(alerta => alerta.nome.toLowerCase() === query);
+    if (exactMatch) {
+        suggestionsList.innerHTML = `<span class="text-red-600 font-bold">Este alerta já existe.</span>`;
+        btnSaveNewAlerta.disabled = true;
+        return;
+    }
+
+    // Mostra sugestões parecidas
+    const similarMatches = currentAlertsList.filter(alerta => alerta.nome.toLowerCase().includes(query));
+    if (similarMatches.length > 0) {
+        suggestionsList.innerHTML = 'Sugestões: ' + similarMatches.map(alerta => `<span>${alerta.nome}</span>`).join(', ');
+    } else {
+        suggestionsList.innerHTML = '<span class="text-green-600">Nome de alerta disponível!</span>';
+    }
+});
+
+// Lógica para salvar o novo alerta
+btnSaveNewAlerta?.addEventListener('click', async () => {
+    const nomeNovoAlerta = inputNewAlerta.value.trim();
+    const areaSelect = document.getElementById('ticket-area');
+    const areaId = areaSelect.value;
+
+    if (!nomeNovoAlerta || !areaId) {
+        showStatusModal('Erro!', 'O nome do novo alerta e a área são obrigatórios.', true);
+        return;
+    }
+    
+    btnSaveNewAlerta.disabled = true;
+    btnSaveNewAlerta.textContent = 'Salvando...';
+
+    try {
+        const response = await fetch(`/api/tickets/options/areas/${areaId}/alertas`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: nomeNovoAlerta })
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || 'Falha ao salvar o alerta.');
+        }
+
+        const { novoAlerta } = result;
+
+        // Adiciona a nova opção no seletor principal e a seleciona
+        const alertaSelect = document.getElementById('ticket-alerta');
+        const newOption = new Option(novoAlerta.nome, novoAlerta.id, true, true);
+        alertaSelect.add(newOption);
+        
+        // Atualiza a nossa lista de cache
+        currentAlertsList.push(novoAlerta);
+        
+        resetAddAlertaForm();
+
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true);
+    } finally {
+        btnSaveNewAlerta.disabled = false;
+        btnSaveNewAlerta.textContent = 'Salvar';
+    }
+});
     if (adminMenu) {
         const button = adminMenu.querySelector('[data-menu-button]');
         const content = adminMenu.querySelector('[data-menu-content]');

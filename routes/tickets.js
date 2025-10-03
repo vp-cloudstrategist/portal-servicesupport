@@ -30,6 +30,8 @@ router.get('/cards-info', requireLogin, ticketController.getCardInfo);
 router.get('/', requireLogin, ticketController.getAllTickets);
 router.post('/', requireLogin, upload.single('anexo'), ticketController.createTicket);
 router.delete('/:id', requireLogin, ticketController.deleteTicket);
+router.post('/options/areas/:areaId/alertas', requireAdmin, ticketController.createAlerta);
+
 
 // --- Rotas com parâmetros (devem vir por último) ---
 router.get('/:id', requireLogin, ticketController.getTicketById);

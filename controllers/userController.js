@@ -92,11 +92,11 @@ exports.getCurrentUser = async (req, res) => {
     }
     try {
         const sql = `
-            SELECT u.login, u.nome, u.sobre as sobrenome, u.telef as telefone, ta.nome as area_nome, u.perfil 
+            SELECT u.id, u.login, u.nome, u.sobre as sobrenome, u.telef as telefone, u.area_id, ta.nome as area_nome, u.perfil 
             FROM user u
             LEFT JOIN ticket_areas ta ON u.area_id = ta.id
             WHERE u.login = ?
-            `;
+        `;
         const [rows] = await pool.query(sql, [login]);
         if (rows.length > 0) {
             res.status(200).json(rows[0]);
@@ -110,20 +110,31 @@ exports.getCurrentUser = async (req, res) => {
 };
 
 exports.updateCurrentUser = async (req, res) => {
-    const login_atual = req.session.user.login;
-    const { nome, sobrenome, telefone, company_id, email: newLogin } = req.body;
+    const userId = req.session.user.id;
+    const { nome, sobrenome, telefone, area_id, login, novaSenha } = req.body;
+
     try {
-        const sql = `UPDATE user SET nome = ?, sobre = ?, telef = ?, company_id = ?, login = ? WHERE login = ?`;
-        const values = [nome, sobrenome, telefone, company_id, newLogin, login_atual];
+        let sql = 'UPDATE user SET nome = ?, sobre = ?, telef = ?, area_id = ?, login = ?';
+        const values = [nome, sobrenome, telefone, area_id || null, login];
+        if (novaSenha && novaSenha.trim() !== '') {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(novaSenha, salt);
+            sql += ', passwd = ?';
+            values.push(hashedPassword);
+        }
+        
+        sql += ' WHERE id = ?';
+        values.push(userId);
+        
         await pool.query(sql, values);
+        req.session.user.login = login;
         
-        req.session.user.login = newLogin;
-        req.session.user.nome = nome;
-        req.session.user.sobrenome = sobrenome;
-        
-        res.status(200).json({ message: 'Dados atualizados com sucesso!' });
+        res.status(200).json({ message: 'Seus dados foram atualizados com sucesso!' });
     } catch (error) {
-        console.error('Erro ao atualizar dados:', error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'O email de login informado já está em uso por outro usuário.' });
+        }
+        console.error('Erro ao atualizar dados do usuário:', error);
         res.status(500).json({ message: 'Erro no servidor ao atualizar dados.' });
     }
 };
@@ -140,13 +151,45 @@ exports.getAllUsers = async (req, res) => {
 
 exports.updateUserById = async (req, res) => {
     const { id } = req.params;
-    const { nome, sobrenome, perfil } = req.body;
+    const { nome, sobre, login, telef, perfil, area_id, novaSenha } = req.body;
+
     try {
-        const sql = `UPDATE user SET nome = ?, sobre = ?, perfil = ? WHERE id = ?`;
-        await pool.query(sql, [nome, sobrenome, perfil, id]);
-        res.status(200).json({ message: 'Usuário atualizado com sucesso pelo administrador!' });
+        let sql = 'UPDATE user SET nome = ?, sobre = ?, login = ?, telef = ?, perfil = ?, area_id = ?';
+        const values = [nome, sobre, login, telef, perfil, area_id || null];
+        if (novaSenha && novaSenha.trim() !== '') {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(novaSenha, salt);
+            sql += ', passwd = ?';
+            values.push(hashedPassword);
+        }
+
+        sql += ' WHERE id = ?';
+        values.push(id);
+        
+        await pool.query(sql, values);
+        res.status(200).json({ message: 'Usuário atualizado com sucesso!' });
     } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'O email de login informado já está em uso por outro usuário.' });
+        }
         console.error('Erro ao atualizar usuário (Admin):', error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};
+
+exports.getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [rows] = await pool.query(
+            'SELECT id, nome, sobre, login, telef, perfil, area_id FROM user WHERE id = ?',
+            [id]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+        res.status(200).json(rows[0]);
+    } catch (error) {
+        console.error("Erro ao buscar usuário por ID:", error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };

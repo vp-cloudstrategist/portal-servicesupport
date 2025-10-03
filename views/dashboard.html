@@ -68,9 +68,8 @@
                         </svg>
                     </button>
                     <div data-menu-content class="hidden mt-2 space-y-2 pl-10">
-                        <a href="#" onclick="toggleModal('modalCriarUsuario', true)" class="block text-sm hover:text-[#38BDF8]">Criar Novo Usuário</a>
+                        <a href="#" id="btn-gerenciar-usuarios" class="block text-sm hover:text-[#38BDF8]">Gerenciar Usuários</a>
                         <a href="#" onclick="toggleModal('modalCriarArea', true)" class="block text-sm hover:text-[#38BDF8]">Cadastrar Nova Área</a>
-                        <a href="#" class="block text-sm hover:text-[#38BDF8]">Gerenciar Usuários</a>
                     </div>
                 </div>
             </div>
@@ -87,7 +86,7 @@
                 <span class="text-gray-800 font-medium" id="nome-usuario">Carregando...</span>
                 <img src="/images/avatar.png" alt="Avatar" class="w-12 h-12 rounded-full cursor-pointer" />
                 <div class="absolute right-0 top-full mt-2 w-48 bg-white border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-center">
-                    <a href="#" onclick="toggleModal('modalConta', true)" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Minha Conta</a>
+                    <a href="#" id="btn-minha-conta" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Minha Conta</a>
                     <a href="#" id="logout-menu-button" class="block px-4 py-2 text-red-600 hover:bg-red-100">Sair</a>
                 </div>
             </div>
@@ -182,76 +181,181 @@
             </div>
         </div>
 
-        <div id="modalTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
-            <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
-                <div class="flex-shrink-0 p-6 pb-4 border-b">
-                    <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalTicket', false)">&times;</button>
-                    <h2 class="text-2xl font-bold text-center text-[#02092B]">Abrir Novo Ticket</h2>
-                </div>
+       <div id="modalTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
+        <div class="flex-shrink-0 p-6 pb-4 border-b">
+            <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalTicket', false)">&times;</button>
+            <h2 class="text-2xl font-bold text-center text-[#02092B]">Abrir Novo Ticket</h2>
+        </div>
+        
+        <div class="overflow-y-auto flex-grow">
+            <form id="formAbrirTicket" class="p-6 space-y-4" enctype="multipart/form-data">
                 
-                <div class="overflow-y-auto flex-grow">
-                    <form id="formAbrirTicket" class="p-6 space-y-4" enctype="multipart/form-data">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="ticket-area" class="block text-sm font-semibold text-gray-700">Área</label>
-                                <select id="ticket-area" name="area_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
-                            </div>
-                            <div>
-                                <label for="ticket-grupo" class="block text-sm font-semibold text-gray-700">Grupo Responsável</label>
-                                <select id="ticket-grupo" name="grupo_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
-                            </div>
-                            <div>
-                                <label for="ticket-tipo" class="block text-sm font-semibold text-gray-700">Tipo de Solicitação</label>
-                                <select id="ticket-tipo" name="tipo_solicitacao_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
-                            </div>
-                            <div>
-                                <label for="ticket-prioridade" class="block text-sm font-semibold text-gray-700">Prioridade</label>
-                                <select id="ticket-prioridade" name="prioridade_id" required class="w-full mt-1 border rounded p-2 bg-gray-50">
-                             </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label for="ticket-alerta" class="block text-sm font-semibold text-gray-700">Alerta</label>
-                            <select id="ticket-alerta" name="alerta_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700">Início do Alarme</label>
-                                <input type="datetime-local" name="alarme_inicio" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                            </div>
-                            <div>
-                            <label class="block text-sm font-semibold text-gray-700">Início do Atendimento</label>
-                            <input type="datetime-local" name="horario_acionamento" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700">Fim do Alarme</label>
-                                <input type="datetime-local" name="alarme_fim" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                            </div>
-                        </div>
-                        
-
-                        <div>
-                            <label for="ticket-descricao" class="block text-sm font-semibold text-gray-700">Descrição</label>
-                            <textarea id="ticket-descricao" name="descricao" rows="4" class="w-full mt-1 border rounded p-2" placeholder="Descreva o problema..."></textarea>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700">Anexar Arquivo</label>
-                            <input type="file" name="anexo" class="w-full mt-1 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                            <div id="paste-preview-create" class="mt-2 text-sm text-gray-600"></div>
-                        </div>
-                    </form>
-                </div>
-                 <div class="flex-shrink-0 p-6 pt-4 border-t">
-                     <div class="flex justify-between items-center">
-                        <button type="button" id="btn-cancel-create" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button>
-                        <button type="submit" form="formAbrirTicket" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold">Enviar Ticket</button>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ticket-area" class="block text-sm font-semibold text-gray-700">Área</label>
+                        <select id="ticket-area" name="area_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    </div>
+                    <div>
+                        <label for="ticket-grupo" class="block text-sm font-semibold text-gray-700">Grupo Responsável</label>
+                        <select id="ticket-grupo" name="grupo_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    </div>
+                    <div>
+                        <label for="ticket-tipo" class="block text-sm font-semibold text-gray-700">Tipo de Solicitação</label>
+                        <select id="ticket-tipo" name="tipo_solicitacao_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    </div>
+                    <div>
+                        <label for="ticket-prioridade" class="block text-sm font-semibold text-gray-700">Prioridade</label>
+                        <select id="ticket-prioridade" name="prioridade_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
                     </div>
                 </div>
+
+                <div>
+                    <label for="ticket-alerta" class="block text-sm font-semibold text-gray-700">Alerta</label>
+                    <select id="ticket-alerta" name="alerta_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+
+                    <div class="mt-2 text-right">
+                        <button type="button" id="btn-show-add-alerta" class="text-xs text-blue-600 hover:underline font-semibold">+ Adicionar novo alerta</button>
+                    </div>
+
+                    <div id="add-alerta-container" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
+                        <label for="input-new-alerta" class="text-sm font-semibold text-gray-700">Novo Alerta:</label>
+                        <input type="text" id="input-new-alerta" placeholder="Digite o nome do novo alerta" class="w-full border rounded p-2 text-sm">
+                        <div id="alerta-suggestions-list" class="text-xs text-gray-500 border-t pt-1"></div>
+                        <div class="flex justify-end gap-2 mt-2">
+                            <button type="button" id="btn-cancel-add-alerta" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Cancelar</button>
+                            <button type="button" id="btn-save-new-alerta" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Início do Alarme</label>
+                        <input type="datetime-local" name="alarme_inicio" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Início do Atendimento</label>
+                        <input type="datetime-local" name="horario_acionamento" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Fim do Alarme</label>
+                        <input type="datetime-local" name="alarme_fim" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="ticket-descricao" class="block text-sm font-semibold text-gray-700">Descrição</label>
+                    <textarea id="ticket-descricao" name="descricao" rows="4" class="w-full mt-1 border rounded p-2" placeholder="Descreva o problema..."></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">Anexar Arquivo</label>
+                    <input type="file" name="anexo" class="w-full mt-1 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <div id="paste-preview-create" class="mt-2 text-sm text-gray-600"></div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="flex-shrink-0 p-6 pt-4 border-t">
+            <div class="flex justify-between items-center">
+                <button type="button" id="btn-cancel-create" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" form="formAbrirTicket" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold">Enviar Ticket</button>
             </div>
         </div>
+    </div>
+</div>
+<div id="modalGerenciarUsuarios" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white w-full max-w-md rounded-xl shadow-lg relative flex flex-col">
+        <div class="p-6 border-b">
+            <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalGerenciarUsuarios', false)">&times;</button>
+            <h2 class="text-2xl font-bold text-center text-[#02092B]">Gerenciar Usuários</h2>
+        </div>
+        <div class="p-6 space-y-4 flex flex-col">
+            <button id="btn-abrir-modal-criar-usuario" class="w-full text-left p-4 bg-gray-50 hover:bg-blue-100 rounded-lg border border-gray-200">
+                <h3 class="font-bold text-lg text-[#02092B]">Criar Novo Usuário</h3>
+                <p class="text-sm text-gray-600">Adicionar um novo perfil ao sistema.</p>
+            </button>
+            <button id="btn-abrir-modal-lista-usuarios" class="w-full text-left p-4 bg-gray-50 hover:bg-blue-100 rounded-lg border border-gray-200">
+                <h3 class="font-bold text-lg text-[#02092B]">Editar Usuário Existente</h3>
+                <p class="text-sm text-gray-600">Visualizar, editar ou redefinir a senha de um usuário.</p>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="modalListaUsuarios" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white w-full max-w-lg rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
+        <div class="flex-shrink-0 p-6 border-b">
+            <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalListaUsuarios', false)">&times;</button>
+            <h2 class="text-2xl font-bold text-center text-[#02092B]">Selecionar Usuário para Editar</h2>
+        </div>
+        <div class="p-4 border-b">
+            <input type="search" id="search-user-list" placeholder="🔎 Pesquisar por nome ou email..." class="w-full border rounded p-2">
+        </div>
+        <div id="user-list-container" class="overflow-y-auto flex-grow p-4">
+            <p class="text-center text-gray-500">Carregando usuários...</p>
+        </div>
+        <div class="flex-shrink-0 p-4 border-t">
+            <button onclick="toggleModal('modalListaUsuarios', false); toggleModal('modalGerenciarUsuarios', true);" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Voltar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalEditarUsuarioAdmin" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
+        <div class="flex-shrink-0 p-6 border-b">
+            <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalEditarUsuarioAdmin', false)">&times;</button>
+            <h2 class="text-2xl font-bold text-center text-[#02092B]">Editando Usuário: <span id="nome-usuario-editando"></span></h2>
+        </div>
+        <div class="overflow-y-auto flex-grow">
+            <form id="formEditarUsuarioAdmin" class="p-6 space-y-4">
+                <input type="hidden" id="admin-edit-user-id" name="id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Nome</label>
+                        <input type="text" name="nome" required class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Sobrenome</label>
+                        <input type="text" name="sobre" required class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Email (Login)</label>
+                        <input type="email" name="login" required class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Telefone</label>
+                        <input type="text" name="telef" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Perfil</label>
+                        <select name="perfil" required class="w-full mt-1 border rounded p-2 bg-gray-50">
+                            <option value="user">Usuário Cliente</option>
+                            <option value="support">Suporte (Interno)</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Área</label>
+                        <select name="area_id" id="admin-edit-user-area" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                            </select>
+                    </div>
+                </div>
+                <div class="border-t pt-4">
+                    <label class="block text-sm font-semibold text-gray-700">Definir Nova Senha</label>
+                    <input type="password" name="novaSenha" class="w-full mt-1 border rounded p-2" placeholder="Deixe em branco para não alterar">
+                </div>
+            </form>
+        </div>
+        <div class="flex-shrink-0 p-6 pt-4 border-t">
+            <div class="flex justify-end gap-4">
+                <button type="button" onclick="toggleModal('modalEditarUsuarioAdmin', false)" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" form="formEditarUsuarioAdmin" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
 
         <div id="modalColumnCustomizer" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
             <div class="bg-white w-full max-w-lg rounded-xl shadow-lg flex flex-col max-h-[90vh]">
@@ -334,7 +438,54 @@
             </div>
         </div>
 
-        <div id="modalConta" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden"></div>
+       <div id="modalMinhaConta" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
+        <div class="flex-shrink-0 p-6 border-b">
+            <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalMinhaConta', false)">&times;</button>
+            <h2 class="text-2xl font-bold text-center text-[#02092B]">Minha Conta</h2>
+        </div>
+        <div class="overflow-y-auto flex-grow">
+            <form id="formMinhaConta" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Nome</label>
+                        <input type="text" name="nome" required class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Sobrenome</label>
+                        <input type="text" name="sobrenome" required class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Email (Login)</label>
+                        <input type="email" name="login" required class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Telefone</label>
+                        <input type="text" name="telefone" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Perfil</label>
+                        <input type="text" name="perfil" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Área</label>
+                        <input type="text" name="area_nome" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed">
+                    </div>
+                </div>
+                <div class="border-t pt-4">
+                    <label class="block text-sm font-semibold text-gray-700">Alterar Senha</label>
+                    <input type="password" name="novaSenha" class="w-full mt-1 border rounded p-2" placeholder="Deixe em branco para não alterar">
+                </div>
+            </form>
+        </div>
+        <div class="flex-shrink-0 p-6 pt-4 border-t">
+            <div class="flex justify-end gap-4">
+                <button type="button" onclick="toggleModal('modalMinhaConta', false)" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" form="formMinhaConta" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
 
         <div id="modalConfirmarLogout" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
             <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
@@ -371,6 +522,7 @@
                             <div><label for="edit-ticket-prioridade" class="block text-sm font-semibold text-gray-700">Prioridade</label><select id="edit-ticket-prioridade" name="prioridade_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select></div>
                         </div>
                         <div><label for="edit-ticket-alerta" class="block text-sm font-semibold text-gray-700">Alerta</label><select id="edit-ticket-alerta" name="alerta_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select></div>
+            
                         <div><label for="edit-ticket-status" class="block text-sm font-semibold text-gray-700">Status da Solicitação</label><select id="edit-ticket-status" name="status" required class="w-full mt-1 border rounded p-2 bg-gray-50"><option value="Aberto">Aberto</option><option value="Em Andamento">Em Andamento</option><option value="Aguardando Aprovação">Aguardando Aprovação</option><option value="Resolvido">Resolvido</option><option value="Encerrado">Encerrado</option></select></div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">

@@ -261,3 +261,31 @@ exports.createArea = async (req, res) => {
         res.status(500).json({ message: 'Erro no servidor ao cadastrar área.' });
     }
 };
+exports.createAlerta = async (req, res) => {
+    const { areaId } = req.params;
+    const { nome } = req.body;
+
+    if (!nome) {
+        return res.status(400).json({ message: 'O nome do alerta é obrigatório.' });
+    }
+    if (!areaId) {
+        return res.status(400).json({ message: 'A área de associação é obrigatória.' });
+    }
+
+    try {
+        const sql = 'INSERT INTO ticket_alertas (nome, area_id) VALUES (?, ?)';
+        const [result] = await pool.query(sql, [nome, areaId]);
+        
+        res.status(201).json({ 
+            message: 'Alerta cadastrado com sucesso!', 
+            novoAlerta: { id: result.insertId, nome: nome } 
+        });
+
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+             return res.status(409).json({ message: 'Este alerta já existe para esta área.' });
+        }
+        console.error("Erro ao criar alerta:", error);
+        res.status(500).json({ message: 'Erro no servidor ao cadastrar alerta.' });
+    }
+};

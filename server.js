@@ -18,6 +18,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 } 
 }));
+
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
