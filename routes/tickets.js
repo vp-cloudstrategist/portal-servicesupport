@@ -32,6 +32,9 @@ router.post('/', requireLogin, upload.single('anexo'), ticketController.createTi
 router.delete('/:id', requireLogin, ticketController.deleteTicket);
 router.post('/options/areas/:areaId/alertas', requireAdmin, ticketController.createAlerta);
 
+// --- NOVAS ROTAS PARA COMENTÁRIOS ---
+router.get('/:id/comments', requireLogin, ticketController.getCommentsByTicketId);
+router.post('/:id/comments', requireLogin, ticketController.createComment);
 
 // --- Rotas com parâmetros (devem vir por último) ---
 router.get('/:id', requireLogin, ticketController.getTicketById);

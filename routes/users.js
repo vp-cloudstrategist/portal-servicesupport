@@ -7,10 +7,10 @@ const requireAdmin = require('../middleware/requireAdmin.js');
 router.get('/me', requireLogin, userController.getCurrentUser);
 router.put('/me', requireLogin, userController.updateCurrentUser);
 
-router.post('/', requireLogin, requireAdmin, userController.createUser);
-router.get('/', requireLogin, requireAdmin, userController.getAllUsers); 
-router.get('/:id', requireLogin, requireAdmin, userController.getUserById);
-router.put('/:id', requireLogin, requireAdmin, userController.updateUserById);
+router.post('/', requireLogin, userController.createUser);
+router.get('/', requireLogin, userController.getAllUsers); 
+router.get('/:id', requireLogin, userController.getUserById);
+router.put('/:id', requireLogin, userController.updateUserById);
 
 router.get('/me', requireLogin, userController.getCurrentUser);
 router.put('/me', requireLogin, userController.updateCurrentUser);

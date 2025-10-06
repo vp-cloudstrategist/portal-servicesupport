@@ -1,9 +1,9 @@
 // Funções globais que podem ser chamadas pelo HTML
 function toggleModal(modalId, show) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.toggle('hidden', !show);
-    }
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.toggle('hidden', !show);
+    }
 }
 
 function showStatusModal(title, message, isError = false, onConfirm = null) {
@@ -34,8 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUser = null;
     let pastedFileCreate = null;
     let pastedFileEdit = null;
+    let alertaIdToDelete = null;    
     let currentAlertsList = [];
-     let allUsersCache = [];
+    let allUsersCache = [];
     
     let columnConfig = [
         { key: 'id', title: 'Ticket#', visible: true },
@@ -54,22 +55,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const ticketsTable = document.getElementById('tickets-table');
     const adminMenu = document.getElementById('admin-menu');
+     const btnGerenciarUsuariosGerente = document.getElementById('btn-gerenciar-usuarios-gerente'); 
     const formCriarUsuario = document.getElementById('formCriarUsuario');
     const formCriarArea = document.getElementById('formCriarArea');
     const tabelaTicketsBody = ticketsTable?.querySelector('tbody');
     const formAbrirTicket = document.getElementById('formAbrirTicket');
     const formEditarTicket = document.getElementById('formEditarTicket');
-    const btnCustomize = document.getElementById('btn-customize-view');
+    const btnSaveComment = document.getElementById('btn-save-comment');
+    const newCommentText = document.getElementById('new-comment-text');
+    
+    // Este event listener agora vai funcionar com o botão estático no HTML
+    document.getElementById('btn-customize-view')?.addEventListener('click', () => {
+        populateCustomizerModal();
+        toggleModal('modalColumnCustomizer', true);
+    });
+
     const visibilityList = document.getElementById('column-visibility-list');
     const orderList = document.getElementById('column-order-list');
-
-     const btnGerenciarUsuarios = document.getElementById('btn-gerenciar-usuarios');
+    const btnGerenciarUsuarios = document.getElementById('btn-gerenciar-usuarios');
     const btnAbrirModalCriarUsuario = document.getElementById('btn-abrir-modal-criar-usuario');
     const btnAbrirModalListaUsuarios = document.getElementById('btn-abrir-modal-lista-usuarios');
     const userListContainer = document.getElementById('user-list-container');
     const searchUserListInput = document.getElementById('search-user-list');
     const formEditarUsuarioAdmin = document.getElementById('formEditarUsuarioAdmin');
     const nomeUsuarioEditandoSpan = document.getElementById('nome-usuario-editando');
+
+     btnGerenciarUsuarios?.addEventListener('click', () => toggleModal('modalGerenciarUsuarios', true));
+    
+    // O NOVO botão do GERENTE também abre o MESMO modal
+    btnGerenciarUsuariosGerente?.addEventListener('click', () => toggleModal('modalGerenciarUsuarios', true));
 
     // Abre o modal principal de gerenciamento
     btnGerenciarUsuarios?.addEventListener('click', () => {
@@ -87,21 +101,184 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleModal('modalGerenciarUsuarios', false);
         toggleModal('modalListaUsuarios', true);
         userListContainer.innerHTML = '<p class="text-center text-gray-500">Carregando usuários...</p>';
-
         try {
             const response = await fetch('/api/users');
-            if (!response.ok) throw new Error('Falha ao buscar usuários');
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || 'Falha ao buscar usuários');
+            }
             allUsersCache = await response.json();
             renderUserList(allUsersCache);
         } catch (error) {
             console.error(error);
-            userListContainer.innerHTML = '<p class="text-center text-red-500">Erro ao carregar usuários.</p>';
+            userListContainer.innerHTML = `<p class="text-center text-red-500">Erro: ${error.message}</p>`;
+        }
+    });
+    // Função reutilizável para validar a força da senha
+    function checkPasswordStrength(password) {
+        const rules = {
+            length: password.length >= 8,
+            lowercase: /[a-z]/.test(password),
+            uppercase: /[A-Z]/.test(password),
+            number: /[0-9]/.test(password),
+            special: /[\W_]/.test(password) // Caractere especial ou underscore
+        };
+        return rules;
+    }
+
+    // Função para exibir as regras de senha e atualizar o status
+    function displayPasswordRules(containerId, rules) {
+        const container = document.getElementById(containerId);
+        const ruleMessages = {
+            length: 'Pelo menos 8 caracteres',
+            lowercase: 'Uma letra minúscula',
+            uppercase: 'Uma letra maiúscula',
+            number: 'Pelo menos um número',
+            special: 'Pelo menos um caractere especial (!, @, #, etc.)'
+        };
+
+        container.innerHTML = Object.keys(ruleMessages).map(key => {
+            const color = rules[key] ? 'text-green-600' : 'text-red-600';
+            const icon = rules[key] ? '✓' : '✗';
+            return `<div class="${color}">${icon} ${ruleMessages[key]}</div>`;
+        }).join('');
+    }
+
+    // Função para criar o componente de checkboxes de área
+    function createAreaCheckboxes(container, areaList, selectedAreaIds = []) {
+        container.innerHTML = ''; // Limpa o container
+
+        // Opção "Todos"
+        const allCheckboxDiv = document.createElement('div');
+        allCheckboxDiv.className = 'flex items-center mb-2';
+        const allChecked = selectedAreaIds.length === areaList.length;
+        allCheckboxDiv.innerHTML = `
+            <input type="checkbox" id="${container.id}-check-all" class="form-checkbox h-4 w-4" ${allChecked ? 'checked' : ''}>
+            <label for="${container.id}-check-all" class="ml-2 font-bold">Todos</label>
+        `;
+        container.appendChild(allCheckboxDiv);
+
+        const allCheckbox = allCheckboxDiv.querySelector('input');
+
+        areaList.forEach(area => {
+            const isChecked = selectedAreaIds.includes(area.id);
+            const div = document.createElement('div');
+            div.className = 'flex items-center';
+            div.innerHTML = `
+                <input type="checkbox" id="area-${area.id}-${container.id}" name="area_ids" value="${area.id}" class="form-checkbox h-4 w-4 area-checkbox" ${isChecked ? 'checked' : ''}>
+                <label for="area-${area.id}-${container.id}" class="ml-2">${area.nome}</label>
+            `;
+            container.appendChild(div);
+        });
+
+        const individualCheckboxes = container.querySelectorAll('.area-checkbox');
+
+        allCheckbox.addEventListener('change', () => {
+            individualCheckboxes.forEach(cb => {
+                cb.checked = allCheckbox.checked;
+            });
+        });
+
+        individualCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                const allChecked = [...individualCheckboxes].every(c => c.checked);
+                allCheckbox.checked = allChecked;
+            });
+        });
+    }
+
+     function renderComments(comments) {
+        const container = document.getElementById('comments-list-container');
+        if (!container) return;
+
+        if (comments.length === 0) {
+            container.innerHTML = '<p class="text-sm text-center text-gray-500">Nenhum comentário ainda.</p>';
+            return;
+        }
+
+        container.innerHTML = comments.map(comment => `
+            <div class="flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 text-sm">
+                        ${comment.user_nome.charAt(0)}${comment.user_sobrenome.charAt(0)}
+                    </div>
+                </div>
+                <div class="flex-1 bg-gray-100 p-3 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <p class="font-semibold text-sm">${comment.user_nome} ${comment.user_sobrenome}</p>
+                        <p class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleString('pt-BR')}</p>
+                    </div>
+                    <p class="text-sm mt-1">${comment.comment_text.replace(/\n/g, '<br>')}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Função para adicionar um novo comentário à lista (sem recarregar tudo)
+    function appendComment(comment) {
+        const container = document.getElementById('comments-list-container');
+        // Remove a mensagem "Nenhum comentário" se for o primeiro
+        if (container.querySelector('p')) {
+            container.innerHTML = '';
+        }
+        
+        const commentHtml = `
+            <div class="flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 text-sm">
+                        ${comment.user_nome.charAt(0)}${comment.user_sobrenome.charAt(0)}
+                    </div>
+                </div>
+                <div class="flex-1 bg-gray-100 p-3 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <p class="font-semibold text-sm">${comment.user_nome} ${comment.user_sobrenome}</p>
+                        <p class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleString('pt-BR')}</p>
+                    </div>
+                    <p class="text-sm mt-1">${comment.comment_text.replace(/\n/g, '<br>')}</p>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', commentHtml);
+    }
+
+    // Listener para o botão de salvar comentário
+    btnSaveComment?.addEventListener('click', async () => {
+        const ticketId = document.getElementById('edit-ticket-id').value;
+        const commentText = newCommentText.value.trim();
+
+        if (!commentText) {
+            showStatusModal('Atenção!', 'O comentário não pode estar vazio.', true);
+            return;
+        }
+
+        btnSaveComment.disabled = true;
+        btnSaveComment.textContent = 'Enviando...';
+
+        try {
+            const response = await fetch(`/api/tickets/${ticketId}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ comment_text: commentText })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+            
+            appendComment(result.newComment); 
+            newCommentText.value = ''; 
+
+        } catch (error) {
+            showStatusModal('Erro!', error.message, true);
+        } finally {
+            btnSaveComment.disabled = false;
+            btnSaveComment.textContent = 'Enviar Comentário';
         }
     });
 
     // Renderiza a lista de usuários no modal
+    
     function renderUserList(users) {
-        if (users.length === 0) {
+        if (!users || users.length === 0) {
             userListContainer.innerHTML = '<p class="text-center text-gray-500">Nenhum usuário encontrado.</p>';
             return;
         }
@@ -109,11 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="p-3 border-b hover:bg-gray-50 cursor-pointer user-list-item" data-user-id="${user.id}">
                 <p class="font-semibold">${user.nome} ${user.sobre}</p>
                 <p class="text-sm text-gray-600">${user.login} - Perfil: ${user.perfil}</p>
-            </div>
-        `).join('');
+            </div>`).join('');
     }
 
-    // Filtra a lista de usuários enquanto o admin digita
     searchUserListInput?.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase();
         const filteredUsers = allUsersCache.filter(user => 
@@ -124,24 +299,22 @@ document.addEventListener('DOMContentLoaded', () => {
         renderUserList(filteredUsers);
     });
 
-    // Abre o modal de edição ao clicar em um usuário na lista
     userListContainer?.addEventListener('click', async (e) => {
         const userItem = e.target.closest('.user-list-item');
         if (!userItem) return;
-
         const userId = userItem.dataset.userId;
         toggleModal('modalListaUsuarios', false);
         toggleModal('modalEditarUsuarioAdmin', true);
-        
-        // Preenche o dropdown de áreas no formulário de edição
-        popularDropdown('admin-edit-user-area', await getAreasList(), 'Selecione uma Área');
-
+        const areaContainer = document.querySelector('#admin-edit-user-area-container .p-2');
+        areaContainer.innerHTML = 'Carregando áreas...';
         try {
-            const response = await fetch(`/api/users/${userId}`);
-            if (!response.ok) throw new Error('Falha ao buscar dados do usuário');
-            const user = await response.json();
-
-            // Popula o formulário com os dados do usuário
+            const [userResponse, areasResponse] = await Promise.all([
+                fetch(`/api/users/${userId}`),
+                fetch('/api/tickets/options/areas')
+            ]);
+            if (!userResponse.ok || !areasResponse.ok) throw new Error('Falha ao buscar dados');
+            const user = await userResponse.json();
+            const allAreas = await areasResponse.json();
             nomeUsuarioEditandoSpan.textContent = `${user.nome} ${user.sobre}`;
             formEditarUsuarioAdmin.elements['id'].value = user.id;
             formEditarUsuarioAdmin.elements['nome'].value = user.nome;
@@ -149,25 +322,48 @@ document.addEventListener('DOMContentLoaded', () => {
             formEditarUsuarioAdmin.elements['login'].value = user.login;
             formEditarUsuarioAdmin.elements['telef'].value = user.telef || '';
             formEditarUsuarioAdmin.elements['perfil'].value = user.perfil;
-            formEditarUsuarioAdmin.elements['area_id'].value = user.area_id || '';
-            formEditarUsuarioAdmin.elements['novaSenha'].value = ''; // Limpa o campo de senha
+            createAreaCheckboxes(areaContainer, allAreas, user.area_ids);
+            formEditarUsuarioAdmin.elements['novaSenha'].value = '';
+            formEditarUsuarioAdmin.elements['confirmarSenha'].value = '';
+            document.getElementById('password-rules-admin').innerHTML = '';
         } catch (error) {
             console.error(error);
-            showStatusModal('Erro', 'Não foi possível carregar os dados deste usuário.', true, () => {
-                toggleModal('modalEditarUsuarioAdmin', false);
-            });
+            showStatusModal('Erro', 'Não foi possível carregar os dados deste usuário.', true, () => toggleModal('modalEditarUsuarioAdmin', false));
         }
     });
+     const fimAlarmeInputEdit = document.getElementById('edit-alarme-fim');
+    const statusSelectEdit = document.getElementById('edit-ticket-status');
 
-    // Salva as alterações feitas pelo admin no formulário de edição
+    if (fimAlarmeInputEdit && statusSelectEdit) {
+        fimAlarmeInputEdit.addEventListener('change', () => { 
+            if (fimAlarmeInputEdit.value) {
+                statusSelectEdit.value = 'Encerrado';
+            } 
+        });
+    }
+    formEditarUsuarioAdmin?.elements['novaSenha'].addEventListener('input', (e) => {
+        const rules = checkPasswordStrength(e.target.value);
+        displayPasswordRules('password-rules-admin', rules);
+    });
+
+
     formEditarUsuarioAdmin?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(formEditarUsuarioAdmin);
-        const userId = formData.get('id');
         const data = Object.fromEntries(formData.entries());
-
+        data.area_ids = formData.getAll('area_ids').map(Number); 
+        if (data.novaSenha) {
+            const rules = checkPasswordStrength(data.novaSenha);
+            if (Object.values(rules).some(rule => !rule)) {
+                return showStatusModal('Erro de Validação', 'A nova senha não atende a todos os critérios de segurança.', true);
+            }
+            if (data.novaSenha !== data.confirmarSenha) {
+                return showStatusModal('Erro de Validação', 'As senhas não coincidem.', true);
+            }
+        }
+        
         try {
-            const response = await fetch(`/api/users/${userId}`, {
+             const response = await fetch(`/api/users/${data.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -185,23 +381,48 @@ document.addEventListener('DOMContentLoaded', () => {
             showStatusModal('Erro', error.message, true);
         }
     });
-    const btnMinhaConta = document.getElementById('btn-minha-conta');
+   const btnMinhaConta = document.getElementById('btn-minha-conta');
 const formMinhaConta = document.getElementById('formMinhaConta');
+let minhaContaAreaId = null; // Variável para guardar o area_id do usuário logado
 
+// Abre o modal, busca os dados e monta a interface correta para o campo de Área
 btnMinhaConta?.addEventListener('click', async () => {
     toggleModal('modalMinhaConta', true);
+    const areaContainer = document.getElementById('minha-conta-area-container');
+    areaContainer.innerHTML = 'Carregando...';
 
     try {
         const response = await fetch('/api/users/me');
         if (!response.ok) throw new Error('Não foi possível carregar seus dados.');
         const user = await response.json();
+        
+        currentUser = user; // Armazena os dados do usuário atual globalmente
+
+        // Popula o formulário "Minha Conta"
         formMinhaConta.elements['nome'].value = user.nome || '';
         formMinhaConta.elements['sobrenome'].value = user.sobrenome || '';
         formMinhaConta.elements['login'].value = user.login || '';
         formMinhaConta.elements['telefone'].value = user.telefone || '';
-        formMinhaConta.elements['perfil'].value = user.perfil || '';
-        formMinhaConta.elements['area_nome'].value = user.area_nome || 'N/A';
+        
+        // Lógica condicional para o campo de Área
+        if (user.perfil === 'admin') {
+            areaContainer.innerHTML = `
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Áreas</label>
+                <div class="p-2 border rounded-md max-h-32 overflow-y-auto bg-gray-50"></div>
+            `;
+            const allAreas = await getAreasList();
+            createAreaCheckboxes(areaContainer.querySelector('.p-2'), allAreas, user.area_ids);
+        } else {
+            areaContainer.innerHTML = `
+                <label class="block text-sm font-semibold text-gray-700">Áreas</label>
+                <input type="text" value="${user.areas_nome || 'Nenhuma'}" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed">
+            `;
+        }
+
+        // Limpa campos de senha e regras
         formMinhaConta.elements['novaSenha'].value = '';
+        formMinhaConta.elements['confirmarSenha'].value = '';
+        document.getElementById('password-rules-minha-conta').innerHTML = '';
 
     } catch (error) {
         showStatusModal('Erro!', error.message, true, () => {
@@ -210,10 +431,29 @@ btnMinhaConta?.addEventListener('click', async () => {
     }
 });
 
+formMinhaConta?.elements['novaSenha'].addEventListener('input', (e) => {
+    const rules = checkPasswordStrength(e.target.value);
+    displayPasswordRules('password-rules-minha-conta', rules);
+});
+
 formMinhaConta?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(formMinhaConta);
     const data = Object.fromEntries(formData.entries());
+
+    if (currentUser && currentUser.perfil === 'admin') {
+        data.area_ids = formData.getAll('area_ids').map(Number);
+    }
+
+    if (data.novaSenha) {
+        const rules = checkPasswordStrength(data.novaSenha);
+        if (Object.values(rules).some(rule => !rule)) {
+            return showStatusModal('Erro de Validação', 'A nova senha não atende a todos os critérios de segurança.', true);
+        }
+        if (data.novaSenha !== data.confirmarSenha) {
+            return showStatusModal('Erro de Validação', 'As senhas não coincidem.', true);
+        }
+    }
 
     try {
         const response = await fetch('/api/users/me', {
@@ -246,22 +486,22 @@ formMinhaConta?.addEventListener('submit', async (e) => {
     }
 
     const statusSelect = document.getElementById('edit-ticket-status');
-    if (statusSelect) {
-        statusSelect.addEventListener('change', (event) => {
-            const newStatus = event.target.value;
-            const fimAlarmeInput = document.getElementById('edit-alarme-fim');
-            if (newStatus === 'Resolvido' || newStatus === 'Encerrado') {
-                if (fimAlarmeInput) {
-                    const now = new Date();
-                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                    const localDateTime = now.toISOString().slice(0, 16);
-                    fimAlarmeInput.value = localDateTime;
-                }
+if (statusSelect) {
+    statusSelect.addEventListener('change', (event) => {
+        const newStatus = event.target.value;
+        const fimAlarmeInput = document.getElementById('edit-alarme-fim');
+        if (newStatus === 'Resolvido' || newStatus === 'Encerrado' || newStatus === 'Normalizado') {
+            if (fimAlarmeInput && !fimAlarmeInput.value) { 
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                const localDateTime = now.toISOString().slice(0, 16);
+                fimAlarmeInput.value = localDateTime;
             }
-        });
-    }
+        }
+    });
+}
 
-     function handlePaste(event, targetTextarea, previewElement, fileStoreCallback) {
+    function handlePaste(event, targetTextarea, previewElement, fileStoreCallback) {
         event.preventDefault();
         
         const clipboardItems = event.clipboardData.items;
@@ -292,7 +532,7 @@ formMinhaConta?.addEventListener('submit', async (e) => {
                 
                 removeBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    fileStoreCallback(null);     
+                    fileStoreCallback(null);      
                     previewElement.innerHTML = ''; 
                 });
 
@@ -335,39 +575,51 @@ formMinhaConta?.addEventListener('submit', async (e) => {
     }
 
 
-    // --- Funções de Customização de Coluna ---
-    function saveColumnConfig() {
-        localStorage.setItem('ticketColumnConfig', JSON.stringify(columnConfig));
-    }
+    // --- Funções de Customização de Coluna ---
+    function saveColumnConfig() {
+        localStorage.setItem('ticketColumnConfig', JSON.stringify(columnConfig));
+    }
 
-    function loadColumnConfig() {
-        const savedConfig = localStorage.getItem('ticketColumnConfig');
-        if (savedConfig) {
-            try {
-                const parsedConfig = JSON.parse(savedConfig);
-                if (!parsedConfig.find(c => c.key === 'actions')) {
-                    parsedConfig.push({ key: 'actions', title: 'Ações', visible: true });
-                }
-                columnConfig = parsedConfig;
-            } catch (e) {
-                console.error("Erro ao carregar configuração de colunas, usando padrão.", e);
-            }
-        }
-    }
+    function loadColumnConfig() {
+        const savedConfig = localStorage.getItem('ticketColumnConfig');
+        if (savedConfig) {
+            try {
+                const parsedConfig = JSON.parse(savedConfig);
+                if (!parsedConfig.find(c => c.key === 'actions')) {
+                    parsedConfig.push({ key: 'actions', title: 'Ações', visible: true });
+                }
+                columnConfig = parsedConfig;
+            } catch (e) {
+                console.error("Erro ao carregar configuração de colunas, usando padrão.", e);
+            }
+        }
+    }
 
-   function renderTable(tickets) {
+    function renderTable(tickets) {
         if (!ticketsTable) return;
+
+        // MODIFICADO: Desativa o resizable antes de redesenhar a tabela para evitar bugs
+        if ($(ticketsTable).data('colResizable')) {
+            $(ticketsTable).colResizable({ disable: true });
+        }
+    
         const thead = ticketsTable.querySelector('thead tr');
         const tbody = ticketsTable.querySelector('tbody');
         if (!thead || !tbody) return;
-
+    
         thead.innerHTML = '';
         tbody.innerHTML = '';
         const visibleColumns = columnConfig.filter(col => col.visible);
-        visibleColumns.forEach(col => {
-            thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
-        });
 
+        // MODIFICADO: Simplificado para não incluir mais o botão de customização aqui
+        visibleColumns.forEach(col => {
+            if (col.key === 'actions') {
+                thead.innerHTML += `<th class="py-2 px-2 border text-center">${col.title}</th>`;
+            } else {
+                thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
+            }
+        });
+    
         if (!tickets || tickets.length === 0) {
             tbody.innerHTML = `<tr><td colspan="${visibleColumns.length}" class="text-center p-4">Nenhum ticket encontrado.</td></tr>`;
         } else {
@@ -383,11 +635,11 @@ formMinhaConta?.addEventListener('submit', async (e) => {
                             hour: '2-digit', minute: '2-digit'
                         });
                     };
-
+    
                     switch (col.key) {
                         case 'id': 
                             cellValue = `#INC-${ticket.id}`;
-                             break;
+                            break;
                         case 'data_criacao':
                             cellValue = new Date(ticket.data_criacao).toLocaleDateString('pt-BR');
                             break;
@@ -397,7 +649,7 @@ formMinhaConta?.addEventListener('submit', async (e) => {
                             cellValue = formatDateTime(ticket[col.key]);
                             break;
                         case 'actions':
-                            cellValue = `<button class="p-1 btn-edit-ticket" data-id="${ticket.id}"><img src="/images/editar.png" alt="Editar" class="w-5 h-5" /></button>`;
+                            cellValue = `<button class="p-1 btn-edit-ticket" data-id="${ticket.id}"><img src="/images/editar.png" alt="Editar" class="w-5 h-5 mx-auto" /></button>`;
                             break;
                         default:
                             cellValue = ticket[col.key] || 'N/A';
@@ -409,63 +661,74 @@ formMinhaConta?.addEventListener('submit', async (e) => {
             });
             tbody.innerHTML = tableContent;
         }
+    
+        // MODIFICADO: Reativa o plugin colResizable após a tabela ser redesenhada
+        $(ticketsTable).colResizable({
+            liveDrag: true,
+            gripInnerHtml: "<div class='JCLRgrip'></div>",
+            minWidth: 50
+        });
     }
 
-    function populateCustomizerModal() {
-        if (!visibilityList || !orderList) return;
-        visibilityList.innerHTML = '';
-        orderList.innerHTML = '';
+    function populateCustomizerModal() {
+        if (!visibilityList || !orderList) return;
+        visibilityList.innerHTML = '';
+        orderList.innerHTML = '';
 
-        columnConfig.forEach((col) => {
-            if (col.key === 'actions') return;
+        columnConfig.forEach((col) => {
+            if (col.key === 'actions') return;
 
-            const visibilityItem = document.createElement('div');
-            visibilityItem.innerHTML = `<label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" data-key="${col.key}" class="form-checkbox h-4 w-4" ${col.visible ? 'checked' : ''}><span>${col.title}</span></label>`;
-            visibilityList.appendChild(visibilityItem);
+            const visibilityItem = document.createElement('div');
+            visibilityItem.innerHTML = `<label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" data-key="${col.key}" class="form-checkbox h-4 w-4" ${col.visible ? 'checked' : ''}><span>${col.title}</span></label>`;
+            visibilityList.appendChild(visibilityItem);
 
-            if (col.visible) {
-                const orderItem = document.createElement('li');
-                orderItem.className = 'bg-gray-100 p-2 rounded cursor-grab border';
-                orderItem.textContent = col.title;
-                orderItem.setAttribute('draggable', true);
-                orderItem.dataset.key = col.key;
-                orderList.appendChild(orderItem);
-            }
-        });
-    }
+            if (col.visible) {
+                const orderItem = document.createElement('li');
+                orderItem.className = 'bg-gray-100 p-2 rounded cursor-grab border';
+                orderItem.textContent = col.title;
+                orderItem.setAttribute('draggable', true);
+                orderItem.dataset.key = col.key;
+                orderList.appendChild(orderItem);
+            }
+        });
+    }
 
-     async function carregarDadosUsuario() {
-        try {
-            const response = await fetch('/api/auth/session');
-            if (!response.ok) {
-                window.location.href = '/login';
-                return;
-            }
-            currentUser = await response.json(); 
-            const nomeUsuarioEl = document.getElementById('nome-usuario');
-            if (nomeUsuarioEl) nomeUsuarioEl.textContent = `${currentUser.nome || ''} ${currentUser.sobrenome || ''}`.trim();
+    async function carregarDadosUsuario() {
+        try {
+            const response = await fetch('/api/auth/session');
+            if (!response.ok) {
+                window.location.href = '/login';
+                return;
+            }
+            currentUser = await response.json(); 
+            const nomeUsuarioEl = document.getElementById('nome-usuario');
+            if (nomeUsuarioEl) nomeUsuarioEl.textContent = `${currentUser.nome || ''} ${currentUser.sobrenome || ''}`.trim();
+            if (adminMenu && currentUser.perfil === 'admin') {
+                adminMenu.classList.remove('hidden');
+            }
+            if (btnGerenciarUsuariosGerente && currentUser.perfil === 'gerente') {
+                btnGerenciarUsuariosGerente.classList.remove('hidden');
+            }
 
-            if (adminMenu && currentUser.perfil === 'admin') {
-                adminMenu.classList.remove('hidden');
-            }
-        } catch (error) {
-            console.error("Erro ao carregar dados do usuário, redirecionando para login.", error);
-            window.location.href = '/login';
-        }
-    }
+        } catch (error) {
+            console.error("Erro ao carregar dados do usuário, redirecionando para login.", error);
+            window.location.href = '/login';
+        }
+    }
+    
 
-    async function logout() {
-        try {
-            await fetch('/api/auth/logout', { method: 'POST' });
-        } catch (error) {
-            console.error('Logout failed:', error);
-        } finally {
-            window.location.href = '/login';
-        }
-    }
+    async function logout() {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+        } catch (error) {
+            console.error('Logout failed:', error);
+        } finally {
+            window.location.href = '/login';
+        }
+    }
 
-     
-      function popularDropdown(selectId, data, placeholder) {
+    
+    function popularDropdown(selectId, data, placeholder) {
         const select = document.getElementById(selectId);
         if (!select) return;
         select.innerHTML = `<option value="">-- ${placeholder} --</option>`;
@@ -478,73 +741,84 @@ formMinhaConta?.addEventListener('submit', async (e) => {
             });
         }
     }
-      async function handleAreaChange(areaSelectElement, tipoSelectId, prioridadeSelectId, grupoSelectId, alertaSelectId) {
-        const areaId = areaSelectElement.value;
+    async function handleAreaChange(areaSelectElement, tipoSelectId, prioridadeSelectId, grupoSelectId, alertaSelectId, deleteButtonId) {
+    const areaId = areaSelectElement.value;
     
-        const tipoSelect = document.getElementById(tipoSelectId);
-        const prioridadeSelect = document.getElementById(prioridadeSelectId);
-        const grupoSelect = document.getElementById(grupoSelectId);
-        const alertaSelect = document.getElementById(alertaSelectId);
-    
-        // Mapeia os selects e seus placeholders
-        const selects = [
-            { element: tipoSelect, placeholder: 'Selecione uma Área' },
-            { element: prioridadeSelect, placeholder: 'Selecione uma Área' },
-            { element: grupoSelect, placeholder: 'Selecione uma Área' },
-            { element: alertaSelect, placeholder: 'Selecione uma Área' },
-        ];
-    
-        // Reseta e desabilita todos os selects filhos
+    // NOVO: Pega o botão de deletar pelo ID fornecido
+    const deleteButton = document.getElementById(deleteButtonId); 
+
+    const tipoSelect = document.getElementById(tipoSelectId);
+    const prioridadeSelect = document.getElementById(prioridadeSelectId);
+    const grupoSelect = document.getElementById(grupoSelectId);
+    const alertaSelect = document.getElementById(alertaSelectId);
+
+    const selects = [
+        { element: tipoSelect, placeholder: 'Selecione uma Área' },
+        { element: prioridadeSelect, placeholder: 'Selecione uma Área' },
+        { element: grupoSelect, placeholder: 'Selecione uma Área' },
+        { element: alertaSelect, placeholder: 'Selecione uma Área' },
+    ];
+
+    selects.forEach(s => {
+        if (s.element) {
+            popularDropdown(s.element.id, [], s.placeholder);
+            s.element.disabled = true;
+        }
+    });
+
+    // NOVO: Desabilita o botão de deletar se nenhuma área estiver selecionada
+    if(deleteButton) {
+        deleteButton.disabled = true;
+    }
+
+    if (areaId) {
         selects.forEach(s => {
-            if (s.element) {
-                popularDropdown(s.element.id, [], s.placeholder);
-                s.element.disabled = true;
-            }
+            if (s.element) s.element.innerHTML = '<option value="">Carregando...</option>';
         });
-    
-        if (areaId) {
-            selects.forEach(s => {
-                if (s.element) s.element.innerHTML = '<option value="">Carregando...</option>';
-            });
-            
-            try {
-                const [tiposRes, prioridadesRes, gruposRes, alertasRes] = await Promise.all([
-                    fetch(`/api/tickets/options/areas/${areaId}/tipos`),
-                    fetch(`/api/tickets/options/areas/${areaId}/prioridades`),
-                    fetch(`/api/tickets/options/areas/${areaId}/grupos`),
-                    fetch(`/api/tickets/options/areas/${areaId}/alertas`)
-                ]);
-    
-                if (!tiposRes.ok || !prioridadesRes.ok || !gruposRes.ok || !alertasRes.ok) {
-                    throw new Error('Falha ao buscar dados dependentes da área.');
-                }
-                
-                const [tipos, prioridades, grupos, alertas] = await Promise.all([
-                    tiposRes.json(),
-                    prioridadesRes.json(),
-                    gruposRes.json(),
-                    alertasRes.json()
-                ]);
+        
+        try {
+            const [tiposRes, prioridadesRes, gruposRes, alertasRes] = await Promise.all([
+                fetch(`/api/tickets/options/areas/${areaId}/tipos`),
+                fetch(`/api/tickets/options/areas/${areaId}/prioridades`),
+                fetch(`/api/tickets/options/areas/${areaId}/grupos`),
+                fetch(`/api/tickets/options/areas/${areaId}/alertas`)
+            ]);
 
-                currentAlertsList = alertas;
-
-                popularDropdown(tipoSelectId, tipos, 'Selecione o Tipo');
-                popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
-                popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
-                popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
-                selects.forEach(s => {
-                    if (s.element) s.element.disabled = false;
-                });
-    
-            } catch (error) {
-                console.error("Erro ao carregar dados da área:", error);
-                selects.forEach(s => {
-                    if (s.element) popularDropdown(s.element.id, [], 'Erro ao carregar');
-                });
+            if (!tiposRes.ok || !prioridadesRes.ok || !gruposRes.ok || !alertasRes.ok) {
+                throw new Error('Falha ao buscar dados dependentes da área.');
             }
+            
+            const [tipos, prioridades, grupos, alertas] = await Promise.all([
+                tiposRes.json(),
+                prioridadesRes.json(),
+                gruposRes.json(),
+                alertasRes.json()
+            ]);
+
+            currentAlertsList = alertas;
+
+            popularDropdown(tipoSelectId, tipos, 'Selecione o Tipo');
+            popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
+            popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
+            popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
+            selects.forEach(s => {
+                if (s.element) s.element.disabled = false;
+            });
+
+            // NOVO: Habilita o botão de deletar pois os alertas foram carregados
+            if(deleteButton) {
+                deleteButton.disabled = false;
+            }
+
+        } catch (error) {
+            console.error("Erro ao carregar dados da área:", error);
+            selects.forEach(s => {
+                if (s.element) popularDropdown(s.element.id, [], 'Erro ao carregar');
+            });
         }
     }
-       async function popularDropdownsTicket() {
+}
+        async function popularDropdownsTicket() {
         const fetchAndPopulate = async (selectId, url, placeholder) => {
             try {
                 const response = await fetch(url);
@@ -562,126 +836,192 @@ formMinhaConta?.addEventListener('submit', async (e) => {
     }
 
 
-    async function carregarInfoCards() {
-        try {
-            const response = await fetch('/api/tickets/cards-info');
-            if (!response.ok) throw new Error('Falha ao carregar cards');
-            const data = await response.json();
-            document.getElementById('card-total').textContent = data.total;
-            document.getElementById('card-abertos').textContent = data.abertos;
-            document.getElementById('card-resolvidos').textContent = data.resolvidos;
-            document.getElementById('card-aprovacao').textContent = data.aprovacao;
-            document.getElementById('card-encerrados').textContent = data.encerrados;
-        } catch (error) {
-            console.error("Erro ao carregar info dos cards:", error);
-        }
-    }
-    
-   async function carregarTickets(pagina = 1) {
-        paginaAtual = pagina;
-        const porPagina = document.getElementById('qtdPorPagina')?.value || 20;
-        const criterio = document.getElementById('ordenarPor')?.value || 'id_desc';
-        try {
-            const response = await fetch(`/api/tickets?pagina=${paginaAtual}&limite=${porPagina}&ordenar=${criterio}`);
-            if (!response.ok) throw new Error('Falha ao carregar tickets');
-            const dados = await response.json();
-            renderTable(dados.tickets);
-            atualizarPaginacao(dados.total, dados.pagina, porPagina);
-        } catch (error) {
-            console.error("Erro em carregarTickets:", error);
-            const tbody = ticketsTable?.querySelector('tbody');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-500 p-4">Erro ao carregar dados. Verifique o console.</td></tr>`;
-        }
-    }
-
-    function atualizarPaginacao(total, pagina, porPagina) {
-        const container = document.getElementById('paginacao');
-        if (!container) return;
-        container.innerHTML = '';
-        const totalPaginas = Math.ceil(total / porPagina);
-
-        if (totalPaginas <= 1) return; 
-
-        for (let i = 1; i <= totalPaginas; i++) {
-            const btn = document.createElement('button');
-            btn.textContent = i;
-            btn.className = 'border px-3 py-1 rounded-md mx-1 text-sm ' + (i === pagina ? 'bg-blue-600 text-white font-bold' : 'bg-white hover:bg-gray-100');
-            btn.onclick = () => carregarTickets(i);
-            container.appendChild(btn);
-        }
-    }
-
-  async function abrirModalEditar(ticketId) {
-        pastedFileEdit = null;
-        const preview = document.getElementById('paste-preview-edit');
-        if(preview) preview.innerHTML = '';
-
+    async function carregarInfoCards() {
         try {
-            const response = await fetch(`/api/tickets/${ticketId}`);
-            if (!response.ok) throw new Error('Ticket não encontrado');
-            const ticket = await response.json();
-
-            const formatForInput = (dateString) => {
-                if (!dateString) return '';
-                const date = new Date(dateString);
-                date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-                return date.toISOString().slice(0, 16);
-            };
-            
-            document.getElementById('edit-ticket-id').value = ticket.id;
-            document.getElementById('edit-ticket-status').value = ticket.status;
-            document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-            document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
-            document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
-            document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
-            
-            const linkContainer = document.getElementById('current-attachment-container');
-            const linkSpan = document.getElementById('current-attachment-link');
-            const removeAnexoInput = document.getElementById('edit-remove-anexo');
-            removeAnexoInput.value = '0';
-            linkContainer.classList.add('hidden');
-            if (ticket.anexo_path) {
-                const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
-                linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
-                linkContainer.classList.remove('hidden');
-            }
-
-            const areaSelect = document.getElementById('edit-ticket-area');
-            areaSelect.value = ticket.area_id;
-
-            await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
-        
-            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
-            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id; 
-            document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
-            document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
-
-            const deleteButton = document.getElementById('btn-delete-ticket');
-            if (deleteButton) {
-                if (currentUser && currentUser.perfil === 'admin') {
-                    deleteButton.classList.remove('hidden');
-                } else {
-                    deleteButton.classList.add('hidden');
-                }
-            }
-            
-            toggleModal('modalEditarTicket', true);
+            const response = await fetch('/api/tickets/cards-info');
+            if (!response.ok) throw new Error('Falha ao carregar cards');
+            const data = await response.json();
+            document.getElementById('card-total').textContent = data.total;
+            document.getElementById('card-abertos').textContent = data.abertos;
+            document.getElementById('card-resolvidos').textContent = data.resolvidos;
+            document.getElementById('card-aprovacao').textContent = data.aprovacao;
+            document.getElementById('card-encerrados').textContent = data.encerrados;
         } catch (error) {
-            console.error("Erro ao abrir modal de edição:", error);
-            showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
+            console.error("Erro ao carregar info dos cards:", error);
+        }
+    }
+    
+    async function carregarTickets(pagina = 1) {
+        paginaAtual = pagina;
+        const porPagina = document.getElementById('qtdPorPagina')?.value || 20;
+        const criterio = document.getElementById('ordenarPor')?.value || 'id_desc';
+        try {
+            const response = await fetch(`/api/tickets?pagina=${paginaAtual}&limite=${porPagina}&ordenar=${criterio}`);
+            if (!response.ok) throw new Error('Falha ao carregar tickets');
+            const dados = await response.json();
+            renderTable(dados.tickets);
+            atualizarPaginacao(dados.total, dados.pagina, porPagina);
+        } catch (error) {
+            console.error("Erro em carregarTickets:", error);
+            const tbody = ticketsTable?.querySelector('tbody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-500 p-4">Erro ao carregar dados. Verifique o console.</td></tr>`;
         }
     }
 
-  
+    function atualizarPaginacao(total, pagina, porPagina) {
+        const container = document.getElementById('paginacao');
+        if (!container) return;
+        container.innerHTML = '';
+        const totalPaginas = Math.ceil(total / porPagina);
+
+        if (totalPaginas <= 1) return; 
+
+        // Botão Anterior
+        const btnPrev = document.createElement('button');
+        btnPrev.innerHTML = '&laquo;';
+        btnPrev.className = 'border px-3 py-1 rounded-md mx-1 text-sm bg-white hover:bg-gray-100';
+        btnPrev.disabled = pagina === 1;
+        btnPrev.onclick = () => carregarTickets(pagina - 1);
+        container.appendChild(btnPrev);
+    
+        for (let i = 1; i <= totalPaginas; i++) {
+            if (i === 1 || i === totalPaginas || (i >= pagina - 2 && i <= pagina + 2)) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = 'border px-3 py-1 rounded-md mx-1 text-sm ' + (i === pagina ? 'bg-blue-600 text-white font-bold' : 'bg-white hover:bg-gray-100');
+                btn.onclick = () => carregarTickets(i);
+                container.appendChild(btn);
+            } else if (i === pagina - 3 || i === pagina + 3) {
+                const span = document.createElement('span');
+                span.textContent = '...';
+                span.className = 'px-3 py-1';
+                container.appendChild(span);
+            }
+        }
+    
+        // Botão Próximo
+        const btnNext = document.createElement('button');
+        btnNext.innerHTML = '&raquo;';
+        btnNext.className = 'border px-3 py-1 rounded-md mx-1 text-sm bg-white hover:bg-gray-100';
+        btnNext.disabled = pagina === totalPaginas;
+        btnNext.onclick = () => carregarTickets(pagina + 1);
+        container.appendChild(btnNext);
+    }
+
+    
+    function criarSeletorItensPorPagina() {
+        const container = document.getElementById('items-por-pagina-container');
+        if (!container) return;
+
+        container.innerHTML = `
+            <label for="qtdPorPagina" class="text-sm font-medium">Itens por pág:</label>
+            <select id="qtdPorPagina" class="border rounded px-2 py-1 bg-white text-sm">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        `;
+
+        // Adiciona o event listener ao novo elemento
+        document.getElementById('qtdPorPagina').addEventListener('change', () => carregarTickets(1));
+    }
+
+
+   async function abrirModalEditar(ticketId) {
+    // Limpeza inicial do formulário
+    pastedFileEdit = null;
+    const preview = document.getElementById('paste-preview-edit');
+    if (preview) preview.innerHTML = '';
+    document.getElementById('formEditarTicket').reset();
+
+    try {
+        // Mostra uma mensagem de "carregando" nos comentários imediatamente
+        const commentsContainer = document.getElementById('comments-list-container');
+        if(commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-gray-500">Carregando comentários...</p>';
+
+        // Abre o modal para o usuário ver que algo está acontecendo
+        toggleModal('modalEditarTicket', true);
+
+        // Busca os dados do ticket E os comentários em paralelo para mais eficiência
+        const [ticketResponse, commentsResponse] = await Promise.all([
+            fetch(`/api/tickets/${ticketId}`),
+            fetch(`/api/tickets/${ticketId}/comments`)
+        ]);
+
+        if (!ticketResponse.ok) {
+            throw new Error('Ticket não encontrado');
+        }
+        const ticket = await ticketResponse.json();
+
+        // Função interna para formatar datas
+        const formatForInput = (dateString) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+            return date.toISOString().slice(0, 16);
+        };
+        
+        // Popula todos os campos do formulário com os dados do ticket
+        document.getElementById('edit-ticket-id').value = ticket.id;
+        document.getElementById('edit-ticket-status').value = ticket.status;
+        document.getElementById('edit-ticket-descricao').value = ticket.descricao;
+        document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
+        document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
+        document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
+        
+        // Lógica para mostrar o anexo atual
+        const linkContainer = document.getElementById('current-attachment-container');
+        const linkSpan = document.getElementById('current-attachment-link');
+        const removeAnexoInput = document.getElementById('edit-remove-anexo');
+        removeAnexoInput.value = '0';
+        linkContainer.classList.add('hidden');
+        if (ticket.anexo_path) {
+            const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
+            linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
+            linkContainer.classList.remove('hidden');
+        }
+
+        const areaSelect = document.getElementById('edit-ticket-area');
+        areaSelect.value = ticket.area_id;
+        await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
+    
+        document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
+        document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id; 
+        document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
+        document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
+
+        const deleteButton = document.getElementById('btn-delete-ticket');
+        if (deleteButton) {
+            deleteButton.classList.toggle('hidden', !(currentUser && currentUser.perfil === 'admin'));
+        }
+    
+        if (commentsResponse.ok) {
+            const comments = await commentsResponse.json();
+            renderComments(comments);
+        } else {
+             if(commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-red-500">Erro ao carregar comentários.</p>';
+        }
+        
+    } catch (error) {
+        // Se qualquer coisa der errado, fecha o modal e mostra o erro
+        toggleModal('modalEditarTicket', false);
+        console.error("Erro ao abrir modal de edição:", error);
+        showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
+    }
+}
+
+ 
     document.getElementById('ticket-area')?.addEventListener('change', (event) => {
-    handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
+    handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta', 'btn-delete-alerta-selecionado');
 });
 
 document.getElementById('edit-ticket-area')?.addEventListener('change', (event) => {
-    handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
+    handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta', 'btn-delete-alerta-edit'); 
 });
- document.getElementById('btn-cancel-create')?.addEventListener('click', () => {
-        formAbrirTicket.reset(); // Limpa todos os campos do formulário
+
+    document.getElementById('btn-cancel-create')?.addEventListener('click', () => {
+        formAbrirTicket.reset(); 
         
         ['ticket-grupo', 'ticket-alerta', 'ticket-tipo', 'ticket-prioridade'].forEach(id => {
             const select = document.getElementById(id);
@@ -699,203 +1039,337 @@ document.getElementById('edit-ticket-area')?.addEventListener('change', (event) 
     });
 
     document.getElementById('btn-cancel-edit')?.addEventListener('click', () => {
-  
+ 
         toggleModal('modalEditarTicket', false);
     });
 
-    document.getElementById('logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
-    document.getElementById('logout-menu-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
-    document.getElementById('confirm-logout-button')?.addEventListener('click', logout);
-    document.getElementById('cancel-logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', false));
+    document.getElementById('logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
+    document.getElementById('logout-menu-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', true));
+    document.getElementById('confirm-logout-button')?.addEventListener('click', logout);
+    document.getElementById('cancel-logout-button')?.addEventListener('click', () => toggleModal('modalConfirmarLogout', false));
 
     const btnShowAddAlerta = document.getElementById('btn-show-add-alerta');
-const addAlertaContainer = document.getElementById('add-alerta-container');
-const inputNewAlerta = document.getElementById('input-new-alerta');
-const btnCancelAddAlerta = document.getElementById('btn-cancel-add-alerta');
-const btnSaveNewAlerta = document.getElementById('btn-save-new-alerta');
-const suggestionsList = document.getElementById('alerta-suggestions-list');
-
-// Mostrar o campo de input
-btnShowAddAlerta?.addEventListener('click', () => {
-    addAlertaContainer.classList.remove('hidden');
-    btnShowAddAlerta.classList.add('hidden');
-    inputNewAlerta.focus();
-});
-
-// Esconder e limpar o campo
-const resetAddAlertaForm = () => {
-    addAlertaContainer.classList.add('hidden');
-    btnShowAddAlerta.classList.remove('hidden');
-    inputNewAlerta.value = '';
-    suggestionsList.innerHTML = '';
-    btnSaveNewAlerta.disabled = false;
-};
-btnCancelAddAlerta?.addEventListener('click', resetAddAlertaForm);
-
-// Lógica de autocompletar e verificação de duplicados
-inputNewAlerta?.addEventListener('input', () => {
-    const query = inputNewAlerta.value.trim().toLowerCase();
-    suggestionsList.innerHTML = '';
-    btnSaveNewAlerta.disabled = false;
-
-    if (!query) return;
-
-    // Verifica se já existe um alerta EXATAMENTE com esse nome
-    const exactMatch = currentAlertsList.find(alerta => alerta.nome.toLowerCase() === query);
-    if (exactMatch) {
-        suggestionsList.innerHTML = `<span class="text-red-600 font-bold">Este alerta já existe.</span>`;
-        btnSaveNewAlerta.disabled = true;
-        return;
-    }
-
-    // Mostra sugestões parecidas
-    const similarMatches = currentAlertsList.filter(alerta => alerta.nome.toLowerCase().includes(query));
-    if (similarMatches.length > 0) {
-        suggestionsList.innerHTML = 'Sugestões: ' + similarMatches.map(alerta => `<span>${alerta.nome}</span>`).join(', ');
-    } else {
-        suggestionsList.innerHTML = '<span class="text-green-600">Nome de alerta disponível!</span>';
-    }
-});
-
-// Lógica para salvar o novo alerta
-btnSaveNewAlerta?.addEventListener('click', async () => {
-    const nomeNovoAlerta = inputNewAlerta.value.trim();
-    const areaSelect = document.getElementById('ticket-area');
-    const areaId = areaSelect.value;
-
-    if (!nomeNovoAlerta || !areaId) {
-        showStatusModal('Erro!', 'O nome do novo alerta e a área são obrigatórios.', true);
-        return;
-    }
+    const addAlertaContainer = document.getElementById('add-alerta-container');
+    const inputNewAlerta = document.getElementById('input-new-alerta');
+    const btnCancelAddAlerta = document.getElementById('btn-cancel-add-alerta');
+    const btnSaveNewAlerta = document.getElementById('btn-save-new-alerta');
+    const suggestionsList = document.getElementById('alerta-suggestions-list'); 
+    const btnDeleteAlerta = document.getElementById('btn-delete-alerta-selecionado');
     
-    btnSaveNewAlerta.disabled = true;
-    btnSaveNewAlerta.textContent = 'Salvando...';
+function setupAutocomplete(inputId, suggestionsContainerId) {
+    const input = document.getElementById(inputId);
+    const suggestionsContainer = document.getElementById(suggestionsContainerId);
+    const btnSaveNewAlerta = document.getElementById('btn-save-new-alerta');
 
-    try {
-        const response = await fetch(`/api/tickets/options/areas/${areaId}/alertas`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome: nomeNovoAlerta })
-        });
-        const result = await response.json();
+    if (!input || !suggestionsContainer) return;
 
-        if (!response.ok) {
-            throw new Error(result.message || 'Falha ao salvar o alerta.');
+    input.addEventListener('input', () => {
+        const query = input.value.trim().toLowerCase();
+        suggestionsContainer.innerHTML = ''; // Limpa sugestões anteriores
+        if (btnSaveNewAlerta) btnSaveNewAlerta.disabled = false;
+
+        if (!query) return;
+
+        // Verifica se o nome já existe exatamente
+        const exactMatch = currentAlertsList.find(alerta => alerta.nome.toLowerCase() === query);
+        if (exactMatch) {
+            const feedback = document.createElement('div');
+            feedback.className = 'p-2 text-sm text-red-600 font-bold';
+            feedback.textContent = 'Este alerta já existe.';
+            suggestionsContainer.appendChild(feedback);
+            if (btnSaveNewAlerta) btnSaveNewAlerta.disabled = true;
+            return;
         }
 
-        const { novoAlerta } = result;
-
-        // Adiciona a nova opção no seletor principal e a seleciona
-        const alertaSelect = document.getElementById('ticket-alerta');
-        const newOption = new Option(novoAlerta.nome, novoAlerta.id, true, true);
-        alertaSelect.add(newOption);
-        
-        // Atualiza a nossa lista de cache
-        currentAlertsList.push(novoAlerta);
-        
-        resetAddAlertaForm();
-
-    } catch (error) {
-        showStatusModal('Erro!', error.message, true);
-    } finally {
-        btnSaveNewAlerta.disabled = false;
-        btnSaveNewAlerta.textContent = 'Salvar';
-    }
-});
-    if (adminMenu) {
-        const button = adminMenu.querySelector('[data-menu-button]');
-        const content = adminMenu.querySelector('[data-menu-content]');
-        const arrow = button.querySelector('svg');
-        button?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            content.classList.toggle('hidden');
-            arrow.classList.toggle('rotate-180');
-        });
-    }
-
-  if (formCriarArea) { 
-    formCriarArea.addEventListener('submit', async (event) => { 
-        event.preventDefault();
-        const nome = formCriarArea.querySelector('input[name="area_name"]').value; 
-        try {
-            const response = await fetch('/api/tickets/options/areas', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nome }), 
+        // Filtra por nomes parecidos e cria as opções clicáveis
+        const similarMatches = currentAlertsList.filter(alerta => alerta.nome.toLowerCase().includes(query));
+        if (similarMatches.length > 0) {
+            similarMatches.forEach(alerta => {
+                const option = document.createElement('div');
+                option.className = 'p-2 text-sm cursor-pointer hover:bg-blue-100';
+                option.textContent = alerta.nome;
+                option.addEventListener('click', () => {
+                    input.value = alerta.nome;
+                    suggestionsContainer.innerHTML = ''; // Limpa as sugestões após a seleção
+                });
+                suggestionsContainer.appendChild(option);
             });
-            const result = await response.json();
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false);
-                toggleModal('modalCriarArea', false);
-                formCriarArea.reset(); 
-                popularDropdownsTicket(); 
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
+        } else {
+             const feedback = document.createElement('div');
+             feedback.className = 'p-2 text-sm text-green-600';
+             feedback.textContent = 'Nome de alerta disponível!';
+             suggestionsContainer.appendChild(feedback);
         }
     });
 }
-    
-    if (formCriarUsuario) {
-        const selectPerfil = document.getElementById('selectPerfil');
-        selectPerfil?.addEventListener('change', () => {
-            const perfil = selectPerfil.value;
-            document.getElementById('campos-user').classList.toggle('hidden', perfil !== 'user');
-            document.getElementById('campos-support').classList.toggle('hidden', perfil !== 'support' && perfil !== 'admin');
-            document.getElementById('botao-salvar-container').classList.toggle('hidden', !perfil);
-        });
+function handleDeleteAlerta(selectId, areaSelectId) {
+    const selectElement = document.getElementById(selectId);
+    const areaSelectElement = document.getElementById(areaSelectId);
+    
+    const selectedId = selectElement.value;
 
-        formCriarUsuario.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const perfil = formCriarUsuario.querySelector('#selectPerfil').value;
-            let data = { perfil };
-            let emailInput;
+    if (!selectedId) {
+        showStatusModal('Atenção!', 'Por favor, selecione um alerta da lista para excluir.', true);
+        return;
+    }
+    
+    // Armazena o ID do alerta e a referência ao dropdown de área para poder recarregá-lo depois
+    alertaIdToDelete = { id: selectedId, areaSelect: areaSelectElement };
+    toggleModal('modalConfirmarDeleteAlerta', true);
+}
 
-            if (perfil === 'user') {
-                data.nome = formCriarUsuario.querySelector('input[name="nome_user"]').value;
-                data.sobrenome = formCriarUsuario.querySelector('input[name="sobrenome_user"]').value;
-                data.login = formCriarUsuario.querySelector('input[name="login_user"]').value;
-                data.telefone = formCriarUsuario.querySelector('input[name="telefone_user"]').value;
-                data.area_id = formCriarUsuario.querySelector('#selectArea').value;
-                emailInput = data.login;
-            } else if (perfil === 'support' || perfil === 'admin') {
-                data.nome = formCriarUsuario.querySelector('input[name="nome_support"]').value;
-                data.sobrenome = formCriarUsuario.querySelector('input[name="sobrenome_support"]').value;
-                data.login = formCriarUsuario.querySelector('input[name="login_support"]').value;
-                emailInput = data.login;
-            }
+// NOVO: Event listener para o botão de Excluir Alerta (no modal de criar ticket)
+document.getElementById('btn-delete-alerta-selecionado')?.addEventListener('click', () => {
+    handleDeleteAlerta('ticket-alerta', 'ticket-area');
+});
 
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailInput || !emailRegex.test(emailInput)) {
-                return showStatusModal('Erro de Validação', 'Por favor, insira um formato de e-mail válido.', true);
-            }
-           if (perfil === 'user' && !data.area_id) {
-                return showStatusModal('Erro de Validação', 'Por favor, selecione uma área.', true);
-            }
+// NOVO: Event listener para o botão de CANCELAR no modal de confirmação
+document.getElementById('btn-cancel-delete-alerta')?.addEventListener('click', () => {
+    alertaIdToDelete = null;
+    toggleModal('modalConfirmarDeleteAlerta', false);
+});
 
-            try {
-                const response = await fetch('/api/users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    showStatusModal('Sucesso!', result.message, false);
-                    toggleModal('modalCriarUsuario', false);
-                    formCriarUsuario.reset();
-                    selectPerfil.dispatchEvent(new Event('change'));
-                } else {
-                    showStatusModal('Erro!', result.message, true);
-                }
-            } catch (error) {
-                showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
-            }
-        });
-    }
- const btnCancelCreateUser = document.getElementById('btn-cancel-create-user');
+// NOVO: Event listener para o botão de CONFIRMAR a exclusão do alerta
+document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', async () => {
+    if (!alertaIdToDelete) return;
+
+    try {
+        const response = await fetch(`/api/tickets/options/alertas/${alertaIdToDelete.id}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        toggleModal('modalConfirmarDeleteAlerta', false);
+        
+        if (response.ok) {
+            showStatusModal('Sucesso!', result.message, false);
+            // Força a recarga da lista de alertas para a área atual para refletir a exclusão
+            handleAreaChange(
+                alertaIdToDelete.areaSelect, 
+                'ticket-tipo', 
+                'ticket-prioridade', 
+                'ticket-grupo', 
+                'ticket-alerta', 
+                'btn-delete-alerta-selecionado'
+            );
+        } else {
+            showStatusModal('Erro!', result.message, true);
+        }
+
+    } catch (error) {
+        toggleModal('modalConfirmarDeleteAlerta', false);
+        showStatusModal('Erro de Conexão', 'Não foi possível deletar o alerta.', true);
+    } finally {
+        alertaIdToDelete = null; // Limpa a variável de controle
+    }
+});
+
+// MODIFICADO: O Event Listener do botão "+ Adicionar" agora chama a função de autocomplete
+document.getElementById('btn-show-add-alerta')?.addEventListener('click', () => {
+    const addAlertaContainer = document.getElementById('add-alerta-container');
+    const inputNewAlerta = document.getElementById('input-new-alerta');
+    
+    addAlertaContainer.classList.remove('hidden');
+    document.getElementById('btn-show-add-alerta').classList.add('hidden');
+    inputNewAlerta.focus();
+    setupAutocomplete('input-new-alerta', 'alerta-suggestions-list'); // Ativa o autocomplete
+});
+    // Mostrar o campo de input
+    btnShowAddAlerta?.addEventListener('click', () => {
+        addAlertaContainer.classList.remove('hidden');
+        btnShowAddAlerta.classList.add('hidden');
+        inputNewAlerta.focus();
+    });
+
+    // Esconder e limpar o campo
+    const resetAddAlertaForm = () => {
+        addAlertaContainer.classList.add('hidden');
+        btnShowAddAlerta.classList.remove('hidden');
+        inputNewAlerta.value = '';
+        suggestionsList.innerHTML = '';
+        btnSaveNewAlerta.disabled = false;
+    };
+    btnCancelAddAlerta?.addEventListener('click', resetAddAlertaForm);
+
+    // Lógica de autocompletar e verificação de duplicados
+    inputNewAlerta?.addEventListener('input', () => {
+        const query = inputNewAlerta.value.trim().toLowerCase();
+        suggestionsList.innerHTML = '';
+        btnSaveNewAlerta.disabled = false;
+
+        if (!query) return;
+
+        // Verifica se já existe um alerta EXATAMENTE com esse nome
+        const exactMatch = currentAlertsList.find(alerta => alerta.nome.toLowerCase() === query);
+        if (exactMatch) {
+            suggestionsList.innerHTML = `<span class="text-red-600 font-bold">Este alerta já existe.</span>`;
+            btnSaveNewAlerta.disabled = true;
+            return;
+        }
+
+        // Mostra sugestões parecidas
+        const similarMatches = currentAlertsList.filter(alerta => alerta.nome.toLowerCase().includes(query));
+        if (similarMatches.length > 0) {
+            suggestionsList.innerHTML = 'Sugestões: ' + similarMatches.map(alerta => `<span>${alerta.nome}</span>`).join(', ');
+        } else {
+            suggestionsList.innerHTML = '<span class="text-green-600">Nome de alerta disponível!</span>';
+        }
+    });
+
+    // Lógica para salvar o novo alerta
+    btnSaveNewAlerta?.addEventListener('click', async () => {
+        const nomeNovoAlerta = inputNewAlerta.value.trim();
+        const areaSelect = document.getElementById('ticket-area');
+        const areaId = areaSelect.value;
+
+        if (!nomeNovoAlerta || !areaId) {
+            showStatusModal('Erro!', 'O nome do novo alerta e a área são obrigatórios.', true);
+            return;
+        }
+        
+        btnSaveNewAlerta.disabled = true;
+        btnSaveNewAlerta.textContent = 'Salvando...';
+
+        try {
+            const response = await fetch(`/api/tickets/options/areas/${areaId}/alertas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome: nomeNovoAlerta })
+            });
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Falha ao salvar o alerta.');
+            }
+
+            const { novoAlerta } = result;
+
+            // Adiciona a nova opção no seletor principal e a seleciona
+            const alertaSelect = document.getElementById('ticket-alerta');
+            const newOption = new Option(novoAlerta.nome, novoAlerta.id, true, true);
+            alertaSelect.add(newOption);
+            
+            // Atualiza a nossa lista de cache
+            currentAlertsList.push(novoAlerta);
+            
+            resetAddAlertaForm();
+
+        } catch (error) {
+            showStatusModal('Erro!', error.message, true);
+        } finally {
+            btnSaveNewAlerta.disabled = false;
+            btnSaveNewAlerta.textContent = 'Salvar';
+        }
+    });
+
+    if (adminMenu) {
+        const button = adminMenu.querySelector('[data-menu-button]');
+        const content = adminMenu.querySelector('[data-menu-content]');
+        const arrow = button.querySelector('svg');
+        button?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            content.classList.toggle('hidden');
+            arrow.classList.toggle('rotate-180');
+        });
+    }
+
+    if (formCriarArea) { 
+        formCriarArea.addEventListener('submit', async (event) => { 
+            event.preventDefault();
+            const nome = formCriarArea.querySelector('input[name="area_name"]').value; 
+            try {
+                const response = await fetch('/api/tickets/options/areas', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome }), 
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showStatusModal('Sucesso!', result.message, false);
+                    toggleModal('modalCriarArea', false);
+                    formCriarArea.reset(); 
+                    popularDropdownsTicket(); 
+                } else {
+                    showStatusModal('Erro!', result.message, true);
+                }
+            } catch (error) {
+                showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
+            }
+        });
+    }
+    
+    if (formCriarUsuario) {
+        const selectPerfil = document.getElementById('selectPerfil');
+       selectPerfil?.addEventListener('change', async () => { // Adicionado 'async'
+    const perfil = selectPerfil.value;
+    const areaContainer = document.getElementById('container-selecao-area');
+    const areaCheckboxContainer = document.getElementById('area-checkbox-container');
+
+    // Lógica dos campos de nome/telefone
+    document.getElementById('campos-user').classList.toggle('hidden', perfil !== 'user');
+    document.getElementById('campos-support').classList.toggle('hidden', perfil !== 'support' && perfil !== 'admin' && perfil !== 'gerente');
+
+    // Lógica para o container de Áreas
+    if (areaContainer) {
+        areaContainer.classList.toggle('hidden', !perfil); // Mostra se qualquer perfil for selecionado
+        if (perfil && areaCheckboxContainer) {
+            areaCheckboxContainer.innerHTML = 'Carregando áreas...';
+            const allAreas = await getAreasList(); // Busca a lista de áreas
+            createAreaCheckboxes(areaCheckboxContainer, allAreas, []); // Cria os checkboxes
+        }
+    }
+
+    document.getElementById('botao-salvar-container').classList.toggle('hidden', !perfil);
+});
+
+        formCriarUsuario.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const perfil = formCriarUsuario.querySelector('#selectPerfil').value;
+            let data = { perfil };
+            let emailInput;
+
+            if (perfil === 'user') {
+                data.nome = formCriarUsuario.querySelector('input[name="nome_user"]').value;
+                data.sobrenome = formCriarUsuario.querySelector('input[name="sobrenome_user"]').value;
+                data.login = formCriarUsuario.querySelector('input[name="login_user"]').value;
+                data.telefone = formCriarUsuario.querySelector('input[name="telefone_user"]').value;
+                data.area_id = formCriarUsuario.querySelector('#selectArea').value;
+                emailInput = data.login;
+            } else if (perfil === 'support' || perfil === 'admin') {
+                data.nome = formCriarUsuario.querySelector('input[name="nome_support"]').value;
+                data.sobrenome = formCriarUsuario.querySelector('input[name="sobrenome_support"]').value;
+                data.login = formCriarUsuario.querySelector('input[name="login_support"]').value;
+                emailInput = data.login;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailInput || !emailRegex.test(emailInput)) {
+                return showStatusModal('Erro de Validação', 'Por favor, insira um formato de e-mail válido.', true);
+            }
+           if (perfil === 'user' && !data.area_id) {
+                return showStatusModal('Erro de Validação', 'Por favor, selecione uma área.', true);
+            }
+
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showStatusModal('Sucesso!', result.message, false);
+                    toggleModal('modalCriarUsuario', false);
+                    formCriarUsuario.reset();
+                    selectPerfil.dispatchEvent(new Event('change'));
+                } else {
+                    showStatusModal('Erro!', result.message, true);
+                }
+            } catch (error) {
+                showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
+            }
+        });
+    }
+    const btnCancelCreateUser = document.getElementById('btn-cancel-create-user');
     if (btnCancelCreateUser) {
         btnCancelCreateUser.addEventListener('click', () => {
             const formCriarUsuario = document.getElementById('formCriarUsuario');
@@ -914,100 +1388,94 @@ btnSaveNewAlerta?.addEventListener('click', async () => {
         });
     }
 
-    // Eventos de Tickets e Customização
-    btnCustomize?.addEventListener('click', () => {
-        populateCustomizerModal();
-        toggleModal('modalColumnCustomizer', true);
-    });
+    visibilityList?.addEventListener('change', (event) => {
+        if (event.target.type === 'checkbox') {
+            const key = event.target.dataset.key;
+            const column = columnConfig.find(c => c.key === key);
+            if (column) {
+                column.visible = event.target.checked;
+                saveColumnConfig();
+                populateCustomizerModal();
+                carregarTickets(paginaAtual);
+            }
+        }
+    });
 
-    visibilityList?.addEventListener('change', (event) => {
-        if (event.target.type === 'checkbox') {
-            const key = event.target.dataset.key;
-            const column = columnConfig.find(c => c.key === key);
-            if (column) {
-                column.visible = event.target.checked;
-                saveColumnConfig();
-                populateCustomizerModal();
-                carregarTickets(paginaAtual);
-            }
-        }
-    });
+    let draggedItemKey = null;
+    orderList?.addEventListener('dragstart', (event) => {
+        if (event.target.tagName === 'LI') {
+            draggedItemKey = event.target.dataset.key;
+            event.target.classList.add('opacity-50');
+        }
+    });
 
-    let draggedItemKey = null;
-    orderList?.addEventListener('dragstart', (event) => {
-        if (event.target.tagName === 'LI') {
-            draggedItemKey = event.target.dataset.key;
-            event.target.classList.add('opacity-50');
-        }
-    });
+    orderList?.addEventListener('dragover', (event) => { event.preventDefault(); });
 
-    orderList?.addEventListener('dragover', (event) => { event.preventDefault(); });
+    orderList?.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const targetItem = event.target.closest('li');
+        if (!targetItem || !draggedItemKey) return;
+        
+        const droppedOnKey = targetItem.dataset.key;
+        if (draggedItemKey === droppedOnKey) return;
 
-    orderList?.addEventListener('drop', (event) => {
-        event.preventDefault();
-        const targetItem = event.target.closest('li');
-        if (!targetItem || !draggedItemKey) return;
-        
-        const droppedOnKey = targetItem.dataset.key;
-        if (draggedItemKey === droppedOnKey) return;
+        const draggedIndex = columnConfig.findIndex(c => c.key === draggedItemKey);
+        const droppedOnIndex = columnConfig.findIndex(c => c.key === droppedOnKey);
 
-        const draggedIndex = columnConfig.findIndex(c => c.key === draggedItemKey);
-        const droppedOnIndex = columnConfig.findIndex(c => c.key === droppedOnKey);
+        const [draggedItem] = columnConfig.splice(draggedIndex, 1);
+        columnConfig.splice(droppedOnIndex, 0, draggedItem);
+        
+        saveColumnConfig();
+        populateCustomizerModal();
+        carregarTickets(paginaAtual);
+    });
 
-        const [draggedItem] = columnConfig.splice(draggedIndex, 1);
-        columnConfig.splice(droppedOnIndex, 0, draggedItem);
-        
-        saveColumnConfig();
-        populateCustomizerModal();
-        carregarTickets(paginaAtual);
-    });
-
-    orderList?.addEventListener('dragend', (event) => {
-        if (event.target.tagName === 'LI') {
-            event.target.classList.remove('opacity-50');
-        }
-        draggedItemKey = null;
-    });
-    
-    formAbrirTicket?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const formData = new FormData(formAbrirTicket);
+    orderList?.addEventListener('dragend', (event) => {
+        if (event.target.tagName === 'LI') {
+            event.target.classList.remove('opacity-50');
+        }
+        draggedItemKey = null;
+    });
+    
+    formAbrirTicket?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(formAbrirTicket);
 
         const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
         if (pastedFileCreate && (!fileInput.files || fileInput.files.length === 0)) {
             formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
         }
 
-        try {
-            const response = await fetch('/api/tickets', {
-                method: 'POST',
-                body: formData 
-            });
-            const result = await response.json();
-            toggleModal('modalTicket', false);
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false);
-                formAbrirTicket.reset();
-                carregarTickets(); 
-                carregarInfoCards();
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            toggleModal('modalTicket', false);
-            showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
-        } finally {
- 
+        try {
+            const response = await fetch('/api/tickets', {
+                method: 'POST',
+                body: formData 
+            });
+            const result = await response.json();
+            toggleModal('modalTicket', false);
+            if (response.ok) {
+                showStatusModal('Sucesso!', result.message, false);
+                formAbrirTicket.reset();
+                carregarTickets(); 
+                carregarInfoCards();
+            } else {
+                showStatusModal('Erro!', result.message, true);
+            }
+        } catch (error) {
+            toggleModal('modalTicket', false);
+            showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
+        } finally {
+   
             pastedFileCreate = null;
             const preview = document.getElementById('paste-preview-create');
             if(preview) preview.innerHTML = '';
         }
-    });
-    
-    formEditarTicket?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const ticketId = document.getElementById('edit-ticket-id').value;
-        const formData = new FormData(formEditarTicket);
+    });
+    
+    formEditarTicket?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const ticketId = document.getElementById('edit-ticket-id').value;
+        const formData = new FormData(formEditarTicket);
 
         const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
         if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
@@ -1015,82 +1483,78 @@ btnSaveNewAlerta?.addEventListener('click', async () => {
             formData.set('remove_anexo', '0'); 
         }
 
-        try {
-            const response = await fetch(`/api/tickets/${ticketId}`, {
-                method: 'PUT',
-                body: formData
-            });
-            const result = await response.json();
-            toggleModal('modalEditarTicket', false);
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false);
-                carregarTickets(paginaAtual);
-                carregarInfoCards(); 
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            toggleModal('modalEditarTicket', false);
-            showStatusModal('Erro de Conexão', 'Não foi possível salvar as alterações.', true);
-        } finally {
+        try {
+            const response = await fetch(`/api/tickets/${ticketId}`, {
+                method: 'PUT',
+                body: formData
+            });
+            const result = await response.json();
+            toggleModal('modalEditarTicket', false);
+            if (response.ok) {
+                showStatusModal('Sucesso!', result.message, false);
+                carregarTickets(paginaAtual);
+                carregarInfoCards(); 
+            } else {
+                showStatusModal('Erro!', result.message, true);
+            }
+        } catch (error) {
+            toggleModal('modalEditarTicket', false);
+            showStatusModal('Erro de Conexão', 'Não foi possível salvar as alterações.', true);
+        } finally {
             pastedFileEdit = null;
             const preview = document.getElementById('paste-preview-edit');
             if(preview) preview.innerHTML = '';
         }
-    });
-    
-    tabelaTicketsBody?.addEventListener('click', (event) => {
-        const editButton = event.target.closest('.btn-edit-ticket');
-        if (editButton) {
-            abrirModalEditar(editButton.dataset.id);
-        }
-    });
-    document.getElementById('btn-delete-ticket')?.addEventListener('click', () => {
-        ticketIdToDelete = document.getElementById('edit-ticket-id').value;
-        toggleModal('modalConfirmarDelete', true);
-    });
+    });
+    
+    tabelaTicketsBody?.addEventListener('click', (event) => {
+        const editButton = event.target.closest('.btn-edit-ticket');
+        if (editButton) {
+            abrirModalEditar(editButton.dataset.id);
+        }
+    });
+    document.getElementById('btn-delete-ticket')?.addEventListener('click', () => {
+        ticketIdToDelete = document.getElementById('edit-ticket-id').value;
+        toggleModal('modalConfirmarDelete', true);
+    });
 
-    document.getElementById('btn-cancel-delete')?.addEventListener('click', () => {
-        ticketIdToDelete = null; 
-        toggleModal('modalConfirmarDelete', false);
-    });
-    document.getElementById('btn-confirm-delete')?.addEventListener('click', async () => {
-        if (!ticketIdToDelete) return; 
+    document.getElementById('btn-cancel-delete')?.addEventListener('click', () => {
+        ticketIdToDelete = null; 
+        toggleModal('modalConfirmarDelete', false);
+    });
+    document.getElementById('btn-confirm-delete')?.addEventListener('click', async () => {
+        if (!ticketIdToDelete) return; 
 
-        try {
-            const response = await fetch(`/api/tickets/${ticketIdToDelete}`, {
-                method: 'DELETE'
-            });
-            const result = await response.json();
-            toggleModal('modalConfirmarDelete', false);
-            toggleModal('modalEditarTicket', false);
+        try {
+            const response = await fetch(`/api/tickets/${ticketIdToDelete}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            toggleModal('modalConfirmarDelete', false);
+            toggleModal('modalEditarTicket', false);
 
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false);
-                carregarTickets(); 
-                carregarInfoCards();
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            toggleModal('modalConfirmarDelete', false);
-            toggleModal('modalEditarTicket', false);
-            showStatusModal('Erro de Conexão', 'Não foi possível deletar o ticket.', true);
-        } finally {
-            ticketIdToDelete = null; 
-        }
-    });
+            if (response.ok) {
+                showStatusModal('Sucesso!', result.message, false);
+                carregarTickets(); 
+                carregarInfoCards();
+            } else {
+                showStatusModal('Erro!', result.message, true);
+            }
+        } catch (error) {
+            toggleModal('modalConfirmarDelete', false);
+            toggleModal('modalEditarTicket', false);
+            showStatusModal('Erro de Conexão', 'Não foi possível deletar o ticket.', true);
+        } finally {
+            ticketIdToDelete = null; 
+        }
+    });
 
-    document.getElementById('ordenarPor')?.addEventListener('change', () => carregarTickets(1));
-    document.getElementById('qtdPorPagina')?.addEventListener('change', () => carregarTickets(1));
-
-    // =======================================================
-    // CHAMADAS INICIAIS
-    // =======================================================
-    loadColumnConfig();
-    carregarDadosUsuario();
-    popularDropdownsTicket();
-    carregarInfoCards();
-    carregarTickets();
-    setupPasteFunctionality(); // NOVO: Ativa a funcionalidade de colar
+    document.getElementById('ordenarPor')?.addEventListener('change', () => carregarTickets(1));
+    loadColumnConfig();
+    criarSeletorItensPorPagina(); 
+    carregarDadosUsuario();
+    popularDropdownsTicket();
+    carregarInfoCards();
+    carregarTickets();
+    setupPasteFunctionality();
 });

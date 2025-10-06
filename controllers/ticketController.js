@@ -33,23 +33,36 @@ exports.createTicket = async (req, res) => {
 exports.getAllTickets = async (req, res) => {
     const pagina = parseInt(req.query.pagina || '1', 10);
     const limite = parseInt(req.query.limite || '20', 10);
-    const ordenar = req.query.ordenar || 'id_desc';
     const offset = (pagina - 1) * limite;
-
+    const loggedInUser = req.session.user;
 
     const orderMap = {
         'id_desc': 'ORDER BY t.id DESC',
         'data_criacao_desc': 'ORDER BY t.data_criacao DESC',
         'status_asc': 'ORDER BY t.status ASC',
         'prioridade_asc': 'ORDER BY p.id',
-        'acionamento_desc': 'ORDER BY t.horario_acionamento DESC', 
+        'acionamento_desc': 'ORDER BY t.horario_acionamento DESC',
         'acionamento_asc': 'ORDER BY t.horario_acionamento ASC'
     };
     const orderClause = orderMap[req.query.ordenar || 'id_desc'] || 'ORDER BY t.id DESC';
 
     try {
-        const [[{ total }]] = await pool.query("SELECT COUNT(*) as total FROM tickets");
-        const [tickets] = await pool.query(`
+        let whereClause = '';
+        const queryParams = [];
+        if (loggedInUser.perfil !== 'admin') {
+            const [userAreas] = await pool.query('SELECT area_id FROM user_areas WHERE user_id = ?', [loggedInUser.id]);
+            
+            if (userAreas.length > 0) {
+                const areaIds = userAreas.map(a => a.area_id);
+                whereClause = `WHERE t.area_id IN (${areaIds.map(() => '?').join(',')})`;
+                queryParams.push(...areaIds);
+            } else {
+                whereClause = 'WHERE 1=0'; 
+            }
+        }
+        const countSql = `SELECT COUNT(*) as total FROM tickets t ${whereClause}`;
+        const [[{ total }]] = await pool.query(countSql, queryParams);
+        const ticketsSql = `
             SELECT 
                 t.id, t.status, t.data_criacao,
                 t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
@@ -57,18 +70,23 @@ exports.getAllTickets = async (req, res) => {
                 al.nome as alerta_nome,
                 g.nome as grupo_nome,
                 u.nome as user_nome,
-                p.nome as prioridade_nome -- Busca o NOME da prioridade e renomeia para prioridade_nome
+                p.nome as prioridade_nome
             FROM tickets t
             LEFT JOIN ticket_areas a ON t.area_id = a.id
             LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
             LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
             LEFT JOIN user u ON t.user_id = u.id
-            LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id -- Faz o JOIN com a tabela de prioridades
+            LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
+            ${whereClause}
             ${orderClause} 
             LIMIT ? OFFSET ?
-        `, [parseInt(req.query.limite || '20', 10), (parseInt(req.query.pagina || '1', 10) - 1) * parseInt(req.query.limite || '20', 10)]);
+        `;
         
-        res.status(200).json({ pagina: parseInt(req.query.pagina || '1', 10), total, tickets });
+        const finalQueryParams = [...queryParams, limite, offset];
+        const [tickets] = await pool.query(ticketsSql, finalQueryParams);
+        
+        res.status(200).json({ pagina, total, tickets });
+
     } catch (error) {
         console.error("Erro ao buscar tickets:", error);
         res.status(500).json({ message: 'Erro ao buscar tickets.' });
@@ -287,5 +305,55 @@ exports.createAlerta = async (req, res) => {
         }
         console.error("Erro ao criar alerta:", error);
         res.status(500).json({ message: 'Erro no servidor ao cadastrar alerta.' });
+    }
+};
+exports.getCommentsByTicketId = async (req, res) => {
+    const { id: ticketId } = req.params;
+    try {
+        const sql = `
+            SELECT 
+                tc.id,
+                tc.comment_text,
+                tc.created_at,
+                u.nome as user_nome,
+                u.sobre as user_sobrenome
+            FROM ticket_comments tc
+            JOIN user u ON tc.user_id = u.id
+            WHERE tc.ticket_id = ?
+            ORDER BY tc.created_at ASC
+        `;
+        const [comments] = await pool.query(sql, [ticketId]);
+        res.status(200).json(comments);
+    } catch (error) {
+        console.error("Erro ao buscar comentários:", error);
+        res.status(500).json({ message: 'Erro ao buscar comentários.' });
+    }
+};
+
+exports.createComment = async (req, res) => {
+    const { id: ticketId } = req.params;
+    const { comment_text } = req.body;
+    const userId = req.session.user.id;
+
+    if (!comment_text || comment_text.trim() === '') {
+        return res.status(400).json({ message: 'O comentário não pode estar vazio.' });
+    }
+
+    try {
+        const sql = 'INSERT INTO ticket_comments (ticket_id, user_id, comment_text) VALUES (?, ?, ?)';
+        const [result] = await pool.query(sql, [ticketId, userId, comment_text]);
+        const [newCommentRows] = await pool.query(
+            `SELECT tc.id, tc.comment_text, tc.created_at, u.nome as user_nome, u.sobre as user_sobrenome 
+             FROM ticket_comments tc
+             JOIN user u ON tc.user_id = u.id
+             WHERE tc.id = ?`,
+            [result.insertId]
+        );
+
+        res.status(201).json({ message: 'Comentário adicionado.', newComment: newCommentRows[0] });
+
+    } catch (error) {
+        console.error("Erro ao adicionar comentário:", error);
+        res.status(500).json({ message: 'Erro ao adicionar comentário.' });
     }
 };
