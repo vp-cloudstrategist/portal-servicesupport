@@ -30,7 +30,6 @@ function abrirModalNovoTicket() {
     if (form) form.reset();
 
     const now = new Date();
-    // Formata para 'dd/mm/aaaa hh:mm'
     const formattedDateTime = now.toLocaleString('pt-BR', {
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit'
@@ -40,9 +39,25 @@ function abrirModalNovoTicket() {
     const inicioAtendimentoInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento"]');
     const fimAlarmeInput = document.querySelector('#formAbrirTicket input[name="alarme_fim"]');
 
+    // Preenche os campos de início com a hora atual
     if (inicioAlarmeInput) inicioAlarmeInput.value = formattedDateTime;
     if (inicioAtendimentoInput) inicioAtendimentoInput.value = formattedDateTime;
     if (fimAlarmeInput) fimAlarmeInput.value = '';
+    
+    // --- LÓGICA DE PERMISSÃO ADICIONADA ---
+    // Verifica se o usuário atual (armazenado na variável global 'currentUser') pode editar os campos
+    const podeEditar = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
+    
+    if (inicioAlarmeInput) {
+        inicioAlarmeInput.readOnly = !podeEditar;
+        inicioAlarmeInput.classList.toggle('bg-gray-200', !podeEditar);
+        inicioAlarmeInput.classList.toggle('cursor-not-allowed', !podeEditar);
+    }
+    if (inicioAtendimentoInput) {
+        inicioAtendimentoInput.readOnly = !podeEditar;
+        inicioAtendimentoInput.classList.toggle('bg-gray-200', !podeEditar);
+        inicioAtendimentoInput.classList.toggle('cursor-not-allowed', !podeEditar);
+    }
     
     toggleModal('modalTicket', true);
 }
@@ -57,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let alertaIdToDelete = null;    
     let currentAlertsList = [];
     let allUsersCache = [];
+    let currentFilters = {};
     
     let columnConfig = [
         { key: 'id', title: 'Ticket#', visible: true },
@@ -83,6 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const formEditarTicket = document.getElementById('formEditarTicket');
     const btnSaveComment = document.getElementById('btn-save-comment');
     const newCommentText = document.getElementById('new-comment-text');
+     const btnAbrirFiltros = document.getElementById('btn-abrir-filtros');
+    const formFiltros = document.getElementById('formFiltros');
+    const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
+    const customDateInputs = document.getElementById('custom-date-inputs');
+
     
     // Este event listener agora vai funcionar com o botão estático no HTML
     document.getElementById('btn-customize-view')?.addEventListener('click', () => {
@@ -194,6 +215,109 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<div class="${color}">${icon} ${ruleMessages[key]}</div>`;
         }).join('');
     }
+     btnAbrirFiltros?.addEventListener('click', async () => {
+        toggleModal('modalFiltros', true);
+        
+        // Popula os checkboxes dinamicamente
+        await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
+        await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
+        await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
+        
+        // Popula os status estaticamente (COM A LISTA CORRIGIDA)
+        const statusList = [
+            { id: 'Em Atendimento', nome: 'Em Atendimento' },
+            { id: 'Normalizado', nome: 'Normalizado' },
+            { id: 'Resolvido', nome: 'Resolvido' },
+            { id: 'Encerrado', nome: 'Encerrado' }
+        ];
+        renderCheckboxes('filtro-status-container', statusList, 'status');
+    });
+
+    // Função genérica para buscar dados e renderizar checkboxes
+     async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = 'Carregando...';
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Falha ao carregar dados');
+            let items = await response.json();
+
+            if (name === 'prioridades') {
+                const nomesUnicos = [...new Set(items.map(item => item.nome.split(' ')[0].split('(')[0].trim()))];
+                const itensAgrupados = nomesUnicos.map(nomeUnico => ({ id: nomeUnico, nome: nomeUnico }));
+                renderCheckboxes(containerId, itensAgrupados, 'prioridades_nomes'); 
+            } else {
+                renderCheckboxes(containerId, items, name, keyField, valueField);
+            }
+        } catch (error) {
+            container.innerHTML = 'Erro ao carregar opções.';
+        }
+    }
+
+    // Função genérica para criar os checkboxes
+   function renderCheckboxes(containerId, items, name, keyField = 'id', valueField = 'nome') {
+        const container = document.getElementById(containerId);
+        if (!container || !items) {
+            container.innerHTML = 'Nenhuma opção disponível.';
+            return;
+        }
+        container.innerHTML = items.map(item => `
+            <div class="flex items-center">
+                <input type="checkbox" id="filter-${name}-${item[keyField]}" name="${name}" value="${item[keyField]}" class="form-checkbox h-4 w-4">
+                <label for="filter-${name}-${item[keyField]}" class="ml-2">${item[valueField]}</label>
+            </div>
+        `).join('');
+    }
+
+    formFiltros?.addEventListener('change', (e) => {
+        if (e.target.name === 'date_range') {
+            customDateInputs.classList.toggle('hidden', e.target.value !== 'custom');
+        }
+    });
+
+    // Ação do botão "Limpar Filtros"
+    btnLimparFiltros?.addEventListener('click', () => {
+        formFiltros.reset();
+        customDateInputs.classList.add('hidden');
+        currentFilters = {};
+        carregarTickets(1);
+        toggleModal('modalFiltros', false);
+    });
+
+    // Ação do botão "Aplicar Filtros" (submit do formulário)
+    formFiltros?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(formFiltros);
+        const filters = {};
+
+        filters.areas = formData.getAll('areas').join(',');
+        filters.status = formData.getAll('status').join(',');
+        filters.prioridades_nomes = formData.getAll('prioridades_nomes').join(','); // Corrigido
+        filters.usuarios = formData.getAll('usuarios').join(',');
+
+        const dateRange = formData.get('date_range');
+        if (dateRange === '7days') {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 7);
+            filters.startDate = startDate.toISOString().split('T')[0];
+            filters.endDate = endDate.toISOString().split('T')[0];
+        } else if (dateRange === 'custom') {
+            filters.startDate = formData.get('startDate');
+            filters.endDate = formData.get('endDate');
+        }
+
+        Object.keys(filters).forEach(key => {
+            if (!filters[key]) delete filters[key];
+        });
+        
+        currentFilters = filters;
+        carregarTickets(1);
+        toggleModal('modalFiltros', false);
+    });
+    
+
 
     // Função para criar o componente de checkboxes de área
     function createAreaCheckboxes(container, areaList, selectedAreaIds = []) {
@@ -759,7 +883,6 @@ if (statusSelect) {
     async function handleAreaChange(areaSelectElement, tipoSelectId, prioridadeSelectId, grupoSelectId, alertaSelectId, deleteButtonId) {
     const areaId = areaSelectElement.value;
     
-    // NOVO: Pega o botão de deletar pelo ID fornecido
     const deleteButton = document.getElementById(deleteButtonId); 
 
     const tipoSelect = document.getElementById(tipoSelectId);
@@ -781,7 +904,6 @@ if (statusSelect) {
         }
     });
 
-    // NOVO: Desabilita o botão de deletar se nenhuma área estiver selecionada
     if(deleteButton) {
         deleteButton.disabled = true;
     }
@@ -816,11 +938,21 @@ if (statusSelect) {
             popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
             popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
             popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
+            
             selects.forEach(s => {
                 if (s.element) s.element.disabled = false;
             });
 
-            // NOVO: Habilita o botão de deletar pois os alertas foram carregados
+            // --- LÓGICA ADICIONADA AQUI ---
+            // Se a lista de 'tipos' (Tipo de Solicitação) tiver apenas um item,
+            // seleciona-o automaticamente.
+            if (tipos && tipos.length === 1) {
+                if (tipoSelect) {
+                    tipoSelect.value = tipos[0].id;
+                }
+            }
+            // --- FIM DA LÓGICA ADICIONADA ---
+
             if(deleteButton) {
                 deleteButton.disabled = false;
             }
@@ -866,20 +998,29 @@ if (statusSelect) {
         }
     }
     
-    async function carregarTickets(pagina = 1) {
+     async function carregarTickets(pagina = 1) {
         paginaAtual = pagina;
         const porPagina = document.getElementById('qtdPorPagina')?.value || 20;
         const criterio = document.getElementById('ordenarPor')?.value || 'id_desc';
+
+        let url = `/api/tickets?pagina=${paginaAtual}&limite=${porPagina}&ordenar=${criterio}`;
+
+        const params = new URLSearchParams(currentFilters);
+        const queryString = params.toString();
+        if (queryString) {
+            url += `&${queryString}`;
+        }
+        
         try {
-            const response = await fetch(`/api/tickets?pagina=${paginaAtual}&limite=${porPagina}&ordenar=${criterio}`);
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Falha ao carregar tickets');
             const dados = await response.json();
             renderTable(dados.tickets);
             atualizarPaginacao(dados.total, dados.pagina, porPagina);
         } catch (error) {
             console.error("Erro em carregarTickets:", error);
-            const tbody = ticketsTable?.querySelector('tbody');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-500 p-4">Erro ao carregar dados. Verifique o console.</td></tr>`;
+            const tbody = document.querySelector('#tickets-table tbody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center text-red-500 p-4">Erro ao carregar dados.</td></tr>`;
         }
     }
 
@@ -999,19 +1140,16 @@ formExportar?.addEventListener('submit', (e) => {
     toggleModal('modalExportarRelatorio', false);
 });
 
-   async function abrirModalEditar(ticketId) {
-    // 1. Limpeza inicial do formulário
+  async function abrirModalEditar(ticketId) {
     pastedFileEdit = null;
     const preview = document.getElementById('paste-preview-edit');
     if (preview) preview.innerHTML = '';
     document.getElementById('formEditarTicket').reset();
 
     try {
-        // 2. Prepara os containers com mensagens de "carregando"
         const commentsContainer = document.getElementById('comments-list-container');
         if(commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-gray-500">Carregando comentários...</p>';
 
-        // 3. Busca os dados do ticket E os comentários em paralelo
         const [ticketResponse, commentsResponse] = await Promise.all([
             fetch(`/api/tickets/${ticketId}`),
             fetch(`/api/tickets/${ticketId}/comments`)
@@ -1022,7 +1160,6 @@ formExportar?.addEventListener('submit', (e) => {
         }
         const ticket = await ticketResponse.json();
 
-        // Função para converter data do banco (ISO) para o formato brasileiro (dd/mm/aaaa hh:mm)
         const formatIsoToBr = (isoString) => {
             if (!isoString) return '';
             const date = new Date(isoString);
@@ -1032,17 +1169,30 @@ formExportar?.addEventListener('submit', (e) => {
             }).replace(',', '');
         };
         
-        // 4. Popula todos os campos do formulário com os dados corretos
         document.getElementById('edit-ticket-id').value = ticket.id;
         document.getElementById('edit-ticket-status').value = ticket.status;
         document.getElementById('edit-ticket-descricao').value = ticket.descricao;
 
-        // Preenche as datas JÁ COM A FORMATAÇÃO CORRETA
         document.getElementById('edit-alarme-inicio').value = formatIsoToBr(ticket.alarme_inicio);
         document.getElementById('edit-horario-acionamento').value = formatIsoToBr(ticket.horario_acionamento);
         document.getElementById('edit-alarme-fim').value = formatIsoToBr(ticket.alarme_fim);
         
-        // Lógica para mostrar o anexo atual
+        // --- LÓGICA DE PERMISSÃO ADICIONADA ---
+        const inicioAlarmeInput = document.getElementById('edit-alarme-inicio');
+        const inicioAtendimentoInput = document.getElementById('edit-horario-acionamento');
+        const podeEditar = currentUser && currentUser.perfil === 'admin';
+
+        if (inicioAlarmeInput) {
+            inicioAlarmeInput.readOnly = !podeEditar;
+            inicioAlarmeInput.classList.toggle('bg-gray-200', !podeEditar);
+            inicioAlarmeInput.classList.toggle('cursor-not-allowed', !podeEditar);
+        }
+        if (inicioAtendimentoInput) {
+            inicioAtendimentoInput.readOnly = !podeEditar;
+            inicioAtendimentoInput.classList.toggle('bg-gray-200', !podeEditar);
+            inicioAtendimentoInput.classList.toggle('cursor-not-allowed', !podeEditar);
+        }
+        
         const linkContainer = document.getElementById('current-attachment-container');
         const linkSpan = document.getElementById('current-attachment-link');
         const removeAnexoInput = document.getElementById('edit-remove-anexo');
@@ -1054,7 +1204,6 @@ formExportar?.addEventListener('submit', (e) => {
             linkContainer.classList.remove('hidden');
         }
 
-        // Carrega e seleciona os valores nos dropdowns
         const areaSelect = document.getElementById('edit-ticket-area');
         areaSelect.value = ticket.area_id;
         await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
@@ -1064,13 +1213,11 @@ formExportar?.addEventListener('submit', (e) => {
         document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
         document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
 
-        // Mostra o botão de deletar para o admin
         const deleteButton = document.getElementById('btn-delete-ticket');
         if (deleteButton) {
             deleteButton.classList.toggle('hidden', !(currentUser && currentUser.perfil === 'admin'));
         }
         
-        // Renderiza os comentários
         if (commentsResponse.ok) {
             const comments = await commentsResponse.json();
             renderComments(comments);
@@ -1078,7 +1225,6 @@ formExportar?.addEventListener('submit', (e) => {
              if(commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-red-500">Erro ao carregar comentários.</p>';
         }
         
-        // 5. MODAL ABRE SÓ NO FINAL, QUANDO TUDO ESTÁ PRONTO
         toggleModal('modalEditarTicket', true);
         
     } catch (error) {
@@ -1512,62 +1658,91 @@ document.getElementById('btn-show-add-alerta')?.addEventListener('click', () => 
         }
         draggedItemKey = null;
     });
+    function parseBrDate(brDate) {
+    if (!brDate || !brDate.includes('/')) return null;
+    const parts = brDate.split(' ');
+    const dateParts = parts[0].split('/');
+    const timeParts = parts[1].split(':');
+    // Formato: ano, mês-1, dia, hora, minuto
+    return new Date(dateParts[2], dateParts[1] - 1, dateParts[0], timeParts[0], timeParts[1]);
+}
     
     formAbrirTicket?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const formData = new FormData(formAbrirTicket);
-        formData.set('alarme_inicio', convertBrDateToIso(formData.get('alarme_inicio')));
-        formData.set('horario_acionamento', convertBrDateToIso(formData.get('horario_acionamento')));
-        formData.set('alarme_fim', convertBrDateToIso(formData.get('alarme_fim')));
-
-        const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
-        if (pastedFileCreate && (!fileInput.files || fileInput.files.length === 0)) {
-            formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
-        }
-
-        try {
-            const response = await fetch('/api/tickets', {
-                method: 'POST',
-                body: formData 
-            });
-            const result = await response.json();
-            toggleModal('modalTicket', false);
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false);
-                formAbrirTicket.reset();
-                carregarTickets(); 
-                carregarInfoCards();
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            toggleModal('modalTicket', false);
-            showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
-        } finally {
-   
-            pastedFileCreate = null;
-            const preview = document.getElementById('paste-preview-create');
-            if(preview) preview.innerHTML = '';
-        }
-    });
-    
-    formEditarTicket?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const ticketId = document.getElementById('edit-ticket-id').value;
-    const formData = new FormData(formEditarTicket);
+    const formData = new FormData(formAbrirTicket);
 
-    // Adiciona o comentário ao formulário se houver texto
-    const newCommentText = document.getElementById('new-comment-text').value.trim();
-    if (newCommentText) {
-        formData.append('new_comment_text', newCommentText);
+    // --- VALIDAÇÃO DE DATA ADICIONADA ---
+    const inicioAtendimentoVal = formData.get('horario_acionamento');
+    const fimAlarmeVal = formData.get('alarme_fim');
+
+    if (inicioAtendimentoVal && fimAlarmeVal) {
+        const inicioDate = parseBrDate(inicioAtendimentoVal);
+        const fimDate = parseBrDate(fimAlarmeVal);
+        if (fimDate && inicioDate && fimDate < inicioDate) {
+            return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
+        }
     }
 
-    // Converte as datas para o formato ISO antes de enviar
     formData.set('alarme_inicio', convertBrDateToIso(formData.get('alarme_inicio')));
     formData.set('horario_acionamento', convertBrDateToIso(formData.get('horario_acionamento')));
     formData.set('alarme_fim', convertBrDateToIso(formData.get('alarme_fim')));
 
-    // Lógica para anexo colado (mantida do seu código)
+    const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
+    if (pastedFileCreate && (!fileInput.files || fileInput.files.length === 0)) {
+        formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
+    }
+
+    try {
+        const response = await fetch('/api/tickets', {
+            method: 'POST',
+            body: formData 
+        });
+        const result = await response.json();
+        toggleModal('modalTicket', false);
+        if (response.ok) {
+            showStatusModal('Sucesso!', result.message, false);
+            formAbrirTicket.reset();
+            carregarTickets(); 
+            carregarInfoCards();
+        } else {
+            showStatusModal('Erro!', result.message, true);
+        }
+    } catch (error) {
+        toggleModal('modalTicket', false);
+        showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
+    } finally {
+        pastedFileCreate = null;
+        const preview = document.getElementById('paste-preview-create');
+        if(preview) preview.innerHTML = '';
+    }
+});
+    
+    
+formEditarTicket?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const ticketId = document.getElementById('edit-ticket-id').value;
+    const formData = new FormData(formEditarTicket);
+
+    // --- VALIDAÇÃO DE DATA ADICIONADA ---
+    const inicioAtendimentoVal = formData.get('horario_acionamento');
+    const fimAlarmeVal = formData.get('alarme_fim');
+
+    if (inicioAtendimentoVal && fimAlarmeVal) {
+        const inicioDate = parseBrDate(inicioAtendimentoVal);
+        const fimDate = parseBrDate(fimAlarmeVal);
+        if (fimDate && inicioDate && fimDate < inicioDate) {
+            return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
+        }
+    }
+
+    const newCommentText = document.getElementById('new-comment-text').value.trim();
+    if (newCommentText) {
+        formData.append('new_comment_text', newCommentText);
+    }
+    formData.set('alarme_inicio', convertBrDateToIso(formData.get('alarme_inicio')));
+    formData.set('horario_acionamento', convertBrDateToIso(formData.get('horario_acionamento')));
+    formData.set('alarme_fim', convertBrDateToIso(formData.get('alarme_fim')));
+
     const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
     if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
         formData.set('anexo', pastedFileEdit, pastedFileEdit.name);
@@ -1582,19 +1757,15 @@ document.getElementById('btn-show-add-alerta')?.addEventListener('click', () => 
         const result = await response.json();
         
         if (response.ok) {
-            // SUCESSO: Mostra a mensagem e, ao fechar, RECARREGA o modal para ver o comentário
             showStatusModal('Sucesso!', result.message, false, () => {
                 abrirModalEditar(ticketId); 
             });
         } else {
-            // ERRO DA API: Mostra a mensagem de erro SEM fechar o modal
             showStatusModal('Erro!', result.message, true);
         }
     } catch (error) {
-        // ERRO DE CONEXÃO: Mostra a mensagem de erro SEM fechar o modal
         showStatusModal('Erro de Conexão', 'Não foi possível salvar as alterações.', true);
     } finally {
-        // Limpa o anexo colado da memória
         pastedFileEdit = null;
         const preview = document.getElementById('paste-preview-edit');
         if(preview) preview.innerHTML = '';

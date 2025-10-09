@@ -18,26 +18,28 @@ const upload = multer({ storage: storage });
 
 // --- Rotas para buscar as opções dos seletores (dropdowns) ---
 router.get('/options/areas', requireLogin, ticketController.getAreas);
-// Rotas para opções dependentes da Área
+router.post('/options/areas', requireAdmin, ticketController.createArea);
 router.get('/options/areas/:areaId/grupos', requireLogin, ticketController.getGruposByArea);
 router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
+router.post('/options/areas/:areaId/alertas', requireAdmin, ticketController.createAlerta);
 router.get('/options/areas/:areaId/tipos', requireLogin, ticketController.getTiposByArea);
 router.get('/options/areas/:areaId/prioridades', requireLogin, ticketController.getPrioridadesByArea);
-router.post('/options/areas', requireAdmin, ticketController.createArea);
+router.get('/options/prioridades', requireLogin, ticketController.getPrioridades);
+// --- Rota para Exportação ---
+router.get('/export', requireLogin, ticketController.exportTickets);
 
 // --- Rotas para funcionalidades principais de tickets ---
 router.get('/cards-info', requireLogin, ticketController.getCardInfo);
 router.get('/', requireLogin, ticketController.getAllTickets);
 router.post('/', requireLogin, upload.single('anexo'), ticketController.createTicket);
 router.delete('/:id', requireLogin, ticketController.deleteTicket);
-router.post('/options/areas/:areaId/alertas', requireAdmin, ticketController.createAlerta);
-router.get('/export', requireLogin, ticketController.exportTickets);
+
+// --- Rotas com parâmetros (devem vir por último) ---
+router.get('/:id', requireLogin, ticketController.getTicketById);
+router.put('/:id', requireLogin, upload.single('anexo'), ticketController.updateTicket);
 
 // --- NOVAS ROTAS PARA COMENTÁRIOS ---
 router.get('/:id/comments', requireLogin, ticketController.getCommentsByTicketId);
 router.post('/:id/comments', requireLogin, ticketController.createComment);
 
-// --- Rotas com parâmetros (devem vir por último) ---
-router.get('/:id', requireLogin, ticketController.getTicketById);
-router.put('/:id', requireLogin, upload.single('anexo'), ticketController.updateTicket);
 module.exports = router;

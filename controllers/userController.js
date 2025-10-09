@@ -65,7 +65,7 @@ exports.createUser = async (req, res) => {
         const emailHtml = `
             <div style="font-family: Arial, sans-serif; text-align:center; max-width:600px; margin:auto; border:1px solid #ddd;">
                 <div style="background-color:#f8f8f8; padding:20px;">
-                    <img src="https://support.nexxtcloud.app/app/logo.png" alt="Nexxt Cloud" style="width:150px;">
+                    <img src="https://support.nexxtcloud.app/app/Nexxt-Cloud-Logo-1.png" alt="Nexxt Cloud" style="width:150px;">
                 </div>
                 <div style="padding:30px; line-height:1.5;">
                     <h2 style="color:#0c1231;">Bem-vindo ao Portal de Suporte</h2>

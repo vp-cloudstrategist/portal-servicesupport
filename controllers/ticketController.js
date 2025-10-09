@@ -32,53 +32,94 @@ exports.createTicket = async (req, res) => {
 };
 
 exports.getAllTickets = async (req, res) => {
+    const loggedInUser = req.session.user;
+
+    // --- PARÂMETROS DE CONSULTA ---
     const pagina = parseInt(req.query.pagina || '1', 10);
     const limite = parseInt(req.query.limite || '20', 10);
     const offset = (pagina - 1) * limite;
-    const loggedInUser = req.session.user;
+    
+    // ATUALIZADO: 'prioridades' foi trocado por 'prioridades_nomes'
+    const { ordenar, areas, prioridades_nomes, usuarios, status, startDate, endDate } = req.query;
 
     const orderMap = {
         'id_desc': 'ORDER BY t.id DESC',
         'data_criacao_desc': 'ORDER BY t.data_criacao DESC',
         'status_asc': 'ORDER BY t.status ASC',
-        'prioridade_asc': 'ORDER BY p.id',
+        'prioridade_asc': 'ORDER BY p.id ASC',
         'acionamento_desc': 'ORDER BY t.horario_acionamento DESC',
         'acionamento_asc': 'ORDER BY t.horario_acionamento ASC'
     };
-    const orderClause = orderMap[req.query.ordenar || 'id_desc'] || 'ORDER BY t.id DESC';
+    const orderClause = orderMap[ordenar || 'id_desc'] || 'ORDER BY t.id DESC';
 
     try {
-        let whereClause = '';
+        let whereClauses = [];
         const queryParams = [];
+
+        // --- FILTRO DE SEGURANÇA (SEMPRE APLICADO) ---
         if (loggedInUser.perfil !== 'admin') {
             const [userAreas] = await pool.query('SELECT area_id FROM user_areas WHERE user_id = ?', [loggedInUser.id]);
-            
             if (userAreas.length > 0) {
                 const areaIds = userAreas.map(a => a.area_id);
-                whereClause = `WHERE t.area_id IN (${areaIds.map(() => '?').join(',')})`;
-                queryParams.push(...areaIds);
+                whereClauses.push(`t.area_id IN (?)`);
+                queryParams.push(areaIds);
             } else {
-                whereClause = 'WHERE 1=0'; 
+                whereClauses.push('1=0'); // Usuário sem área não vê nenhum ticket
             }
         }
-        const countSql = `SELECT COUNT(*) as total FROM tickets t ${whereClause}`;
+
+        // --- FILTROS DINÂMICOS DA INTERFACE ---
+        if (areas) {
+            whereClauses.push(`t.area_id IN (?)`);
+            queryParams.push(areas.split(','));
+        }
+
+        // LÓGICA DE FILTRO DE PRIORIDADE ATUALIZADA
+        if (prioridades_nomes) {
+            const nomesPrioridades = prioridades_nomes.split(',');
+            // Cria uma expressão regular que busca por nomes que COMEÇAM com 'Alto' OU 'Médio', etc.
+            // Ex: '^(Alto|Médio)'
+            const regexPattern = `^(${nomesPrioridades.join('|')})`;
+            whereClauses.push(`p.nome RLIKE ?`);
+            queryParams.push(regexPattern);
+        }
+
+        if (usuarios) {
+            whereClauses.push(`t.user_id IN (?)`);
+            queryParams.push(usuarios.split(','));
+        }
+        if (status) {
+            whereClauses.push(`t.status IN (?)`);
+            queryParams.push(status.split(','));
+        }
+        if (startDate && endDate) {
+            whereClauses.push(`DATE(t.data_criacao) BETWEEN ? AND ?`);
+            queryParams.push(startDate, endDate);
+        }
+
+        const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        // --- EXECUÇÃO DAS QUERIES ---
+        const countSql = `
+            SELECT COUNT(*) as total 
+            FROM tickets t 
+            LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
+            ${finalWhereClause}
+        `;
         const [[{ total }]] = await pool.query(countSql, queryParams);
+
         const ticketsSql = `
             SELECT 
-                t.id, t.status, t.data_criacao,
-                t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
-                a.nome as area_nome,
-                al.nome as alerta_nome,
-                g.nome as grupo_nome,
-                u.nome as user_nome,
-                p.nome as prioridade_nome
+                t.id, t.status, t.data_criacao, t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
+                a.nome as area_nome, al.nome as alerta_nome, g.nome as grupo_nome,
+                u.nome as user_nome, p.nome as prioridade_nome
             FROM tickets t
             LEFT JOIN ticket_areas a ON t.area_id = a.id
             LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
             LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
             LEFT JOIN user u ON t.user_id = u.id
             LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
-            ${whereClause}
+            ${finalWhereClause}
             ${orderClause} 
             LIMIT ? OFFSET ?
         `;
@@ -234,7 +275,7 @@ const getOptions = (tableName) => async (req, res) => {
 };
 
 exports.getAreas = getOptions('ticket_areas');
-
+exports.getPrioridades = getOptions('ticket_prioridades');
 exports.getGruposByArea = async (req, res) => {
     try {
         const { areaId } = req.params;
