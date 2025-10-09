@@ -25,7 +25,27 @@ function showStatusModal(title, message, isError = false, onConfirm = null) {
         modal.classList.remove('hidden');
     }
 }
+function abrirModalNovoTicket() {
+    const form = document.getElementById('formAbrirTicket');
+    if (form) form.reset();
 
+    const now = new Date();
+    // Formata para 'dd/mm/aaaa hh:mm'
+    const formattedDateTime = now.toLocaleString('pt-BR', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+    }).replace(',', '');
+
+    const inicioAlarmeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio"]');
+    const inicioAtendimentoInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento"]');
+    const fimAlarmeInput = document.querySelector('#formAbrirTicket input[name="alarme_fim"]');
+
+    if (inicioAlarmeInput) inicioAlarmeInput.value = formattedDateTime;
+    if (inicioAtendimentoInput) inicioAtendimentoInput.value = formattedDateTime;
+    if (fimAlarmeInput) fimAlarmeInput.value = '';
+    
+    toggleModal('modalTicket', true);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -79,6 +99,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchUserListInput = document.getElementById('search-user-list');
     const formEditarUsuarioAdmin = document.getElementById('formEditarUsuarioAdmin');
     const nomeUsuarioEditandoSpan = document.getElementById('nome-usuario-editando');
+
+     const maskOptions = {
+        mask: 'd/`m/`Y `H:`M',
+        pattern: 'd/`m/`Y `H:`M',
+        blocks: {
+            d: { mask: IMask.MaskedRange, from: 1, to: 31, maxLength: 2, placeholderChar: 'd' },
+            m: { mask: IMask.MaskedRange, from: 1, to: 12, maxLength: 2, placeholderChar: 'm' },
+            Y: { mask: IMask.MaskedRange, from: 1970, to: 2099, placeholderChar: 'a' },
+            H: { mask: IMask.MaskedRange, from: 0, to: 23, maxLength: 2, placeholderChar: 'h' },
+            M: { mask: IMask.MaskedRange, from: 0, to: 59, maxLength: 2, placeholderChar: 'm' }
+        },
+        lazy: false
+    };
+
+    // Aplica a máscara nos campos
+    ['alarme_inicio', 'horario_acionamento', 'alarme_fim'].forEach(name => {
+        const createInput = document.querySelector(`#formAbrirTicket input[name="${name}"]`);
+        if(createInput) IMask(createInput, maskOptions);
+    });
+    ['edit-alarme-inicio', 'edit-horario-acionamento', 'edit-alarme-fim'].forEach(id => {
+        const editInput = document.getElementById(id);
+        if(editInput) IMask(editInput, maskOptions);
+    });
+    function convertBrDateToIso(brDate) {
+        if (!brDate || brDate.includes('d') || brDate.includes('m') || brDate.includes('a')) return null;
+        const parts = brDate.split(' ');
+        const dateParts = parts[0].split('/');
+        const timeParts = parts[1].split(':');
+        const isoDate = new Date(dateParts[2], dateParts[1] - 1, dateParts[0], timeParts[0], timeParts[1]);
+        return isoDate.toISOString().slice(0, 19).replace('T', ' ');
+    }
 
      btnGerenciarUsuarios?.addEventListener('click', () => toggleModal('modalGerenciarUsuarios', true));
     
@@ -241,42 +292,6 @@ document.addEventListener('DOMContentLoaded', () => {
         container.insertAdjacentHTML('beforeend', commentHtml);
     }
 
-    // Listener para o botão de salvar comentário
-    btnSaveComment?.addEventListener('click', async () => {
-        const ticketId = document.getElementById('edit-ticket-id').value;
-        const commentText = newCommentText.value.trim();
-
-        if (!commentText) {
-            showStatusModal('Atenção!', 'O comentário não pode estar vazio.', true);
-            return;
-        }
-
-        btnSaveComment.disabled = true;
-        btnSaveComment.textContent = 'Enviando...';
-
-        try {
-            const response = await fetch(`/api/tickets/${ticketId}/comments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ comment_text: commentText })
-            });
-
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message);
-            
-            appendComment(result.newComment); 
-            newCommentText.value = ''; 
-
-        } catch (error) {
-            showStatusModal('Erro!', error.message, true);
-        } finally {
-            btnSaveComment.disabled = false;
-            btnSaveComment.textContent = 'Enviar Comentário';
-        }
-    });
-
-    // Renderiza a lista de usuários no modal
-    
     function renderUserList(users) {
         if (!users || users.length === 0) {
             userListContainer.innerHTML = '<p class="text-center text-gray-500">Nenhum usuário encontrado.</p>';
@@ -926,24 +941,77 @@ if (statusSelect) {
         // Adiciona o event listener ao novo elemento
         document.getElementById('qtdPorPagina').addEventListener('change', () => carregarTickets(1));
     }
+    const btnAbrirModalExportar = document.getElementById('btn-abrir-modal-exportar');
+const formExportar = document.getElementById('formExportar');
+const yearSelect = document.getElementById('export-year-select');
+const monthsContainer = document.getElementById('export-months-container');
 
+btnAbrirModalExportar?.addEventListener('click', () => {
+    // Popula o seletor de anos (ex: últimos 5 anos)
+    const currentYear = new Date().getFullYear();
+    yearSelect.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+        const year = currentYear - i;
+        yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
+    }
+
+    // Popula os checkboxes de meses
+    const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    monthsContainer.innerHTML = `
+        <div class="col-span-3 flex items-center mb-2">
+            <input type="checkbox" id="check-all-months" class="form-checkbox h-4 w-4">
+            <label for="check-all-months" class="ml-2 font-bold text-sm">Todos os Meses</label>
+        </div>
+        ${meses.map((mes, index) => `
+            <div class="flex items-center">
+                <input type="checkbox" id="month-${index+1}" name="months" value="${index+1}" class="form-checkbox h-4 w-4 month-checkbox">
+                <label for="month-${index+1}" class="ml-2 text-sm">${mes}</label>
+            </div>
+        `).join('')}
+    `;
+
+
+    const allMonthsCheckbox = document.getElementById('check-all-months');
+    const individualMonthCheckboxes = monthsContainer.querySelectorAll('.month-checkbox');
+    allMonthsCheckbox.addEventListener('change', () => {
+        individualMonthCheckboxes.forEach(cb => cb.checked = allMonthsCheckbox.checked);
+    });
+
+    toggleModal('modalExportarRelatorio', true);
+});
+
+formExportar?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(formExportar);
+    const format = formData.get('format');
+    const year = formData.get('year');
+    const months = formData.getAll('months'); // Pega todos os meses marcados
+
+    if (!year) {
+        return showStatusModal('Erro', 'Por favor, selecione um ano.', true);
+    }
+
+    const queryString = `?format=${format}&year=${year}${months.length > 0 ? '&months=' + months.join(',') : ''}`;
+
+    // Dispara o download
+    window.location.href = `/api/tickets/export${queryString}`;
+
+    toggleModal('modalExportarRelatorio', false);
+});
 
    async function abrirModalEditar(ticketId) {
-    // Limpeza inicial do formulário
+    // 1. Limpeza inicial do formulário
     pastedFileEdit = null;
     const preview = document.getElementById('paste-preview-edit');
     if (preview) preview.innerHTML = '';
     document.getElementById('formEditarTicket').reset();
 
     try {
-        // Mostra uma mensagem de "carregando" nos comentários imediatamente
+        // 2. Prepara os containers com mensagens de "carregando"
         const commentsContainer = document.getElementById('comments-list-container');
         if(commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-gray-500">Carregando comentários...</p>';
 
-        // Abre o modal para o usuário ver que algo está acontecendo
-        toggleModal('modalEditarTicket', true);
-
-        // Busca os dados do ticket E os comentários em paralelo para mais eficiência
+        // 3. Busca os dados do ticket E os comentários em paralelo
         const [ticketResponse, commentsResponse] = await Promise.all([
             fetch(`/api/tickets/${ticketId}`),
             fetch(`/api/tickets/${ticketId}/comments`)
@@ -954,21 +1022,25 @@ if (statusSelect) {
         }
         const ticket = await ticketResponse.json();
 
-        // Função interna para formatar datas
-        const formatForInput = (dateString) => {
-            if (!dateString) return '';
-            const date = new Date(dateString);
-            date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-            return date.toISOString().slice(0, 16);
+        // Função para converter data do banco (ISO) para o formato brasileiro (dd/mm/aaaa hh:mm)
+        const formatIsoToBr = (isoString) => {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            return date.toLocaleString('pt-BR', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            }).replace(',', '');
         };
         
-        // Popula todos os campos do formulário com os dados do ticket
+        // 4. Popula todos os campos do formulário com os dados corretos
         document.getElementById('edit-ticket-id').value = ticket.id;
         document.getElementById('edit-ticket-status').value = ticket.status;
         document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-        document.getElementById('edit-alarme-inicio').value = formatForInput(ticket.alarme_inicio);
-        document.getElementById('edit-alarme-fim').value = formatForInput(ticket.alarme_fim);
-        document.getElementById('edit-horario-acionamento').value = formatForInput(ticket.horario_acionamento);
+
+        // Preenche as datas JÁ COM A FORMATAÇÃO CORRETA
+        document.getElementById('edit-alarme-inicio').value = formatIsoToBr(ticket.alarme_inicio);
+        document.getElementById('edit-horario-acionamento').value = formatIsoToBr(ticket.horario_acionamento);
+        document.getElementById('edit-alarme-fim').value = formatIsoToBr(ticket.alarme_fim);
         
         // Lógica para mostrar o anexo atual
         const linkContainer = document.getElementById('current-attachment-container');
@@ -982,6 +1054,7 @@ if (statusSelect) {
             linkContainer.classList.remove('hidden');
         }
 
+        // Carrega e seleciona os valores nos dropdowns
         const areaSelect = document.getElementById('edit-ticket-area');
         areaSelect.value = ticket.area_id;
         await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
@@ -991,11 +1064,13 @@ if (statusSelect) {
         document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
         document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
 
+        // Mostra o botão de deletar para o admin
         const deleteButton = document.getElementById('btn-delete-ticket');
         if (deleteButton) {
             deleteButton.classList.toggle('hidden', !(currentUser && currentUser.perfil === 'admin'));
         }
-    
+        
+        // Renderiza os comentários
         if (commentsResponse.ok) {
             const comments = await commentsResponse.json();
             renderComments(comments);
@@ -1003,9 +1078,10 @@ if (statusSelect) {
              if(commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-red-500">Erro ao carregar comentários.</p>';
         }
         
+        // 5. MODAL ABRE SÓ NO FINAL, QUANDO TUDO ESTÁ PRONTO
+        toggleModal('modalEditarTicket', true);
+        
     } catch (error) {
-        // Se qualquer coisa der errado, fecha o modal e mostra o erro
-        toggleModal('modalEditarTicket', false);
         console.error("Erro ao abrir modal de edição:", error);
         showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
     }
@@ -1440,6 +1516,9 @@ document.getElementById('btn-show-add-alerta')?.addEventListener('click', () => 
     formAbrirTicket?.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(formAbrirTicket);
+        formData.set('alarme_inicio', convertBrDateToIso(formData.get('alarme_inicio')));
+        formData.set('horario_acionamento', convertBrDateToIso(formData.get('horario_acionamento')));
+        formData.set('alarme_fim', convertBrDateToIso(formData.get('alarme_fim')));
 
         const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
         if (pastedFileCreate && (!fileInput.files || fileInput.files.length === 0)) {
@@ -1473,39 +1552,54 @@ document.getElementById('btn-show-add-alerta')?.addEventListener('click', () => 
     });
     
     formEditarTicket?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const ticketId = document.getElementById('edit-ticket-id').value;
-        const formData = new FormData(formEditarTicket);
+    event.preventDefault();
+    const ticketId = document.getElementById('edit-ticket-id').value;
+    const formData = new FormData(formEditarTicket);
 
-        const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
-        if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
-            formData.set('anexo', pastedFileEdit, pastedFileEdit.name);
-            formData.set('remove_anexo', '0'); 
-        }
+    // Adiciona o comentário ao formulário se houver texto
+    const newCommentText = document.getElementById('new-comment-text').value.trim();
+    if (newCommentText) {
+        formData.append('new_comment_text', newCommentText);
+    }
 
-        try {
-            const response = await fetch(`/api/tickets/${ticketId}`, {
-                method: 'PUT',
-                body: formData
+    // Converte as datas para o formato ISO antes de enviar
+    formData.set('alarme_inicio', convertBrDateToIso(formData.get('alarme_inicio')));
+    formData.set('horario_acionamento', convertBrDateToIso(formData.get('horario_acionamento')));
+    formData.set('alarme_fim', convertBrDateToIso(formData.get('alarme_fim')));
+
+    // Lógica para anexo colado (mantida do seu código)
+    const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
+    if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
+        formData.set('anexo', pastedFileEdit, pastedFileEdit.name);
+        formData.set('remove_anexo', '0'); 
+    }
+
+    try {
+        const response = await fetch(`/api/tickets/${ticketId}`, {
+            method: 'PUT',
+            body: formData
+        });
+        const result = await response.json();
+        
+        if (response.ok) {
+            // SUCESSO: Mostra a mensagem e, ao fechar, RECARREGA o modal para ver o comentário
+            showStatusModal('Sucesso!', result.message, false, () => {
+                abrirModalEditar(ticketId); 
             });
-            const result = await response.json();
-            toggleModal('modalEditarTicket', false);
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false);
-                carregarTickets(paginaAtual);
-                carregarInfoCards(); 
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            toggleModal('modalEditarTicket', false);
-            showStatusModal('Erro de Conexão', 'Não foi possível salvar as alterações.', true);
-        } finally {
-            pastedFileEdit = null;
-            const preview = document.getElementById('paste-preview-edit');
-            if(preview) preview.innerHTML = '';
+        } else {
+            // ERRO DA API: Mostra a mensagem de erro SEM fechar o modal
+            showStatusModal('Erro!', result.message, true);
         }
-    });
+    } catch (error) {
+        // ERRO DE CONEXÃO: Mostra a mensagem de erro SEM fechar o modal
+        showStatusModal('Erro de Conexão', 'Não foi possível salvar as alterações.', true);
+    } finally {
+        // Limpa o anexo colado da memória
+        pastedFileEdit = null;
+        const preview = document.getElementById('paste-preview-edit');
+        if(preview) preview.innerHTML = '';
+    }
+});
     
     tabelaTicketsBody?.addEventListener('click', (event) => {
         const editButton = event.target.closest('.btn-edit-ticket');

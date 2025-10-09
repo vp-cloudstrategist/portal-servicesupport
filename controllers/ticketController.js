@@ -19,9 +19,10 @@ exports.createTicket = async (req, res) => {
         `;
         const values = [
             user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao || null,
-            alarme_inicio, alarme_fim || null, anexo_path, horario_acionamento, 'Aberto'
+            alarme_inicio, alarme_fim || null, anexo_path, horario_acionamento, 
+            'Em Atendimento'
         ];
-        
+
         const [result] = await pool.query(sql, values);
         res.status(201).json({ message: `Ticket #${result.insertId} criado com sucesso!` });
     } catch (error) {
@@ -134,47 +135,62 @@ exports.getTicketById = async (req, res) => {
 };
 
 exports.updateTicket = async (req, res) => {
+    const { id: ticketId } = req.params;
+    const userId = req.session.user.id;
+
+    // NOVO: Extrai o texto do novo comentário do corpo da requisição
+    const { remove_anexo, horario_acionamento, new_comment_text, ...ticketData } = req.body;
+    
+    const connection = await pool.getConnection(); // Inicia a conexão para usar transação
+
     try {
-        const { id } = req.params;
-        const { remove_anexo, horario_acionamento, ...ticketData } = req.body;
+        await connection.beginTransaction(); // Inicia a transação
+
+        // --- Lógica de Anexo (sem alterações) ---
         let newAnexoPath;
-
-        const [existingTicketRows] = await pool.query('SELECT anexo_path FROM tickets WHERE id = ?', [id]);
+        const [existingTicketRows] = await connection.query('SELECT anexo_path FROM tickets WHERE id = ?', [ticketId]);
         const oldAnexoPath = existingTicketRows[0]?.anexo_path;
-
         if (req.file) { 
             newAnexoPath = req.file.path;
-            if (oldAnexoPath && fs.existsSync(oldAnexoPath)) {
-                fs.unlinkSync(oldAnexoPath);
-            }
+            if (oldAnexoPath && fs.existsSync(oldAnexoPath)) fs.unlinkSync(oldAnexoPath);
         } else if (remove_anexo === '1') { 
             newAnexoPath = null;
-            if (oldAnexoPath && fs.existsSync(oldAnexoPath)) {
-                fs.unlinkSync(oldAnexoPath);
-            }
+            if (oldAnexoPath && fs.existsSync(oldAnexoPath)) fs.unlinkSync(oldAnexoPath);
         } else { 
             newAnexoPath = oldAnexoPath;
         }
 
-       const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, descricao, alarme_inicio, alarme_fim } = ticketData;
-        
+        // --- Lógica de Atualização do Ticket (sem alterações) ---
+        const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, alarme_inicio, alarme_fim } = ticketData;
         const sql = `
             UPDATE tickets SET 
                 area_id = ?, alerta_id = ?, grupo_id = ?, tipo_solicitacao_id = ?, 
-                prioridade_id = ?, status = ?, descricao = ?, alarme_inicio = ?, alarme_fim = ?,
+                prioridade_id = ?, status = ?, alarme_inicio = ?, alarme_fim = ?,
                 anexo_path = ?, horario_acionamento = ?
             WHERE id = ?
         `;
         const values = [
-            area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, descricao || null,
-            alarme_inicio, alarme_fim || null, newAnexoPath, horario_acionamento, id
+            area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status,
+            alarme_inicio, alarme_fim || null, newAnexoPath, horario_acionamento, ticketId
         ];
+        await connection.query(sql, values);
 
-        await pool.query(sql, values);
-        res.status(200).json({ message: `Ticket #${id} atualizado com sucesso!` });
+        // --- NOVA LÓGICA: Salva o comentário se ele existir ---
+        if (new_comment_text && new_comment_text.trim() !== '') {
+            const commentSql = 'INSERT INTO ticket_comments (ticket_id, user_id, comment_text) VALUES (?, ?, ?)';
+            await connection.query(commentSql, [ticketId, userId, new_comment_text.trim()]);
+        }
+
+        await connection.commit(); // Confirma todas as operações se deram certo
+
+        res.status(200).json({ message: `Ticket #${ticketId} atualizado com sucesso!` });
+
     } catch (error) {
+        await connection.rollback(); // Desfaz tudo se der algum erro
         console.error("Erro ao atualizar ticket:", error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
+    } finally {
+        if (connection) connection.release(); // Libera a conexão
     }
 };
 exports.deleteTicket = async (req, res) => {
@@ -355,5 +371,94 @@ exports.createComment = async (req, res) => {
     } catch (error) {
         console.error("Erro ao adicionar comentário:", error);
         res.status(500).json({ message: 'Erro ao adicionar comentário.' });
+    }
+};
+exports.exportTickets = async (req, res) => {
+    const { format, year, months } = req.query;
+    const loggedInUser = req.session.user;
+
+    if (!format || !year) {
+        return res.status(400).json({ message: 'Formato e ano são obrigatórios.' });
+    }
+
+    try {
+        let whereClauses = [];
+        const queryParams = [];
+
+        // Adiciona filtro de permissão por área (reutilizando a lógica)
+        if (loggedInUser.perfil !== 'admin') {
+            const [userAreas] = await pool.query('SELECT area_id FROM user_areas WHERE user_id = ?', [loggedInUser.id]);
+            if (userAreas.length > 0) {
+                const areaIds = userAreas.map(a => a.area_id);
+                whereClauses.push(`t.area_id IN (${areaIds.map(() => '?').join(',')})`);
+                queryParams.push(...areaIds);
+            } else {
+                whereClauses.push('1=0'); // Usuário sem área não exporta nada
+            }
+        }
+
+        // Adiciona filtro de data
+        whereClauses.push('YEAR(t.data_criacao) = ?');
+        queryParams.push(year);
+
+        if (months) {
+            const monthArray = months.split(',').map(Number);
+            if (monthArray.length > 0) {
+                whereClauses.push(`MONTH(t.data_criacao) IN (${monthArray.map(() => '?').join(',')})`);
+                queryParams.push(...monthArray);
+            }
+        }
+
+        const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        const ticketsSql = `
+            SELECT 
+                CONCAT('#INC-', t.id) as Ticket,
+                a.nome as Area,
+                t.data_criacao as "Data de Criação",
+                u.nome as Usuário,
+                p.nome as Prioridade,
+                t.status as Status,
+                al.nome as Alerta,
+                g.nome as "Grupo Responsável",
+                t.alarme_inicio as "Início Alarme",
+                t.alarme_fim as "Fim Alarme",
+                t.horario_acionamento as Atendimento,
+                t.descricao as Descrição
+            FROM tickets t
+            LEFT JOIN ticket_areas a ON t.area_id = a.id
+            LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
+            LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
+            LEFT JOIN user u ON t.user_id = u.id
+            LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
+            ${finalWhereClause}
+            ORDER BY t.id ASC
+        `;
+
+        const [tickets] = await pool.query(ticketsSql, queryParams);
+
+        if (tickets.length === 0) {
+            return res.status(404).send('Nenhum ticket encontrado para os filtros selecionados.');
+        }
+
+        switch (format) {
+            case 'csv':
+                const json2csvParser = new Parser();
+                const csv = json2csvParser.parse(tickets);
+                res.header('Content-Type', 'text/csv');
+                res.attachment(`relatorio_tickets_${year}.csv`);
+                return res.send(csv);
+
+            case 'pdf':
+            case 'xlsx':
+                return res.status(501).send('Este formato de exportação ainda não foi implementado.');
+
+            default:
+                return res.status(400).send('Formato inválido.');
+        }
+
+    } catch (error) {
+        console.error("Erro ao exportar tickets:", error);
+        res.status(500).send('Erro interno ao gerar o relatório.');
     }
 };

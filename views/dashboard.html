@@ -8,6 +8,7 @@
      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/imask"></script> </head>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/colresizable@1.6.0/colResizable-1.6.min.js"></script>
     <link rel="stylesheet" href="/css/main.css">
@@ -146,38 +147,41 @@
             </div>
         </div>
 
-        <div class="mb-6">
-            <div class="flex flex-wrap items-center justify-end p-4 bg-gray-50 rounded-lg">
-                <div class="flex items-center gap-2">
-                    <label for="ordenarPor" class="text-sm font-medium">Ordenar por:</label>
-                    <select id="ordenarPor" class="border rounded px-2 py-1 bg-white">
-                        <option value="id_desc">Mais Recentes</option>
-                        <option value="data_criacao_desc">Data de Criação</option>
-                        <option value="acionamento_desc">Atendimento (Mais Recente)</option>
-                        <option value="acionamento_asc">Atendimento (Mais Antigo)</option>
-                        <option value="status_asc">Status</option>
-                        <option value="prioridade_asc">Prioridade</option>
-                    </select>
-                </div>
-            </div>
-        </div>
+       
 
         <div>
-            <div class="flex items-center gap-3 mb-4">
-                <h2 class="text-2xl font-bold text-[#0A0E2B] leading-tight">Tickets</h2>
-                <button id="btn-customize-view" title="Customizar Visualização" class="p-1 rounded-full text-gray-600 hover:bg-gray-200 hover:text-gray-800">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cog">
-                        <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/>
-                        <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>
-                        <path d="M12 2v2"/><path d="M12 22v-2"/>
-                        <path d="m17 20.66-1-1.73"/><path d="m6 10.27 1 1.73"/>
-                        <path d="m7 3.34 1 1.73"/><path d="m18 13.73-1-1.73"/>
-                        <path d="M2 12h2"/><path d="M22 12h-2"/>
-                        <path d="m3.34 7 1.73 1"/><path d="m17 20.66 1.73 1"/>
-                        <path d="m20.66 17 1.73 1"/><path d="m3.34 7-1.73-1"/>
-                    </svg>
-                </button>
-            </div>
+           <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+        <h2 class="text-2xl font-bold text-[#0A0E2B] leading-tight">Tickets</h2>
+        
+        <button id="btn-customize-view" title="Customizar Visualização" class="p-1 rounded-full text-gray-600 hover:bg-gray-200 hover:text-gray-800">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.78 1.35a2 2 0 0 0 .73 2.73l.04.02a2 2 0 0 1 0 2.73l-.04.02a2 2 0 0 0-.73 2.73l.78 1.35a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.78-1.35a2 2 0 0 0-.73-2.73l-.04-.02a2 2 0 0 1 0-2.73l.04-.02a2 2 0 0 0 .73-2.73l-.78-1.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                <circle cx="12" cy="12" r="3"/>
+            </svg>
+        </button>
+        
+        <button id="btn-abrir-modal-exportar" title="Exportar Relatório" class="p-1 rounded-full text-gray-600 hover:bg-gray-200 hover:text-gray-800">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" x2="12" y1="15" y2="3"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="flex items-center gap-2">
+        <label for="ordenarPor" class="text-sm font-medium">Ordenar por:</label>
+        <select id="ordenarPor" class="border rounded px-2 py-1 bg-white">
+            <option value="id_desc">Mais Recentes</option>
+            <option value="data_criacao_desc">Data de Criação</option>
+            <option value="acionamento_desc">Atendimento (Mais Recente)</option>
+            <option value="acionamento_asc">Atendimento (Mais Antigo)</option>
+            <option value="status_asc">Status</option>
+            <option value="prioridade_asc">Prioridade</option>
+        </select>
+    </div>
+</div>
 
             <div class="overflow-auto rounded-lg shadow">
                 <table id="tickets-table" class="min-w-full text-sm border-collapse border border-gray-200 leading-tight">
@@ -194,7 +198,40 @@
                  <div id="paginacao" class="flex items-center"></div>
             </div>
         </div>
-
+<div id="modalExportarRelatorio" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white w-full max-w-lg rounded-xl shadow-lg relative flex flex-col">
+        <div class="p-6 border-b">
+            <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalExportarRelatorio', false)">&times;</button>
+            <h2 class="text-2xl font-bold text-center text-[#02092B]">Exportar Relatório de Tickets</h2>
+        </div>
+        <form id="formExportar" class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">Formato</label>
+                <select name="format" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    <option value="csv">CSV (compatível com Excel)</option>
+                    <option value="pdf" disabled>PDF (em breve)</option>
+                    <option value="xlsx" disabled>Excel (em breve)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">Ano</label>
+                <select name="year" id="export-year-select" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Meses</label>
+                <div id="export-months-container" class="p-3 border rounded-md max-h-40 overflow-y-auto bg-gray-50 grid grid-cols-3 gap-2">
+                    </div>
+            </div>
+        </form>
+        <div class="flex-shrink-0 p-6 pt-4 border-t">
+            <div class="flex justify-end gap-4">
+                <button type="button" onclick="toggleModal('modalExportarRelatorio', false)" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" form="formExportar" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold">Exportar</button>
+            </div>
+        </div>
+    </div>
+</div>
         <div id="modalTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
     <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
         <div class="flex-shrink-0 p-6 pb-4 border-b">
@@ -247,15 +284,15 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700">Início do Alarme</label>
-                        <input type="datetime-local" name="alarme_inicio" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                       <input type="text" name="alarme_inicio" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700">Início do Atendimento</label>
-                        <input type="datetime-local" name="horario_acionamento" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                       <input type="text" name="horario_acionamento" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700">Fim do Alarme</label>
-                        <input type="datetime-local" name="alarme_fim" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                       <input type="text" name="alarme_fim" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
                     </div>
                 </div>
                 
@@ -537,7 +574,7 @@
             </div>
         </div>
 
-      <div id="modalEditarTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
+     <div id="modalEditarTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
     <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
         <div class="flex-shrink-0 p-6 pb-4 border-b">
             <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalEditarTicket', false)">&times;</button>
@@ -546,31 +583,63 @@
         <div class="overflow-y-auto flex-grow">
             <form id="formEditarTicket" class="p-6 space-y-4" enctype="multipart/form-data">
                 <input type="hidden" id="edit-ticket-id" name="ticket_id">
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label for="edit-ticket-area" class="block text-sm font-semibold text-gray-700">Área</label><select id="edit-ticket-area" name="area_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select></div>
-                    <div><label for="edit-ticket-grupo" class="block text-sm font-semibold text-gray-700">Grupo Responsável</label><select id="edit-ticket-grupo" name="grupo_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select></div>
-                    <div><label for="edit-ticket-tipo" class="block text-sm font-semibold text-gray-700">Tipo de Solicitação</label><select id="edit-ticket-tipo" name="tipo_solicitacao_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select></div>
-                    <div><label for="edit-ticket-prioridade" class="block text-sm font-semibold text-gray-700">Prioridade</label><select id="edit-ticket-prioridade" name="prioridade_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select></div>
+                    <div>
+                        <label for="edit-ticket-area" class="block text-sm font-semibold text-gray-700">Área</label>
+                        <select id="edit-ticket-area" name="area_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    </div>
+                    <div>
+                        <label for="edit-ticket-grupo" class="block text-sm font-semibold text-gray-700">Grupo Responsável</label>
+                        <select id="edit-ticket-grupo" name="grupo_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    </div>
+                    <div>
+                        <label for="edit-ticket-tipo" class="block text-sm font-semibold text-gray-700">Tipo de Solicitação</label>
+                        <select id="edit-ticket-tipo" name="tipo_solicitacao_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    </div>
+                    <div>
+                        <label for="edit-ticket-prioridade" class="block text-sm font-semibold text-gray-700">Prioridade</label>
+                        <select id="edit-ticket-prioridade" name="prioridade_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    </div>
                 </div>
-                <div><label for="edit-ticket-alerta" class="block text-sm font-semibold text-gray-700">Alerta</label><select id="edit-ticket-alerta" name="alerta_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select></div>
+
+                <div>
+                    <label for="edit-ticket-alerta" class="block text-sm font-semibold text-gray-700">Alerta</label>
+                    <select id="edit-ticket-alerta" name="alerta_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                </div>
+
                 <div>
                     <label for="edit-ticket-status" class="block text-sm font-semibold text-gray-700">Status da Solicitação</label>
                     <select id="edit-ticket-status" name="status" required class="w-full mt-1 border rounded p-2 bg-gray-50">
-                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Aberto">Aberto</option>
+                        <option value="Em Atendimento">Em Atendimento</option>
+                        <option value="Aguardando Aprovação">Aguardando Aprovação</option>
                         <option value="Normalizado">Normalizado</option>
                         <option value="Resolvido">Resolvido</option>
                         <option value="Encerrado">Encerrado</option>
                     </select>
                 </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                    <div><label class="block text-sm font-semibold text-gray-700">Início do Alarme</label><input type="datetime-local" id="edit-alarme-inicio" name="alarme_inicio" class="w-full mt-1 border rounded p-2 bg-gray-50"></div>
-                    <div><label class="block text-sm font-semibold text-gray-700">Início do Atendimento</label><input type="datetime-local" id="edit-horario-acionamento" name="horario_acionamento" class="w-full mt-1 border rounded p-2 bg-gray-50"></div>
-                    <div><label class="block text-sm font-semibold text-gray-700">Fim do Alarme</label><input type="datetime-local" id="edit-alarme-fim" name="alarme_fim" class="w-full mt-1 border rounded p-2 bg-gray-50"></div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Início do Alarme</label>
+                        <input type="text" id="edit-alarme-inicio" name="alarme_inicio" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Início do Atendimento</label>
+                        <input type="text" id="edit-horario-acionamento" name="horario_acionamento" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">Fim do Alarme</label>
+                        <input type="text" id="edit-alarme-fim" name="alarme_fim" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+                    </div>
                 </div>
+
                 <div>
                     <label for="edit-ticket-descricao" class="block text-sm font-semibold text-gray-700">Descrição</label>
                     <textarea id="edit-ticket-descricao" name="descricao" rows="4" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed"></textarea>
                 </div>
+
                 <div>
                     <label class="block text-sm font-semibold text-gray-700">Anexar/Alterar Arquivo</label>
                     <input type="file" name="anexo" class="w-full mt-1 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
@@ -582,22 +651,18 @@
                     <input type="hidden" id="edit-remove-anexo" name="remove_anexo" value="0">
                 </div>
             </form>
+            
             <div id="comments-section" class="p-6 pt-4 border-t">
                 <h3 class="text-lg font-semibold text-gray-800 mb-3">Comentários</h3>
-                
                 <div id="comments-list-container" class="space-y-4 mb-4 max-h-60 overflow-y-auto">
                     <p class="text-sm text-center text-gray-500">Carregando comentários...</p>
                 </div>
-
                 <div class="add-comment-form">
                     <label for="new-comment-text" class="block text-sm font-semibold text-gray-700">Adicionar um comentário</label>
-                    <textarea id="new-comment-text" rows="3" class="w-full mt-1 border rounded p-2" placeholder="Digite seu comentário..."></textarea>
-                    <div class="text-right mt-2">
-                        <button id="btn-save-comment" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold text-sm">Enviar Comentário</button>
-                    </div>
+                    <textarea id="new-comment-text" rows="3" class="w-full mt-1 border rounded p-2" placeholder="Digite seu comentário aqui."></textarea>
                 </div>
             </div>
-            </div>
+        </div>
         <div class="flex-shrink-0 p-6 pt-4 border-t">
             <div class="flex justify-between items-center">
                 <button type="button" id="btn-delete-ticket" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 font-semibold hidden">Deletar Ticket</button>
