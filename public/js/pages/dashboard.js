@@ -216,22 +216,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
      btnAbrirFiltros?.addEventListener('click', async () => {
-        toggleModal('modalFiltros', true);
-        
-        // Popula os checkboxes dinamicamente
-        await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
-        await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
-        await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
-        
-        // Popula os status estaticamente (COM A LISTA CORRIGIDA)
-        const statusList = [
-            { id: 'Em Atendimento', nome: 'Em Atendimento' },
-            { id: 'Normalizado', nome: 'Normalizado' },
-            { id: 'Resolvido', nome: 'Resolvido' },
-            { id: 'Encerrado', nome: 'Encerrado' }
-        ];
-        renderCheckboxes('filtro-status-container', statusList, 'status');
-    });
+    toggleModal('modalFiltros', true);
+    
+    // Popula os checkboxes dinamicamente
+    await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
+    await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
+    await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
+    
+    // Popula os status estaticamente
+    const statusList = [
+        { id: 'Em Atendimento', nome: 'Em Atendimento' },
+        { id: 'Normalizado', nome: 'Normalizado' },
+        { id: 'Resolvido', nome: 'Resolvido' }
+        // { id: 'Encerrado', nome: 'Encerrado' } // ITEM REMOVIDO
+    ];
+    renderCheckboxes('filtro-status-container', statusList, 'status');
+});
 
     // Função genérica para buscar dados e renderizar checkboxes
      async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
@@ -626,18 +626,18 @@ formMinhaConta?.addEventListener('submit', async (e) => {
 
     const statusSelect = document.getElementById('edit-ticket-status');
 if (statusSelect) {
-    statusSelect.addEventListener('change', (event) => {
-        const newStatus = event.target.value;
-        const fimAlarmeInput = document.getElementById('edit-alarme-fim');
-        if (newStatus === 'Resolvido' || newStatus === 'Encerrado' || newStatus === 'Normalizado') {
-            if (fimAlarmeInput && !fimAlarmeInput.value) { 
-                const now = new Date();
-                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                const localDateTime = now.toISOString().slice(0, 16);
-                fimAlarmeInput.value = localDateTime;
-            }
-        }
-    });
+    statusSelect.addEventListener('change', (event) => {
+        const newStatus = event.target.value;
+        const fimAlarmeInput = document.getElementById('edit-alarme-fim');
+        if (newStatus === 'Resolvido' || newStatus === 'Normalizado') {
+            if (fimAlarmeInput && !fimAlarmeInput.value) { 
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                const localDateTime = now.toISOString().slice(0, 16);
+                fimAlarmeInput.value = localDateTime;
+            }
+        }
+    });
 }
 
     function handlePaste(event, targetTextarea, previewElement, fileStoreCallback) {
@@ -1723,10 +1723,8 @@ formEditarTicket?.addEventListener('submit', async (event) => {
     const ticketId = document.getElementById('edit-ticket-id').value;
     const formData = new FormData(formEditarTicket);
 
-    // --- VALIDAÇÃO DE DATA ADICIONADA ---
     const inicioAtendimentoVal = formData.get('horario_acionamento');
     const fimAlarmeVal = formData.get('alarme_fim');
-
     if (inicioAtendimentoVal && fimAlarmeVal) {
         const inicioDate = parseBrDate(inicioAtendimentoVal);
         const fimDate = parseBrDate(fimAlarmeVal);
@@ -1757,8 +1755,11 @@ formEditarTicket?.addEventListener('submit', async (event) => {
         const result = await response.json();
         
         if (response.ok) {
+            // --- LÓGICA DE SUCESSO CORRIGIDA ---
+            toggleModal('modalEditarTicket', false); // Fecha o modal de edição
             showStatusModal('Sucesso!', result.message, false, () => {
-                abrirModalEditar(ticketId); 
+                carregarTickets(paginaAtual); // Atualiza a tabela principal
+                carregarInfoCards(); 
             });
         } else {
             showStatusModal('Erro!', result.message, true);

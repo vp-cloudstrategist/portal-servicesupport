@@ -136,28 +136,27 @@ exports.getAllTickets = async (req, res) => {
 };
 
 exports.getCardInfo = async (req, res) => {
-    try {
-        const queries = [
-            pool.query("SELECT COUNT(*) as count FROM tickets"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Aberto'"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Resolvido'"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Aguardando Aprovação'"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Encerrado'")
-        ];
-        
-        const results = await Promise.all(queries);
-        
-        res.status(200).json({
-            total: results[0][0][0].count,
-            abertos: results[1][0][0].count,
-            resolvidos: results[2][0][0].count,
-            aprovacao: results[3][0][0].count,
-            encerrados: results[4][0][0].count
-        });
-    } catch (error) {
-        console.error("Erro ao buscar informações dos cards:", error);
-        res.status(500).json({ message: 'Erro ao buscar informações dos cards.' });
-    }
+    try {
+        const queries = [
+            pool.query("SELECT COUNT(*) as count FROM tickets"),
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Aberto'"),
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Resolvido'"),
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Aguardando Aprovação'")
+        ];
+        
+        const results = await Promise.all(queries);
+        
+        res.status(200).json({
+            total: results[0][0][0].count,
+            abertos: results[1][0][0].count,
+            resolvidos: results[2][0][0].count,
+            aprovacao: results[3][0][0].count
+            // O campo 'encerrados' foi removido
+        });
+    } catch (error) {
+        console.error("Erro ao buscar informações dos cards:", error);
+        res.status(500).json({ message: 'Erro ao buscar informações dos cards.' });
+    }
 };
 
 exports.getTicketById = async (req, res) => {
@@ -178,19 +177,17 @@ exports.getTicketById = async (req, res) => {
 exports.updateTicket = async (req, res) => {
     const { id: ticketId } = req.params;
     const userId = req.session.user.id;
-
-    // NOVO: Extrai o texto do novo comentário do corpo da requisição
     const { remove_anexo, horario_acionamento, new_comment_text, ...ticketData } = req.body;
     
-    const connection = await pool.getConnection(); // Inicia a conexão para usar transação
+    const connection = await pool.getConnection();
 
     try {
-        await connection.beginTransaction(); // Inicia a transação
+        await connection.beginTransaction();
 
-        // --- Lógica de Anexo (sem alterações) ---
         let newAnexoPath;
         const [existingTicketRows] = await connection.query('SELECT anexo_path FROM tickets WHERE id = ?', [ticketId]);
         const oldAnexoPath = existingTicketRows[0]?.anexo_path;
+
         if (req.file) { 
             newAnexoPath = req.file.path;
             if (oldAnexoPath && fs.existsSync(oldAnexoPath)) fs.unlinkSync(oldAnexoPath);
@@ -201,8 +198,11 @@ exports.updateTicket = async (req, res) => {
             newAnexoPath = oldAnexoPath;
         }
 
-        // --- Lógica de Atualização do Ticket (sem alterações) ---
-        const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, alarme_inicio, alarme_fim } = ticketData;
+        // --- CORREÇÃO APLICADA AQUI ---
+        // Extraímos a 'descricao' para garantir que ela não entre na query de atualização.
+        const { descricao, ...camposParaAtualizar } = ticketData;
+        const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, alarme_inicio, alarme_fim } = camposParaAtualizar;
+        
         const sql = `
             UPDATE tickets SET 
                 area_id = ?, alerta_id = ?, grupo_id = ?, tipo_solicitacao_id = ?, 
@@ -216,22 +216,20 @@ exports.updateTicket = async (req, res) => {
         ];
         await connection.query(sql, values);
 
-        // --- NOVA LÓGICA: Salva o comentário se ele existir ---
         if (new_comment_text && new_comment_text.trim() !== '') {
             const commentSql = 'INSERT INTO ticket_comments (ticket_id, user_id, comment_text) VALUES (?, ?, ?)';
             await connection.query(commentSql, [ticketId, userId, new_comment_text.trim()]);
         }
 
-        await connection.commit(); // Confirma todas as operações se deram certo
-
+        await connection.commit();
         res.status(200).json({ message: `Ticket #${ticketId} atualizado com sucesso!` });
 
     } catch (error) {
-        await connection.rollback(); // Desfaz tudo se der algum erro
+        await connection.rollback();
         console.error("Erro ao atualizar ticket:", error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
     } finally {
-        if (connection) connection.release(); // Libera a conexão
+        if (connection) connection.release();
     }
 };
 exports.deleteTicket = async (req, res) => {
