@@ -5,7 +5,6 @@ const requireLogin = require('../middleware/requireLogin');
 const multer = require('multer');
 const requireAdmin = require('../middleware/requireAdmin');
 
-// --- Configuração do Multer para Upload de Arquivos ---
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, 'public/uploads/'); 
@@ -16,15 +15,19 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// --- Rotas para buscar as opções dos seletores (dropdowns) ---
+// --- Rotas para buscar as opções dos seletores ---
 router.get('/options/areas', requireLogin, ticketController.getAreas);
 router.post('/options/areas', requireAdmin, ticketController.createArea);
 router.get('/options/areas/:areaId/grupos', requireLogin, ticketController.getGruposByArea);
-router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
-router.post('/options/areas/:areaId/alertas', requireAdmin, ticketController.createAlerta);
+router.post('/options/areas/:areaId/grupos', requireLogin, ticketController.createGrupo);
+router.delete('/options/grupos/:grupoId', requireLogin, ticketController.deleteGrupo);
 router.get('/options/areas/:areaId/tipos', requireLogin, ticketController.getTiposByArea);
 router.get('/options/areas/:areaId/prioridades', requireLogin, ticketController.getPrioridadesByArea);
 router.get('/options/prioridades', requireLogin, ticketController.getPrioridades);
+router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
+router.post('/options/areas/:areaId/alertas', requireAdmin, ticketController.createAlerta);
+
+
 // --- Rota para Exportação ---
 router.get('/export', requireLogin, ticketController.exportTickets);
 
@@ -38,7 +41,7 @@ router.delete('/:id', requireLogin, ticketController.deleteTicket);
 router.get('/:id', requireLogin, ticketController.getTicketById);
 router.put('/:id', requireLogin, upload.single('anexo'), ticketController.updateTicket);
 
-// --- NOVAS ROTAS PARA COMENTÁRIOS ---
+// --- Rotas para Comentários ---
 router.get('/:id/comments', requireLogin, ticketController.getCommentsByTicketId);
 router.post('/:id/comments', requireLogin, ticketController.createComment);
 

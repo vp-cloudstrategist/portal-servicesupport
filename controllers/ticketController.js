@@ -1,24 +1,30 @@
 const pool = require('../config/db.js');
-const fs = require('fs');
+const fs = require('fs');   
+const { Parser } = require('json2csv');
+
+const capitalize = (str) => {
+    if (!str || typeof str !== 'string') return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+};
 
 exports.createTicket = async (req, res) => {
-    const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento } = req.body;
+    const { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento } = req.body;
     const user_id = req.session.user.id;
     const anexo_path = req.file ? req.file.path : null;
 
-    if (!area_id || !alerta_id || !grupo_id || !tipo_solicitacao_id || !prioridade_id || !alarme_inicio || !horario_acionamento) {
-        return res.status(400).json({ message: 'Os campos Área, Alerta, Grupo, Tipo, Prioridade, Início do Alarme e Horário de Acionamento são obrigatórios.' });
+    if (!grupo_id || !alerta_id || !tipo_solicitacao_id || !prioridade_id || !alarme_inicio || !horario_acionamento) {
+        return res.status(400).json({ message: 'Todos os campos obrigatórios devem ser preenchidos.' });
     }
 
     try {
         const sql = `
             INSERT INTO tickets (
-                user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, 
+                user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, 
                 alarme_inicio, alarme_fim, anexo_path, horario_acionamento, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `; 
         const values = [
-            user_id, area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao || null,
+            user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao || null,
             alarme_inicio, alarme_fim || null, anexo_path, horario_acionamento, 
             'Em Atendimento'
         ];
@@ -39,7 +45,6 @@ exports.getAllTickets = async (req, res) => {
     const limite = parseInt(req.query.limite || '20', 10);
     const offset = (pagina - 1) * limite;
     
-    // ATUALIZADO: 'prioridades' foi trocado por 'prioridades_nomes'
     const { ordenar, areas, prioridades_nomes, usuarios, status, startDate, endDate } = req.query;
 
     const orderMap = {
@@ -56,34 +61,43 @@ exports.getAllTickets = async (req, res) => {
         let whereClauses = [];
         const queryParams = [];
 
-        // --- FILTRO DE SEGURANÇA (SEMPRE APLICADO) ---
+        // --- FILTRO DE SEGURANÇA (LÓGICA ATUALIZADA PARA GRUPOS) ---
         if (loggedInUser.perfil !== 'admin') {
             const [userAreas] = await pool.query('SELECT area_id FROM user_areas WHERE user_id = ?', [loggedInUser.id]);
             if (userAreas.length > 0) {
                 const areaIds = userAreas.map(a => a.area_id);
-                whereClauses.push(`t.area_id IN (?)`);
-                queryParams.push(areaIds);
+                const [allowedGroups] = await pool.query('SELECT id FROM ticket_grupos WHERE area_id IN (?)', [areaIds]);
+                if (allowedGroups.length > 0) {
+                    const groupIds = allowedGroups.map(g => g.id);
+                    whereClauses.push(`t.grupo_id IN (?)`);
+                    queryParams.push(groupIds);
+                } else {
+                    whereClauses.push('1=0'); // Usuário está em áreas que não têm grupos
+                }
             } else {
                 whereClauses.push('1=0'); // Usuário sem área não vê nenhum ticket
             }
         }
 
-        // --- FILTROS DINÂMICOS DA INTERFACE ---
+        // --- FILTROS DINÂMICOS (LÓGICA ATUALIZADA PARA ÁREA) ---
         if (areas) {
-            whereClauses.push(`t.area_id IN (?)`);
-            queryParams.push(areas.split(','));
+            const areaIds = areas.split(',');
+            const [groupsInAreas] = await pool.query('SELECT id FROM ticket_grupos WHERE area_id IN (?)', [areaIds]);
+            if (groupsInAreas.length > 0) {
+                const groupIds = groupsInAreas.map(g => g.id);
+                whereClauses.push(`t.grupo_id IN (?)`);
+                queryParams.push(groupIds);
+            } else {
+                 whereClauses.push('1=0'); // Filtrou por áreas que não têm grupos
+            }
         }
-
-        // LÓGICA DE FILTRO DE PRIORIDADE ATUALIZADA
+        
         if (prioridades_nomes) {
             const nomesPrioridades = prioridades_nomes.split(',');
-            // Cria uma expressão regular que busca por nomes que COMEÇAM com 'Alto' OU 'Médio', etc.
-            // Ex: '^(Alto|Médio)'
             const regexPattern = `^(${nomesPrioridades.join('|')})`;
             whereClauses.push(`p.nome RLIKE ?`);
             queryParams.push(regexPattern);
         }
-
         if (usuarios) {
             whereClauses.push(`t.user_id IN (?)`);
             queryParams.push(usuarios.split(','));
@@ -99,24 +113,29 @@ exports.getAllTickets = async (req, res) => {
 
         const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-        // --- EXECUÇÃO DAS QUERIES ---
+        // Query de contagem ajustada
         const countSql = `
             SELECT COUNT(*) as total 
-            FROM tickets t 
+            FROM tickets t
+            LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
             LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
             ${finalWhereClause}
         `;
         const [[{ total }]] = await pool.query(countSql, queryParams);
 
+        // Query principal ajustada para buscar 'area_nome' através do grupo
         const ticketsSql = `
             SELECT 
                 t.id, t.status, t.data_criacao, t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
-                a.nome as area_nome, al.nome as alerta_nome, g.nome as grupo_nome,
-                u.nome as user_nome, p.nome as prioridade_nome
+                a.nome as area_nome, 
+                al.nome as alerta_nome, 
+                g.nome as grupo_nome,
+                u.nome as user_nome, 
+                p.nome as prioridade_nome
             FROM tickets t
-            LEFT JOIN ticket_areas a ON t.area_id = a.id
-            LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
             LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
+            LEFT JOIN ticket_areas a ON g.area_id = a.id
+            LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
             LEFT JOIN user u ON t.user_id = u.id
             LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
             ${finalWhereClause}
@@ -162,7 +181,15 @@ exports.getCardInfo = async (req, res) => {
 exports.getTicketById = async (req, res) => {
     try {
         const { id } = req.params;
-        const [rows] = await pool.query('SELECT * FROM tickets WHERE id = ?', [id]);
+        const sql = `
+            SELECT 
+                t.*, 
+                g.area_id 
+            FROM tickets t
+            LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
+            WHERE t.id = ?
+        `;
+        const [rows] = await pool.query(sql, [id]);
 
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Ticket não encontrado.' });
@@ -173,14 +200,12 @@ exports.getTicketById = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
-
 exports.updateTicket = async (req, res) => {
     const { id: ticketId } = req.params;
     const userId = req.session.user.id;
     const { remove_anexo, horario_acionamento, new_comment_text, ...ticketData } = req.body;
     
     const connection = await pool.getConnection();
-
     try {
         await connection.beginTransaction();
 
@@ -198,20 +223,19 @@ exports.updateTicket = async (req, res) => {
             newAnexoPath = oldAnexoPath;
         }
 
-        // --- CORREÇÃO APLICADA AQUI ---
-        // Extraímos a 'descricao' para garantir que ela não entre na query de atualização.
         const { descricao, ...camposParaAtualizar } = ticketData;
-        const { area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, alarme_inicio, alarme_fim } = camposParaAtualizar;
+        // 'area_id' foi removido
+        const { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, alarme_inicio, alarme_fim } = camposParaAtualizar;
         
         const sql = `
             UPDATE tickets SET 
-                area_id = ?, alerta_id = ?, grupo_id = ?, tipo_solicitacao_id = ?, 
+                alerta_id = ?, grupo_id = ?, tipo_solicitacao_id = ?, 
                 prioridade_id = ?, status = ?, alarme_inicio = ?, alarme_fim = ?,
                 anexo_path = ?, horario_acionamento = ?
             WHERE id = ?
         `;
         const values = [
-            area_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status,
+            alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status,
             alarme_inicio, alarme_fim || null, newAnexoPath, horario_acionamento, ticketId
         ];
         await connection.query(sql, values);
@@ -284,8 +308,6 @@ exports.getGruposByArea = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
-
-
 exports.getAlertasByArea = async (req, res) => {
     try {
         const { areaId } = req.params;
@@ -293,7 +315,7 @@ exports.getAlertasByArea = async (req, res) => {
         res.status(200).json(rows);
     } catch (error) {
         console.error("Erro ao buscar alertas por área:", error);
-        res.status(500).json({ message: 'Erro interno no servidor.' });
+        res.status(500).json({ message: 'Erro interno.' });
     }
 };
 exports.getTiposByArea = async (req, res) => {
@@ -306,8 +328,6 @@ exports.getTiposByArea = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
-
-
 exports.getPrioridadesByArea = async (req, res) => {
     try {
         const { areaId } = req.params;
@@ -337,31 +357,27 @@ exports.createArea = async (req, res) => {
 exports.createAlerta = async (req, res) => {
     const { areaId } = req.params;
     const { nome } = req.body;
+    const nomeCapitalized = capitalize(nome);
 
-    if (!nome) {
-        return res.status(400).json({ message: 'O nome do alerta é obrigatório.' });
-    }
-    if (!areaId) {
-        return res.status(400).json({ message: 'A área de associação é obrigatória.' });
-    }
+    if (!nome) return res.status(400).json({ message: 'O nome do alerta é obrigatório.' });
+    if (!areaId) return res.status(400).json({ message: 'A área de associação é obrigatória.' });
 
     try {
         const sql = 'INSERT INTO ticket_alertas (nome, area_id) VALUES (?, ?)';
-        const [result] = await pool.query(sql, [nome, areaId]);
-        
+        const [result] = await pool.query(sql, [nomeCapitalized, areaId]);
         res.status(201).json({ 
             message: 'Alerta cadastrado com sucesso!', 
-            novoAlerta: { id: result.insertId, nome: nome } 
+            novoAlerta: { id: result.insertId, nome: nomeCapitalized } 
         });
-
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') {
-             return res.status(409).json({ message: 'Este alerta já existe para esta área.' });
+           return res.status(409).json({ message: 'Este alerta já existe para esta área.' });
         }
         console.error("Erro ao criar alerta:", error);
-        res.status(500).json({ message: 'Erro no servidor ao cadastrar alerta.' });
+        res.status(500).json({ message: 'Erro no servidor.' });
     }
 };
+
 exports.getCommentsByTicketId = async (req, res) => {
     const { id: ticketId } = req.params;
     try {
@@ -382,6 +398,54 @@ exports.getCommentsByTicketId = async (req, res) => {
     } catch (error) {
         console.error("Erro ao buscar comentários:", error);
         res.status(500).json({ message: 'Erro ao buscar comentários.' });
+    }
+};
+exports.createGrupo = async (req, res) => {
+    const { areaId } = req.params;
+    const { nome } = req.body;
+    const nomeCapitalized = capitalize(nome);
+
+    if (!nome) return res.status(400).json({ message: 'O nome do grupo é obrigatório.' });
+    if (!areaId) return res.status(400).json({ message: 'A área de associação é obrigatória.' });
+
+    try {
+        const sql = 'INSERT INTO ticket_grupos (nome, area_id) VALUES (?, ?)';
+        const [result] = await pool.query(sql, [nomeCapitalized, areaId]);
+        res.status(201).json({
+            message: 'Grupo cadastrado com sucesso!',
+            novoGrupo: { id: result.insertId, nome: nomeCapitalized }
+        });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'Este grupo já existe para esta área.' });
+        }
+        console.error("Erro ao criar grupo:", error);
+        res.status(500).json({ message: 'Erro no servidor ao criar grupo.' });
+    }
+};
+exports.deleteGrupo = async (req, res) => {
+    const { grupoId } = req.params;
+    try {
+        // Verifica se o grupo está sendo usado em algum ticket
+        const [tickets] = await pool.query('SELECT id FROM tickets WHERE grupo_id = ? LIMIT 1', [grupoId]);
+        if (tickets.length > 0) {
+            return res.status(400).json({ message: `Não é possível excluir o grupo, pois ele está associado ao ticket #${tickets[0].id}.` });
+        }
+
+        const [deleteResult] = await pool.query('DELETE FROM ticket_grupos WHERE id = ?', [grupoId]);
+
+        if (deleteResult.affectedRows === 0) {
+            return res.status(404).json({ message: 'Grupo não encontrado.' });
+        }
+
+        res.status(200).json({ message: 'Grupo deletado com sucesso!' });
+
+    } catch (error) {
+        console.error("Erro ao deletar grupo:", error);
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') { // Erro genérico de foreign key
+            return res.status(400).json({ message: 'Não é possível excluir este grupo pois ele possui dados relacionados em outras tabelas.' });
+        }
+        res.status(500).json({ message: 'Erro interno no servidor ao deletar o grupo.' });
     }
 };
 
