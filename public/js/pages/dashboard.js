@@ -1,5 +1,3 @@
-// dashboard.js - VERSÃO COMPLETA E CORRIGIDA
-
 let currentUser = null; 
 
 function toggleModal(modalId, show) {
@@ -47,10 +45,11 @@ function abrirModalNovoTicket() {
     const inicioAtendimentoInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento"]');
     const fimAlarmeInput = document.querySelector('#formAbrirTicket input[name="alarme_fim"]');
 
-    if (inicioAlarmeInput) IMask.find(inicioAlarmeInput)?.setInputValue(formattedDateTime);
-    if (inicioAtendimentoInput) IMask.find(inicioAtendimentoInput)?.setInputValue(formattedDateTime);
-    if (fimAlarmeInput) IMask.find(fimAlarmeInput)?.setInputValue('');
-    
+
+    inicioAlarmeInput?.imask?.setInputValue(formattedDateTime);
+    inicioAtendimentoInput?.imask?.setInputValue(formattedDateTime);
+    fimAlarmeInput?.imask?.setInputValue('');
+
     const podeEditar = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
     
     if (inicioAlarmeInput) {
@@ -76,10 +75,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let pastedFileEdit = null;
     let alertaIdToDelete = null;
     let grupoIdToDelete = null;
+    let areaIdToDelete = null;      
+    let tipoIdToDelete = null;      
+    let prioridadeIdToDelete = null;
+
     let currentAlertsList = [];
     let currentGruposList = [];
     let allUsersCache = [];
     let currentFilters = {};
+    let currentAreasList = [];      
+    let currentTiposList = [];     
+    let currentPrioridadesList = [];
     
     let columnConfig = [
         { key: 'id', title: 'Ticket#', visible: true },
@@ -133,6 +139,321 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveNewGrupo = document.getElementById('btn-save-new-grupo');
     const grupoSuggestionsList = document.getElementById('grupo-suggestions-list');
     const btnDeleteGrupo = document.getElementById('btn-delete-grupo-selecionado');
+
+     const btnShowAddArea = document.getElementById('btn-show-add-area');
+    const btnDeleteArea = document.getElementById('btn-delete-area-selecionada');
+    const addAreaContainer = document.getElementById('add-area-container');
+    const inputNewArea = document.getElementById('input-new-area');
+    const btnCancelAddArea = document.getElementById('btn-cancel-add-area');
+    const btnSaveNewArea = document.getElementById('btn-save-new-area');
+    const areaSuggestionsList = document.getElementById('area-suggestions-list');
+
+    // --- Elementos para Tipos ---
+    const btnShowAddTipo = document.getElementById('btn-show-add-tipo');
+    const btnDeleteTipo = document.getElementById('btn-delete-tipo-selecionado');
+    const addTipoContainer = document.getElementById('add-tipo-container');
+    const inputNewTipo = document.getElementById('input-new-tipo');
+    const btnCancelAddTipo = document.getElementById('btn-cancel-add-tipo');
+    const btnSaveNewTipo = document.getElementById('btn-save-new-tipo');
+    const tipoSuggestionsList = document.getElementById('tipo-suggestions-list');
+
+    // --- Elementos para Prioridades ---
+    const btnShowAddPrioridade = document.getElementById('btn-show-add-prioridade');
+    const btnDeletePrioridade = document.getElementById('btn-delete-prioridade-selecionada');
+    const addPrioridadeContainer = document.getElementById('add-prioridade-container');
+    const inputNewPrioridade = document.getElementById('input-new-prioridade');
+    const btnCancelAddPrioridade = document.getElementById('btn-cancel-add-prioridade');
+    const btnSaveNewPrioridade = document.getElementById('btn-save-new-prioridade');
+    const prioridadeSuggestionsList = document.getElementById('prioridade-suggestions-list');
+
+    function handleDeleteOption(itemType, selectId, idVariableSetter, modalId) {
+    const selectElement = document.getElementById(selectId);
+    // O select de área é a referência para recarregar os outros
+    const areaSelectElement = document.getElementById('ticket-area'); 
+    const selectedId = selectElement.value;
+
+    if (!selectedId) {
+        showStatusModal('Atenção!', `Por favor, selecione um(a) ${itemType} da lista para excluir.`, true);
+        return;
+    }
+    
+    // Armazena o ID e a referência ao select da área na variável global apropriada
+    idVariableSetter({ id: selectedId, areaSelect: areaSelectElement });
+    toggleModal(modalId, true);
+}
+
+// 2. FUNÇÃO GENÉRICA PARA CONFIRMAR A EXCLUSÃO (API CALL)
+async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
+    if (!idHolder) return;
+
+    try {
+        const response = await fetch(`${endpoint}/${idHolder.id}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        toggleModal(modalId, false);
+        
+        if (response.ok) {
+            showStatusModal('Sucesso!', result.message, false, () => {
+                // Dispara o 'change' na área para recarregar os dropdowns dependentes
+                // Se a própria área for deletada, recarrega todos os dropdowns do zero
+                if (itemType === 'area') {
+                    popularDropdownsTicket();
+                } else {
+                    idHolder.areaSelect.dispatchEvent(new Event('change'));
+                }
+            });
+        } else {
+            showStatusModal('Erro!', result.message, true);
+        }
+    } catch (error) {
+        toggleModal(modalId, false);
+        showStatusModal('Erro de Conexão', `Não foi possível deletar o(a) ${itemType}.`, true);
+    } finally {
+        idResetter(); // Limpa a variável de ID
+    }
+}
+const btnDeleteAlerta = document.getElementById('btn-delete-alerta-selecionado');
+
+
+btnDeleteArea?.addEventListener('click', () => {
+    handleDeleteOption('área', 'ticket-area', (val) => areaIdToDelete = val, 'modalConfirmarDeleteArea');
+});
+
+btnDeleteGrupo?.addEventListener('click', () => {
+    handleDeleteOption('grupo', 'ticket-grupo', (val) => grupoIdToDelete = val, 'modalConfirmarDeleteGrupo');
+});
+
+btnDeleteTipo?.addEventListener('click', () => {
+    handleDeleteOption('tipo', 'ticket-tipo', (val) => tipoIdToDelete = val, 'modalConfirmarDeleteTipo');
+});
+
+btnDeletePrioridade?.addEventListener('click', () => {
+    handleDeleteOption('prioridade', 'ticket-prioridade', (val) => prioridadeIdToDelete = val, 'modalConfirmarDeletePrioridade');
+});
+
+btnDeleteAlerta?.addEventListener('click', () => {
+    handleDeleteOption('alerta', 'ticket-alerta', (val) => alertaIdToDelete = val, 'modalConfirmarDeleteAlerta');
+});
+
+
+// === BOTÕES DE CONFIRMAÇÃO (dentro dos modais) ===
+document.getElementById('btn-confirm-delete-area')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('area', areaIdToDelete, '/api/tickets/options/areas', 'modalConfirmarDeleteArea', () => areaIdToDelete = null);
+});
+
+document.getElementById('btn-confirm-delete-grupo')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('grupo', grupoIdToDelete, '/api/tickets/options/grupos', 'modalConfirmarDeleteGrupo', () => grupoIdToDelete = null);
+});
+
+document.getElementById('btn-confirm-delete-tipo')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('tipo', tipoIdToDelete, '/api/tickets/options/tipos', 'modalConfirmarDeleteTipo', () => tipoIdToDelete = null);
+});
+
+document.getElementById('btn-confirm-delete-prioridade')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('prioridade', prioridadeIdToDelete, '/api/tickets/options/prioridades', 'modalConfirmarDeletePrioridade', () => prioridadeIdToDelete = null);
+});
+
+document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('alerta', alertaIdToDelete, '/api/tickets/options/alertas', 'modalConfirmarDeleteAlerta', () => alertaIdToDelete = null);
+});
+
+// === BOTÕES DE CANCELAR (dentro dos modais) ===
+document.getElementById('btn-cancel-delete-area')?.addEventListener('click', () => {
+    areaIdToDelete = null;
+    toggleModal('modalConfirmarDeleteArea', false);
+});
+
+document.getElementById('btn-cancel-delete-grupo')?.addEventListener('click', () => {
+    grupoIdToDelete = null;
+    toggleModal('modalConfirmarDeleteGrupo', false);
+});
+
+document.getElementById('btn-cancel-delete-tipo')?.addEventListener('click', () => {
+    tipoIdToDelete = null;
+    toggleModal('modalConfirmarDeleteTipo', false);
+});
+
+document.getElementById('btn-cancel-delete-prioridade')?.addEventListener('click', () => {
+    prioridadeIdToDelete = null;
+    toggleModal('modalConfirmarDeletePrioridade', false);
+});
+document.getElementById('btn-cancel-delete-alerta')?.addEventListener('click', () => {
+    alertaIdToDelete = null;
+    toggleModal('modalConfirmarDeleteAlerta', false);
+});
+   // --- LÓGICA PARA GERENCIAR PRIORIDADES ---
+const resetAddPrioridadeForm = () => {
+    if (addPrioridadeContainer) addPrioridadeContainer.classList.add('hidden');
+    if (btnShowAddPrioridade) btnShowAddPrioridade.classList.remove('hidden');
+    const prioridadeSelect = document.getElementById('ticket-prioridade');
+    if (btnDeletePrioridade && prioridadeSelect?.value) {
+        btnDeletePrioridade.classList.remove('hidden');
+    }
+    if (inputNewPrioridade) inputNewPrioridade.value = '';
+    if (prioridadeSuggestionsList) prioridadeSuggestionsList.innerHTML = '';
+    if (btnSaveNewPrioridade) btnSaveNewPrioridade.disabled = false;
+};
+
+btnShowAddPrioridade?.addEventListener('click', () => {
+    const areaSelect = document.getElementById('ticket-area');
+    if (!areaSelect || !areaSelect.value) return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
+
+    addPrioridadeContainer.classList.remove('hidden');
+    btnShowAddPrioridade.classList.add('hidden');
+    if(btnDeletePrioridade) btnDeletePrioridade.classList.add('hidden');
+    inputNewPrioridade.focus();
+    setupAutocomplete('input-new-prioridade', 'prioridade-suggestions-list', currentPrioridadesList);
+});
+
+btnCancelAddPrioridade?.addEventListener('click', resetAddPrioridadeForm);
+
+btnSaveNewPrioridade?.addEventListener('click', async () => {
+    const nomeNovaPrioridade = capitalize(inputNewPrioridade.value.trim());
+    const areaId = document.getElementById('ticket-area').value;
+    if (!nomeNovaPrioridade || !areaId) return showStatusModal('Erro!', 'O nome da nova prioridade e a área são obrigatórios.', true);
+
+    btnSaveNewPrioridade.disabled = true;
+    btnSaveNewPrioridade.textContent = 'Salvando...';
+    try {
+        const response = await fetch(`/api/tickets/options/areas/${areaId}/prioridades`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: nomeNovaPrioridade })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message);
+        const { novoItem } = result;
+        const prioridadeSelect = document.getElementById('ticket-prioridade');
+        const newOption = new Option(novoItem.nome, novoItem.id, true, true);
+        prioridadeSelect.add(newOption);
+        currentPrioridadesList.push(novoItem);
+
+        resetAddPrioridadeForm();
+        prioridadeSelect.dispatchEvent(new Event('change'));
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true);
+    } finally {
+        btnSaveNewPrioridade.disabled = false;
+        btnSaveNewPrioridade.textContent = 'Salvar';
+    }
+});
+
+// --- LÓGICA PARA GERENCIAR TIPOS ---
+const resetAddTipoForm = () => {
+    if (addTipoContainer) addTipoContainer.classList.add('hidden');
+    if (btnShowAddTipo) btnShowAddTipo.classList.remove('hidden');
+    const tipoSelect = document.getElementById('ticket-tipo');
+    if (btnDeleteTipo && tipoSelect?.value) {
+        btnDeleteTipo.classList.remove('hidden');
+    }
+    if (inputNewTipo) inputNewTipo.value = '';
+    if (tipoSuggestionsList) tipoSuggestionsList.innerHTML = '';
+    if (btnSaveNewTipo) btnSaveNewTipo.disabled = false;
+};
+
+btnShowAddTipo?.addEventListener('click', () => {
+    const areaSelect = document.getElementById('ticket-area');
+    if (!areaSelect || !areaSelect.value) return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
+    
+    addTipoContainer.classList.remove('hidden');
+    btnShowAddTipo.classList.add('hidden');
+    if(btnDeleteTipo) btnDeleteTipo.classList.add('hidden');
+    inputNewTipo.focus();
+    setupAutocomplete('input-new-tipo', 'tipo-suggestions-list', currentTiposList);
+});
+
+btnCancelAddTipo?.addEventListener('click', resetAddTipoForm);
+
+btnSaveNewTipo?.addEventListener('click', async () => {
+    const nomeNovoTipo = capitalize(inputNewTipo.value.trim());
+    const areaId = document.getElementById('ticket-area').value;
+    if (!nomeNovoTipo || !areaId) return showStatusModal('Erro!', 'O nome do novo tipo e a área são obrigatórios.', true);
+
+    btnSaveNewTipo.disabled = true;
+    btnSaveNewTipo.textContent = 'Salvando...';
+    try {
+        const response = await fetch(`/api/tickets/options/areas/${areaId}/tipos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: nomeNovoTipo })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message);
+
+        // --- CORREÇÃO AQUI ---
+        // Trocamos result.novoTipo por result.novoItem
+        const { novoItem } = result;
+        const tipoSelect = document.getElementById('ticket-tipo');
+        const newOption = new Option(novoItem.nome, novoItem.id, true, true);
+        tipoSelect.add(newOption);
+        currentTiposList.push(novoItem);
+        // --- FIM DA CORREÇÃO ---
+
+        resetAddTipoForm();
+        tipoSelect.dispatchEvent(new Event('change'));
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true);
+    } finally {
+        btnSaveNewTipo.disabled = false;
+        btnSaveNewTipo.textContent = 'Salvar';
+    }
+});
+
+
+    // --- LÓGICA PARA GERENCIAR ÁREAS ---
+const resetAddAreaForm = () => {
+    if (addAreaContainer) addAreaContainer.classList.add('hidden');
+    if (btnShowAddArea) btnShowAddArea.classList.remove('hidden');
+    const areaSelect = document.getElementById('ticket-area');
+    if (btnDeleteArea && areaSelect?.value) {
+        btnDeleteArea.classList.remove('hidden');
+    }
+    if (inputNewArea) inputNewArea.value = '';
+    if (areaSuggestionsList) areaSuggestionsList.innerHTML = '';
+    if (btnSaveNewArea) btnSaveNewArea.disabled = false;
+};
+
+btnShowAddArea?.addEventListener('click', () => {
+    addAreaContainer.classList.remove('hidden');
+    btnShowAddArea.classList.add('hidden');
+    if(btnDeleteArea) btnDeleteArea.classList.add('hidden');
+    inputNewArea.focus();
+    setupAutocomplete('input-new-area', 'area-suggestions-list', currentAreasList);
+});
+
+btnCancelAddArea?.addEventListener('click', resetAddAreaForm);
+
+btnSaveNewArea?.addEventListener('click', async () => {
+    const nomeNovaArea = capitalize(inputNewArea.value.trim());
+    if (!nomeNovaArea) return showStatusModal('Erro!', 'O nome da nova área é obrigatório.', true);
+
+    btnSaveNewArea.disabled = true;
+    btnSaveNewArea.textContent = 'Salvando...';
+    try {
+        const response = await fetch('/api/tickets/options/areas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: nomeNovaArea })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message);
+        await popularDropdownsTicket();
+        
+        const areaSelect = document.getElementById('ticket-area');
+        if (areaSelect) {
+            areaSelect.value = result.novaArea.id;
+            areaSelect.dispatchEvent(new Event('change'));
+        }
+
+        resetAddAreaForm();
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true);
+    } finally {
+        btnSaveNewArea.disabled = false;
+        btnSaveNewArea.textContent = 'Salvar';
+    }
+});
 
     btnShowAddGrupo?.addEventListener('click', () => {
     const areaSelect = document.getElementById('ticket-area');
@@ -196,53 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function handleDeleteGrupo(selectId, areaSelectId) {
-        const selectElement = document.getElementById(selectId);
-        const areaSelectElement = document.getElementById(areaSelectId);
-        const selectedId = selectElement.value;
-
-        if (!selectedId) {
-            return showStatusModal('Atenção!', 'Selecione um grupo da lista para excluir.', true);
-        }
-
-        grupoIdToDelete = { id: selectedId, areaSelect: areaSelectElement };
-        toggleModal('modalConfirmarDeleteGrupo', true);
-    }
-
-    btnDeleteGrupo?.addEventListener('click', () => {
-        handleDeleteGrupo('ticket-grupo', 'ticket-area');
-    });
-
-    document.getElementById('btn-cancel-delete-grupo')?.addEventListener('click', () => {
-        grupoIdToDelete = null;
-        toggleModal('modalConfirmarDeleteGrupo', false);
-    });
-
-    document.getElementById('btn-confirm-delete-grupo')?.addEventListener('click', async () => {
-        if (!grupoIdToDelete) return;
-
-        try {
-            const response = await fetch(`/api/tickets/options/grupos/${grupoIdToDelete.id}`, {
-                method: 'DELETE'
-            });
-            const result = await response.json();
-            toggleModal('modalConfirmarDeleteGrupo', false);
-
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false, () => {
-                    grupoIdToDelete.areaSelect.dispatchEvent(new Event('change'));
-                });
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            toggleModal('modalConfirmarDeleteGrupo', false);
-            showStatusModal('Erro de Conexão', 'Não foi possível deletar o grupo.', true);
-        } finally {
-            grupoIdToDelete = null;
-        }
-    });
-
+    
     const maskOptions = {
         mask: 'd/`m/`Y `H:`M',
         pattern: 'd/`m/`Y `H:`M',
@@ -978,75 +1253,96 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     async function handleAreaChange(areaSelectElement, tipoSelectId, prioridadeSelectId, grupoSelectId, alertaSelectId) {
-        const areaId = areaSelectElement.value;
-        
-        const tipoSelect = document.getElementById(tipoSelectId);
-        const prioridadeSelect = document.getElementById(prioridadeSelectId);
-        const grupoSelect = document.getElementById(grupoSelectId);
-        const alertaSelect = document.getElementById(alertaSelectId);
+    const areaId = areaSelectElement.value;
 
-        const selects = [
-            { element: tipoSelect, placeholder: 'Selecione uma Área' },
-            { element: prioridadeSelect, placeholder: 'Selecione uma Área' },
-            { element: grupoSelect, placeholder: 'Selecione uma Área' },
-            { element: alertaSelect, placeholder: 'Selecione uma Área' },
-        ];
+    // Elementos Select
+    const tipoSelect = document.getElementById(tipoSelectId);
+    const prioridadeSelect = document.getElementById(prioridadeSelectId);
+    const grupoSelect = document.getElementById(grupoSelectId);
+    const alertaSelect = document.getElementById(alertaSelectId);
 
-        selects.forEach(s => {
-            if (s.element) {
-                popularDropdown(s.element.id, [], s.placeholder);
-                s.element.disabled = true;
-            }
-        });
-        
-        document.getElementById('btn-delete-grupo-selecionado')?.classList.add('hidden');
-        document.getElementById('btn-delete-alerta-selecionado')?.classList.add('hidden');
-        document.getElementById('btn-delete-grupo-selecionado-edit')?.classList.add('hidden');
-        
-        resetAddGrupoForm();
-        resetAddAlertaForm();
+    // --- Início das Modificações ---
 
+    // 1. Reseta e desabilita todos os botões de gerenciamento
+    const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
+    
+    // Esconde todos os botões de adicionar e formulários
+    [btnShowAddArea, btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.add('hidden'));
+    [addAreaContainer, addGrupoContainer, addTipoContainer, addPrioridadeContainer, addAlertaContainer].forEach(cont => cont?.classList.add('hidden'));
+    
+    // Esconde todos os botões de excluir
+    [btnDeleteArea, btnDeleteGrupo, btnDeleteTipo, btnDeletePrioridade, btnDeleteAlerta].forEach(btn => btn?.classList.add('hidden'));
+
+    // 2. Lógica de Permissão: Mostra os botões de "Adicionar" se tiver permissão E uma área estiver selecionada
+    if (canManage) {
+        btnShowAddArea?.classList.remove('hidden'); // Botão de Área sempre visível para admin
         if (areaId) {
-            [tipoSelect, prioridadeSelect, grupoSelect, alertaSelect].forEach(s => {
-                if (s) s.innerHTML = '<option value="">Carregando...</option>';
-            });
-            
-            try {
-                const [tiposRes, prioridadesRes, gruposRes, alertasRes] = await Promise.all([
-                    fetch(`/api/tickets/options/areas/${areaId}/tipos`),
-                    fetch(`/api/tickets/options/areas/${areaId}/prioridades`),
-                    fetch(`/api/tickets/options/areas/${areaId}/grupos`),
-                    fetch(`/api/tickets/options/areas/${areaId}/alertas`)
-                ]);
-
-                if (!tiposRes.ok || !prioridadesRes.ok || !gruposRes.ok || !alertasRes.ok) {
-                    throw new Error('Falha ao buscar dados da área.');
-                }
-                
-                const [tipos, prioridades, grupos, alertas] = await Promise.all([
-                    tiposRes.json(), prioridadesRes.json(), gruposRes.json(), alertasRes.json()
-                ]);
-
-                currentGruposList = grupos;
-                currentAlertsList = alertas;
-
-                popularDropdown(tipoSelectId, tipos, 'Selecione o Tipo');
-                popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
-                popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
-                popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
-                
-                [tipoSelect, prioridadeSelect, grupoSelect, alertaSelect].forEach(s => {
-                    if (s) s.disabled = false;
-                });
-
-            } catch (error) {
-                console.error("Erro ao carregar dados da área:", error);
-                selects.forEach(s => {
-                    if (s.element) popularDropdown(s.element.id, [], 'Erro ao carregar');
-                });
-            }
+            [btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.remove('hidden'));
         }
     }
+
+    // --- Fim das Modificações ---
+
+    const selects = [
+        { element: tipoSelect, placeholder: 'Selecione uma Área' },
+        { element: prioridadeSelect, placeholder: 'Selecione uma Área' },
+        { element: grupoSelect, placeholder: 'Selecione uma Área' },
+        { element: alertaSelect, placeholder: 'Selecione uma Área' },
+    ];
+
+    selects.forEach(s => {
+        if (s.element) {
+            popularDropdown(s.element.id, [], s.placeholder);
+            s.element.disabled = true;
+        }
+    });
+
+    if (areaId) {
+        selects.forEach(s => {
+            if (s.element) s.element.innerHTML = '<option value="">Carregando...</option>';
+        });
+
+        try {
+            const [tiposRes, prioridadesRes, gruposRes, alertasRes, areasRes] = await Promise.all([
+                fetch(`/api/tickets/options/areas/${areaId}/tipos`),
+                fetch(`/api/tickets/options/areas/${areaId}/prioridades`),
+                fetch(`/api/tickets/options/areas/${areaId}/grupos`),
+                fetch(`/api/tickets/options/areas/${areaId}/alertas`),
+                fetch('/api/tickets/options/areas') // Busca todas as áreas para o cache
+            ]);
+
+            if (!tiposRes.ok || !prioridadesRes.ok || !gruposRes.ok || !alertasRes.ok || !areasRes.ok) {
+                throw new Error('Falha ao buscar dados da área.');
+            }
+
+            const [tipos, prioridades, grupos, alertas, areas] = await Promise.all([
+                tiposRes.json(), prioridadesRes.json(), gruposRes.json(), alertasRes.json(), areasRes.json()
+            ]);
+
+            // 3. Cache de Dados: Popula todas as variáveis de cache
+            currentTiposList = tipos;
+            currentPrioridadesList = prioridades;
+            currentGruposList = grupos;
+            currentAlertsList = alertas;
+            currentAreasList = areas; // Cache da lista de áreas
+
+            popularDropdown(tipoSelectId, tipos, 'Selecione o Tipo');
+            popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
+            popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
+            popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
+
+            selects.forEach(s => {
+                if (s.element) s.element.disabled = false;
+            });
+
+        } catch (error) {
+            console.error("Erro ao carregar dados da área:", error);
+            selects.forEach(s => {
+                if (s.element) popularDropdown(s.element.id, [], 'Erro ao carregar');
+            });
+        }
+    }
+}
     async function popularDropdownsTicket() {
         const fetchAndPopulate = async (selectId, url, placeholder) => {
             try {
@@ -1065,20 +1361,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    async function carregarInfoCards() {
-        try {
-            const response = await fetch('/api/tickets/cards-info');
-            if (!response.ok) throw new Error('Falha ao carregar cards');
-            const data = await response.json();
-            document.getElementById('card-total').textContent = data.total;
-            document.getElementById('card-abertos').textContent = data.abertos;
-            document.getElementById('card-resolvidos').textContent = data.resolvidos;
-            document.getElementById('card-aprovacao').textContent = data.aprovacao;
-            document.getElementById('card-encerrados').textContent = data.encerrados;
-        } catch (error) {
-            console.error("Erro ao carregar info dos cards:", error);
-        }
+  async function carregarInfoCards() {
+    try {
+        const response = await fetch('/api/tickets/cards-info');
+        if (!response.ok) throw new Error('Falha ao carregar cards');
+        const data = await response.json();
+        
+        document.getElementById('card-total').textContent = data.total;
+        document.getElementById('card-em-atendimento').textContent = data.emAtendimento;
+        document.getElementById('card-resolvidos').textContent = data.resolvidos;
+        document.getElementById('card-encerrados').textContent = data.encerrados; 
+
+    } catch (error) {
+        console.error("Erro ao carregar info dos cards:", error);
     }
+}
     
     async function carregarTickets(pagina = 1) {
         paginaAtual = pagina;
@@ -1216,102 +1513,94 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     async function abrirModalEditar(ticketId) {
-        pastedFileEdit = null;
-        const preview = document.getElementById('paste-preview-edit');
-        if (preview) preview.innerHTML = '';
-        formEditarTicket.reset();
+    pastedFileEdit = null;
+    const preview = document.getElementById('paste-preview-edit');
+    if (preview) preview.innerHTML = '';
+    formEditarTicket.reset();
 
-        try {
-            const commentsContainer = document.getElementById('comments-list-container');
-            if(commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-gray-500">Carregando...</p>';
-            
-            const [ticketResponse, commentsResponse] = await Promise.all([
-                fetch(`/api/tickets/${ticketId}`),
-                fetch(`/api/tickets/${ticketId}/comments`)
-            ]);
+    try {
+        const commentsContainer = document.getElementById('comments-list-container');
+        if (commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-gray-500">Carregando...</p>';
 
-            if (!ticketResponse.ok) {
-                throw new Error('Ticket não encontrado');
-            }
-            const ticket = await ticketResponse.json();
+        const [ticketResponse, commentsResponse] = await Promise.all([
+            fetch(`/api/tickets/${ticketId}`),
+            fetch(`/api/tickets/${ticketId}/comments`)
+        ]);
 
-            const formatIsoToBr = (isoString) => {
-                if (!isoString) return '';
-                const date = new Date(isoString);
-                if (isNaN(date)) return '';
-                return date.toLocaleString('pt-BR', {
-                    year: 'numeric', month: '2-digit', day: '2-digit',
-                    hour: '2-digit', minute: '2-digit'
-                }).replace(',', '');
-            };
-            
-            document.getElementById('edit-ticket-id').value = ticket.id;
-            document.getElementById('edit-ticket-status').value = ticket.status;
-            document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-            IMask.find(document.getElementById('edit-alarme-inicio'))?.setInputValue(formatIsoToBr(ticket.alarme_inicio));
-            IMask.find(document.getElementById('edit-horario-acionamento'))?.setInputValue(formatIsoToBr(ticket.horario_acionamento));
-            IMask.find(document.getElementById('edit-alarme-fim'))?.setInputValue(formatIsoToBr(ticket.alarme_fim));
-            
-            const inicioAlarmeInput = document.getElementById('edit-alarme-inicio');
-            const inicioAtendimentoInput = document.getElementById('edit-horario-acionamento');
-            const podeEditarDatas = currentUser && currentUser.perfil === 'admin';
-            [inicioAlarmeInput, inicioAtendimentoInput].forEach(input => {
-                if (input) {
-                    input.readOnly = !podeEditarDatas;
-                    input.classList.toggle('bg-gray-200', !podeEditarDatas);
-                    input.classList.toggle('cursor-not-allowed', !podeEditarDatas);
-                }
-            });
-            
-            const linkContainer = document.getElementById('current-attachment-container');
-            const linkSpan = document.getElementById('current-attachment-link');
-            const removeAnexoInput = document.getElementById('edit-remove-anexo');
-            if (linkContainer && linkSpan && removeAnexoInput) {
-                removeAnexoInput.value = '0';
-                linkContainer.classList.add('hidden');
-                if (ticket.anexo_path) {
-                    const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
-                    linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
-                    linkContainer.classList.remove('hidden');
-                }
-            }
-
-            const areaSelect = document.getElementById('edit-ticket-area');
-            areaSelect.value = ticket.area_id; 
-
-            await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
-            
-            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
-            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id; 
-            
-            const grupoSelect = document.getElementById('edit-ticket-grupo');
-            grupoSelect.value = ticket.grupo_id;
-            handleGrupoChange(grupoSelect); // Atualiza visibilidade do botão de deletar
-            
-            const alertaSelect = document.getElementById('edit-ticket-alerta');
-            alertaSelect.value = ticket.alerta_id;
-            alertaSelect.dispatchEvent(new Event('change')); // Atualiza visibilidade do botão de deletar
-            
-            const deleteButton = document.getElementById('btn-delete-ticket');
-            if (deleteButton) {
-                deleteButton.classList.toggle('hidden', !(currentUser && currentUser.perfil === 'admin'));
-            }
-            
-            if (commentsResponse.ok) {
-                const comments = await commentsResponse.json();
-                renderComments(comments);
-            } else {
-                 if(commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-red-500">Erro ao carregar comentários.</p>';
-            }
-            
-            toggleModal('modalEditarTicket', true);
-            
-        } catch (error) {
-            toggleModal('modalEditarTicket', false);
-            console.error("Erro ao abrir modal de edição:", error);
-            showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
+        if (!ticketResponse.ok) {
+            throw new Error('Ticket não encontrado');
         }
+        const ticket = await ticketResponse.json();
+
+        const formatIsoToBr = (isoString) => {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            if (isNaN(date)) return '';
+            return date.toLocaleString('pt-BR', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            }).replace(',', '');
+        };
+
+        document.getElementById('edit-ticket-id').value = ticket.id;
+        document.getElementById('edit-ticket-status').value = ticket.status;
+        document.getElementById('edit-ticket-descricao').value = ticket.descricao;
+
+ 
+        document.getElementById('edit-alarme-inicio').imask?.setInputValue(formatIsoToBr(ticket.alarme_inicio));
+        document.getElementById('edit-horario-acionamento').imask?.setInputValue(formatIsoToBr(ticket.horario_acionamento));
+        document.getElementById('edit-alarme-fim').imask?.setInputValue(formatIsoToBr(ticket.alarme_fim));
+    
+        
+        const linkContainer = document.getElementById('current-attachment-container');
+        const linkSpan = document.getElementById('current-attachment-link');
+        const removeAnexoInput = document.getElementById('edit-remove-anexo');
+        if (linkContainer && linkSpan && removeAnexoInput) {
+            removeAnexoInput.value = '0';
+            linkContainer.classList.add('hidden');
+            if (ticket.anexo_path) {
+                const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
+                linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
+                linkContainer.classList.remove('hidden');
+            }
+        }
+
+        const areaSelect = document.getElementById('edit-ticket-area');
+        areaSelect.value = ticket.area_id;
+
+        await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
+        
+        document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
+        document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id;
+        
+        const grupoSelect = document.getElementById('edit-ticket-grupo');
+        grupoSelect.value = ticket.grupo_id;
+
+        
+        const alertaSelect = document.getElementById('edit-ticket-alerta');
+        alertaSelect.value = ticket.alerta_id;
+        alertaSelect.dispatchEvent(new Event('change'));
+        
+        const deleteButton = document.getElementById('btn-delete-ticket');
+        if (deleteButton) {
+            deleteButton.classList.toggle('hidden', !(currentUser && currentUser.perfil === 'admin'));
+        }
+        
+        if (commentsResponse.ok) {
+            const comments = await commentsResponse.json();
+            renderComments(comments);
+        } else {
+            if (commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-red-500">Erro ao carregar comentários.</p>';
+        }
+        
+        toggleModal('modalEditarTicket', true);
+        
+    } catch (error) {
+        toggleModal('modalEditarTicket', false);
+        console.error("Erro ao abrir modal de edição:", error);
+        showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
     }
+}
 
     document.getElementById('ticket-area')?.addEventListener('change', (event) => {
         handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
@@ -1320,6 +1609,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-ticket-area')?.addEventListener('change', (event) => {
         handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta'); 
     });
+    
 
     document.getElementById('btn-cancel-create')?.addEventListener('click', () => {
         formAbrirTicket.reset(); 
@@ -1353,11 +1643,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputNewAlerta = document.getElementById('input-new-alerta');
     const btnCancelAddAlerta = document.getElementById('btn-cancel-add-alerta');
     const btnSaveNewAlerta = document.getElementById('btn-save-new-alerta');
-    const suggestionsList = document.getElementById('alerta-suggestions-list'); 
-    const btnDeleteAlerta = document.getElementById('btn-delete-alerta-selecionado');
+    const suggestionsList = document.getElementById('alerta-suggestions-list');     
     
-  // SUBSTITUA ESTA FUNÇÃO
-function setupAutocomplete(inputId, suggestionsContainerId, listSource) {
+   function setupAutocomplete(inputId, suggestionsContainerId, listSource) {
     const input = document.getElementById(inputId);
     const suggestionsContainer = document.getElementById(suggestionsContainerId);
     const btnSave = input.closest('div').querySelector('button[id*="save"]');
@@ -1366,7 +1654,7 @@ function setupAutocomplete(inputId, suggestionsContainerId, listSource) {
 
     input.addEventListener('input', () => {
         const query = input.value.trim().toLowerCase();
-        suggestionsContainer.innerHTML = ''; 
+        suggestionsContainer.innerHTML = '';
         if (btnSave) btnSave.disabled = false;
 
         if (!query) return;
@@ -1399,66 +1687,17 @@ function setupAutocomplete(inputId, suggestionsContainerId, listSource) {
     });
 }
 
-    function handleDeleteAlerta() {
-        const selectElement = document.getElementById('ticket-alerta');
-        const areaSelectElement = document.getElementById('ticket-area');
-        const selectedId = selectElement.value;
-
-        if (!selectedId) {
-            showStatusModal('Atenção!', 'Por favor, selecione um alerta da lista para excluir.', true);
-            return;
-        }
-        
-        alertaIdToDelete = { id: selectedId, areaSelect: areaSelectElement };
-        toggleModal('modalConfirmarDeleteAlerta', true);
-    }
-
-    btnDeleteAlerta?.addEventListener('click', () => {
-        handleDeleteAlerta();
-    });
-
-    document.getElementById('btn-cancel-delete-alerta')?.addEventListener('click', () => {
-        alertaIdToDelete = null;
-        toggleModal('modalConfirmarDeleteAlerta', false);
-    });
-
-    document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', async () => {
-        if (!alertaIdToDelete) return;
-
-        try {
-            const response = await fetch(`/api/tickets/options/alertas/${alertaIdToDelete.id}`, {
-                method: 'DELETE'
-            });
-            const result = await response.json();
-            toggleModal('modalConfirmarDeleteAlerta', false);
-            
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false, () => {
-                   alertaIdToDelete.areaSelect.dispatchEvent(new Event('change'));
-                });
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-
-        } catch (error) {
-            toggleModal('modalConfirmarDeleteAlerta', false);
-            showStatusModal('Erro de Conexão', 'Não foi possível deletar o alerta.', true);
-        } finally {
-            alertaIdToDelete = null;
-        }
-    });
-
     btnShowAddAlerta?.addEventListener('click', () => {
-    const areaSelect = document.getElementById('ticket-area'); 
-    if (!areaSelect || !areaSelect.value) {
-        return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
-    }
-    addAlertaContainer.classList.remove('hidden');
-    btnShowAddAlerta.classList.add('hidden');
-    if(btnDeleteAlerta) btnDeleteAlerta.classList.add('hidden');
-    inputNewAlerta.focus();
-    setupAutocomplete('input-new-alerta', 'alerta-suggestions-list', currentAlertsList);
-});
+        const areaSelect = document.getElementById('ticket-area'); 
+        if (!areaSelect || !areaSelect.value) {
+            return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
+        }
+        addAlertaContainer.classList.remove('hidden');
+        btnShowAddAlerta.classList.add('hidden');
+        if(btnDeleteAlerta) btnDeleteAlerta.classList.add('hidden');
+        inputNewAlerta.focus();
+        setupAutocomplete('input-new-alerta', 'alerta-suggestions-list', currentAlertsList);
+    });
 
     const resetAddAlertaForm = () => {
         if(addAlertaContainer) addAlertaContainer.classList.add('hidden');
@@ -1818,15 +2057,32 @@ function setupAutocomplete(inputId, suggestionsContainerId, listSource) {
             ticketIdToDelete = null; 
         }
     });
+    function addDeleteButtonListener(selectId, buttonId) {
+    document.getElementById(selectId)?.addEventListener('change', (event) => {
+        const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
+        const btnDelete = document.getElementById(buttonId);
+        if (btnDelete) {
+            // O botão só aparece se um valor for selecionado E o usuário tiver permissão
+            btnDelete.classList.toggle('hidden', !event.target.value || !canManage);
+        }
+    });
+}
+
+addDeleteButtonListener('ticket-area', 'btn-delete-area-selecionada');
+addDeleteButtonListener('ticket-grupo', 'btn-delete-grupo-selecionado');
+addDeleteButtonListener('ticket-tipo', 'btn-delete-tipo-selecionado');
+addDeleteButtonListener('ticket-prioridade', 'btn-delete-prioridade-selecionada');
+addDeleteButtonListener('ticket-alerta', 'btn-delete-alerta-selecionado');
+
+
+addDeleteButtonListener('edit-ticket-area', 'btn-delete-area-selecionada-edit'); 
+addDeleteButtonListener('edit-ticket-grupo', 'btn-delete-grupo-selecionado-edit');
+addDeleteButtonListener('edit-ticket-tipo', 'btn-delete-tipo-selecionado-edit');
+addDeleteButtonListener('edit-ticket-prioridade', 'btn-delete-prioridade-selecionado-edit');
+addDeleteButtonListener('edit-ticket-alerta', 'btn-delete-alerta-selecionado-edit');
 
     document.getElementById('ordenarPor')?.addEventListener('change', () => carregarTickets(1));
 
-    // Listeners para mostrar os botões de deletar
-    document.getElementById('ticket-grupo')?.addEventListener('change', (event) => handleGrupoChange(event.target));
-    document.getElementById('edit-ticket-grupo')?.addEventListener('change', (event) => handleGrupoChange(event.target));
-    document.getElementById('ticket-alerta')?.addEventListener('change', (event) => {
-        document.getElementById('btn-delete-alerta-selecionado')?.classList.toggle('hidden', !event.target.value);
-    });
 
     loadColumnConfig();
     criarSeletorItensPorPagina(); 
@@ -1835,17 +2091,4 @@ function setupAutocomplete(inputId, suggestionsContainerId, listSource) {
     carregarInfoCards();
     carregarTickets();
     setupPasteFunctionality();
-
-    document.getElementById('ticket-grupo')?.addEventListener('change', (event) => {
-    document.getElementById('btn-delete-grupo-selecionado')?.classList.toggle('hidden', !event.target.value);
-});
-
-document.getElementById('ticket-alerta')?.addEventListener('change', (event) => {
-    document.getElementById('btn-delete-alerta-selecionado')?.classList.toggle('hidden', !event.target.value);
-});
-
-// Adicione também para o modal de EDIÇÃO
-document.getElementById('edit-ticket-grupo')?.addEventListener('change', (event) => {
-    document.getElementById('btn-delete-grupo-selecionado-edit')?.classList.toggle('hidden', !event.target.value);
-});
 });

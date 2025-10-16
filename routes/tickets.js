@@ -14,18 +14,36 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+const requireAdminOrSupport = (req, res, next) => {
+    const user = req.session.user;
+    if (user && (user.perfil === 'admin' || user.perfil === 'support')) {
+        return next();
+    }
+    return res.status(403).json({ message: 'Acesso negado. Permissão insuficiente.' });
+};
 
-// --- Rotas para buscar as opções dos seletores ---
 router.get('/options/areas', requireLogin, ticketController.getAreas);
-router.post('/options/areas', requireAdmin, ticketController.createArea);
+router.get('/options/prioridades', requireLogin, ticketController.getPrioridades);
 router.get('/options/areas/:areaId/grupos', requireLogin, ticketController.getGruposByArea);
-router.post('/options/areas/:areaId/grupos', requireLogin, ticketController.createGrupo);
-router.delete('/options/grupos/:grupoId', requireLogin, ticketController.deleteGrupo);
+router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
 router.get('/options/areas/:areaId/tipos', requireLogin, ticketController.getTiposByArea);
 router.get('/options/areas/:areaId/prioridades', requireLogin, ticketController.getPrioridadesByArea);
-router.get('/options/prioridades', requireLogin, ticketController.getPrioridades);
-router.get('/options/areas/:areaId/alertas', requireLogin, ticketController.getAlertasByArea);
-router.post('/options/areas/:areaId/alertas', requireAdmin, ticketController.createAlerta);
+
+
+router.post('/options/areas', requireAdminOrSupport, ticketController.createArea);
+router.delete('/options/areas/:id', requireAdminOrSupport, ticketController.deleteArea);
+
+router.post('/options/areas/:areaId/grupos', requireAdminOrSupport, ticketController.createGrupo);
+router.delete('/options/grupos/:id', requireAdminOrSupport, ticketController.deleteGrupo);
+
+router.post('/options/areas/:areaId/alertas', requireAdminOrSupport, ticketController.createAlerta);
+router.delete('/options/alertas/:id', requireAdminOrSupport, ticketController.deleteAlerta);
+
+router.post('/options/areas/:areaId/tipos', requireAdminOrSupport, ticketController.createTipo);
+router.delete('/options/tipos/:id', requireAdminOrSupport, ticketController.deleteTipo);
+
+router.post('/options/areas/:areaId/prioridades', requireAdminOrSupport, ticketController.createPrioridade);
+router.delete('/options/prioridades/:id', requireAdminOrSupport, ticketController.deletePrioridade);
 
 
 // --- Rota para Exportação ---

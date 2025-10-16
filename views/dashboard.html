@@ -114,27 +114,17 @@
                 </div>
             </div>
             <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-                <div class="flex justify-between items-start"><img src="/images/aberto.png" alt="Ícone Tickets" class="w-15 h-12" />
-                    <p id="card-abertos" class="text-3xl font-black text-black">--</p>
-                </div>
-                <div>
-                    <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Abertos</p>
-                </div>
-            </div>
+    <div class="flex justify-between items-start"><img src="/images/aberto.png" alt="Ícone Tickets" class="w-15 h-12" />
+        <p id="card-em-atendimento" class="text-3xl font-black text-black">--</p> </div>
+    <div>
+        <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Em<br>Atendimento</p> </div>
+</div>
             <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
                 <div class="flex justify-between items-start"><img src="/images/resolvido.png" alt="Ícone Tickets" class="w-15 h-12" />
                     <p id="card-resolvidos" class="text-3xl font-black text-black">--</p>
                 </div>
                 <div>
                     <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Resolvidos</p>
-                </div>
-            </div>
-            <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-                <div class="flex justify-between items-start"><img src="/images/aguardando.png" alt="Ícone Tickets" class="w-15 h-12" />
-                    <p id="card-aprovacao" class="text-3xl font-black text-black">--</p>
-                </div>
-                <div>
-                    <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets em<br>Aprovação</p>
                 </div>
             </div>
             <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
@@ -238,8 +228,9 @@
         </div>
     </div>
 </div>
-      <div id="modalTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
+       <div id="modalTicket" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
     <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
+        
         <div class="flex-shrink-0 p-6 pb-4 border-b">
             <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalTicket', false)">&times;</button>
             <h2 class="text-2xl font-bold text-center text-[#02092B]">Abrir Novo Ticket</h2>
@@ -248,68 +239,100 @@
         <div class="overflow-y-auto flex-grow">
             <form id="formAbrirTicket" class="p-6 space-y-4" enctype="multipart/form-data">
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
-                    <div>
-                        <label for="ticket-area" class="block text-sm font-semibold text-gray-700">Área</label>
-                        <select id="ticket-area" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                <div>
+                    <label for="ticket-area" class="block text-sm font-semibold text-gray-700">Área</label>
+                    <select id="ticket-area" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    <div class="mt-2 flex justify-end items-center gap-4">
+                        <button type="button" id="btn-delete-area-selecionada" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir área selecionada</button>
+                        <button type="button" id="btn-show-add-area" class="text-xs text-blue-600 hover:underline font-semibold hidden">+ Adicionar nova área</button>
                     </div>
-
-                    <div class="relative">
-                        <label for="ticket-grupo" class="block text-sm font-semibold text-gray-700">Grupo Responsável</label>
-                        <div class="flex items-center space-x-2 mt-1">
-                            <select id="ticket-grupo" name="grupo_id" class="form-select flex-grow border rounded p-2 bg-gray-50" required disabled>
-                                <option value="">-- Selecione uma Área --</option>
-                            </select>
-                            <button type="button" id="btn-show-add-grupo" title="Adicionar Novo Grupo" class="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                            </button>
-                            <button type="button" id="btn-delete-grupo-selecionado" title="Excluir Grupo Selecionado" class="p-2 bg-red-500 text-white rounded hover:bg-red-600 shrink-0 hidden">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
-                            </button>
+                    <div id="add-area-container" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
+                        <label for="input-new-area" class="text-sm font-semibold text-gray-700">Nova Área:</label>
+                        <input type="text" id="input-new-area" placeholder="Digite o nome da nova área" class="w-full border rounded p-2 text-sm" autocomplete="off">
+                        <div id="area-suggestions-list" class="text-xs text-gray-600 mt-1"></div>
+                        <div class="flex justify-end gap-2 mt-2">
+                            <button type="button" id="btn-cancel-add-area" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Cancelar</button>
+                            <button type="button" id="btn-save-new-area" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Salvar</button>
                         </div>
-                        <div id="add-grupo-container" class="hidden mt-1 p-3 border rounded-md absolute w-full bg-white border-gray-300 shadow-lg z-10">
-                            <label for="input-new-grupo" class="text-sm font-medium">Nome do Novo Grupo:</label>
-                            <input type="text" id="input-new-grupo" class="w-full mt-1 border rounded p-2 bg-white" placeholder="Digite o nome do novo grupo">
-                            <div id="grupo-suggestions-list" class="mt-1 border-gray-200 rounded-md max-h-32 overflow-y-auto"></div>
-                            <div class="flex justify-end space-x-2 mt-3">
-                                <button type="button" id="btn-cancel-add-grupo" class="px-4 py-2 text-sm bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
-                                <button type="button" id="btn-save-new-grupo" class="px-4 py-2 text-sm text-white bg-green-600 rounded hover:bg-green-700">Salvar</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ticket-grupo" class="block text-sm font-semibold text-gray-700">Grupo Responsável</label>
+                        <select id="ticket-grupo" name="grupo_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                        <div class="mt-2 flex justify-end items-center gap-4">
+                            <button type="button" id="btn-delete-grupo-selecionado" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir grupo</button>
+                            <button type="button" id="btn-show-add-grupo" class="text-xs text-blue-600 hover:underline font-semibold hidden">+ Adicionar grupo</button>
+                        </div>
+                        <div id="add-grupo-container" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
+                            <label for="input-new-grupo" class="text-sm font-semibold text-gray-700">Novo Grupo:</label>
+                            <input type="text" id="input-new-grupo" placeholder="Digite o nome do novo grupo" class="w-full border rounded p-2 text-sm" autocomplete="off">
+                            <div id="grupo-suggestions-list" class="text-xs text-gray-600 mt-1"></div>
+                            <div class="flex justify-end gap-2 mt-2">
+                                <button type="button" id="btn-cancel-add-grupo" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Cancelar</button>
+                                <button type="button" id="btn-save-new-grupo" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Salvar</button>
                             </div>
                         </div>
                     </div>
 
                     <div>
                         <label for="ticket-tipo" class="block text-sm font-semibold text-gray-700">Tipo de Solicitação</label>
-                        <select id="ticket-tipo" name="tipo_solicitacao_id" required class="w-full mt-1 border rounded p-2 bg-gray-50" disabled></select>
+                        <select id="ticket-tipo" name="tipo_solicitacao_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                        <div class="mt-2 flex justify-end items-center gap-4">
+                            <button type="button" id="btn-delete-tipo-selecionado" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir tipo</button>
+                            <button type="button" id="btn-show-add-tipo" class="text-xs text-blue-600 hover:underline font-semibold hidden">+ Adicionar tipo</button>
+                        </div>
+                        <div id="add-tipo-container" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
+                            <label for="input-new-tipo" class="text-sm font-semibold text-gray-700">Novo Tipo:</label>
+                            <input type="text" id="input-new-tipo" placeholder="Digite o nome do novo tipo" class="w-full border rounded p-2 text-sm" autocomplete="off">
+                            <div id="tipo-suggestions-list" class="text-xs text-gray-600 mt-1"></div>
+                            <div class="flex justify-end gap-2 mt-2">
+                                <button type="button" id="btn-cancel-add-tipo" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Cancelar</button>
+                                <button type="button" id="btn-save-new-tipo" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Salvar</button>
+                            </div>
+                        </div>
                     </div>
+                    
                     <div>
                         <label for="ticket-prioridade" class="block text-sm font-semibold text-gray-700">Prioridade</label>
-                        <select id="ticket-prioridade" name="prioridade_id" required class="w-full mt-1 border rounded p-2 bg-gray-50" disabled></select>
+                        <select id="ticket-prioridade" name="prioridade_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                        <div class="mt-2 flex justify-end items-center gap-4">
+                            <button type="button" id="btn-delete-prioridade-selecionada" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir prioridade</button>
+                            <button type="button" id="btn-show-add-prioridade" class="text-xs text-blue-600 hover:underline font-semibold hidden">+ Adicionar prioridade</button>
+                        </div>
+                        <div id="add-prioridade-container" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
+                            <label for="input-new-prioridade" class="text-sm font-semibold text-gray-700">Nova Prioridade:</label>
+                            <input type="text" id="input-new-prioridade" placeholder="Digite o nome da prioridade" class="w-full border rounded p-2 text-sm" autocomplete="off">
+                            <div id="prioridade-suggestions-list" class="text-xs text-gray-600 mt-1"></div>
+                            <div class="flex justify-end gap-2 mt-2">
+                                <button type="button" id="btn-cancel-add-prioridade" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Cancelar</button>
+                                <button type="button" id="btn-save-new-prioridade" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Salvar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="relative">
+                <div>
                     <label for="ticket-alerta" class="block text-sm font-semibold text-gray-700">Alerta</label>
-                    <div class="flex items-center space-x-2 mt-1">
-                        <select id="ticket-alerta" name="alerta_id" required class="form-select flex-grow w-full border rounded p-2 bg-gray-50" disabled>
-                             <option value="">-- Selecione uma Área --</option>
-                        </select>
-                        <button type="button" id="btn-show-add-alerta" title="Adicionar Novo Alerta" class="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path></svg>
-                        </button>
-                        <button type="button" id="btn-delete-alerta-selecionado" title="Excluir Alerta Selecionado" class="p-2 bg-red-500 text-white rounded hover:bg-red-600 shrink-0 hidden">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg>
-                        </button>
+                    <select id="ticket-alerta" name="alerta_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
+                    <div class="mt-2 flex justify-end items-center gap-4">
+                        <button type="button" id="btn-delete-alerta-selecionado" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir alerta</button>
+                        <button type="button" id="btn-show-add-alerta" class="text-xs text-blue-600 hover:underline font-semibold hidden">+ Adicionar alerta</button>
                     </div>
-                    <div id="add-alerta-container" class="hidden mt-1 p-3 border rounded-md absolute w-full bg-white border-gray-300 shadow-lg z-10">
+                    <div id="add-alerta-container" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
                         <label for="input-new-alerta" class="text-sm font-semibold text-gray-700">Novo Alerta:</label>
-                        <input type="text" id="input-new-alerta" placeholder="Digite o nome do novo alerta" class="w-full border rounded p-2 text-sm bg-white" autocomplete="off">
-                        <div id="alerta-suggestions-list" class="border-gray-200 rounded-md max-h-32 overflow-y-auto mt-1"></div>
+                        <input type="text" id="input-new-alerta" placeholder="Digite o nome do novo alerta" class="w-full border rounded p-2 text-sm" autocomplete="off">
+                        <div id="alerta-suggestions-list" class="text-xs text-gray-600 mt-1"></div>
                         <div class="flex justify-end gap-2 mt-2">
                             <button type="button" id="btn-cancel-add-alerta" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Cancelar</button>
                             <button type="button" id="btn-save-new-alerta" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Salvar</button>
                         </div>
                     </div>
+                </div>
+                <div>
+                    <label for="ticket-descricao" class="block text-sm font-semibold text-gray-700">Descrição</label>
+                    <textarea id="ticket-descricao" name="descricao" rows="4" required class="w-full mt-1 border rounded p-2" placeholder="Descreva o problema ou solicitação..."></textarea>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
@@ -328,24 +351,21 @@
                 </div>
                 
                 <div>
-                    <label for="ticket-descricao" class="block text-sm font-semibold text-gray-700">Descrição</label>
-                    <textarea id="ticket-descricao" name="descricao" rows="4" class="w-full mt-1 border rounded p-2" placeholder="Descreva o problema..."></textarea>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700">Anexar Arquivo</label>
-                    <input type="file" name="anexo" class="w-full mt-1 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <label for="ticket-anexos" class="block text-sm font-semibold text-gray-700">Anexos</label>
+                    <input type="file" id="ticket-anexos" name="anexos[]" multiple class="w-full mt-1 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     <div id="paste-preview-create" class="mt-2 text-sm text-gray-600"></div>
                 </div>
+
             </form>
         </div>
         
         <div class="flex-shrink-0 p-6 pt-4 border-t">
             <div class="flex justify-between items-center">
-                <button type="button" id="btn-cancel-create" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="button" onclick="toggleModal('modalTicket', false)" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button>
                 <button type="submit" form="formAbrirTicket" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold">Enviar Ticket</button>
             </div>
         </div>
+
     </div>
 </div>
 
@@ -777,13 +797,52 @@
         </div>
     </div>
 </div>
-
+<div id="modalConfirmarDeleteGrupo" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+    <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
+        <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este Grupo? Esta ação não pode ser desfeita.</p>
+        <div class="flex justify-center gap-4">
+            <button id="btn-confirm-delete-grupo" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
+            <button id="btn-cancel-delete-grupo" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
+        </div>
+    </div>
+</div>
+        <div id="modalConfirmarDeleteArea" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+            <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
+                <p class="text-gray-600 mb-6">Tem certeza que deseja apagar esta Área? Esta ação não pode ser desfeita.</p>
+                <div class="flex justify-center gap-4">
+                    <button id="btn-confirm-delete-area" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
+                    <button id="btn-cancel-delete-area" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
+                </div>
+            </div>
+        </div>
+        <div id="modalConfirmarDeleteTipo" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+            <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
+                <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este Tipo de Solicitação?</p>
+                <div class="flex justify-center gap-4">
+                    <button id="btn-confirm-delete-tipo" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
+                    <button id="btn-cancel-delete-tipo" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
+                </div>
+            </div>
+        </div>
+        <div id="modalConfirmarDeletePrioridade" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+            <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
+                <p class="text-gray-600 mb-6">Tem certeza que deseja apagar esta Prioridade?</p>
+                <div class="flex justify-center gap-4">
+                    <button id="btn-confirm-delete-prioridade" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
+                    <button id="btn-cancel-delete-prioridade" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
+                </div>
+            </div>
+        </div>
         <div id="modalConfirmarDeleteAlerta" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
     <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
-        <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este alerta? Esta ação não pode ser desfeita e removerá o alerta de todos os tickets associados.</p>
+        <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este Alerta? Esta ação não pode ser desfeita.</p>
         <div class="flex justify-center gap-4">
-            <button id="btn-confirm-delete-alerta" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar Alerta</button>
+            <button id="btn-confirm-delete-alerta" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
             <button id="btn-cancel-delete-alerta" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
         </div>
     </div>

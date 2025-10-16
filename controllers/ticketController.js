@@ -8,7 +8,8 @@ const capitalize = (str) => {
 };
 
 exports.createTicket = async (req, res) => {
-    const { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento } = req.body;
+    // Mude de 'const' para 'let' nesta linha para permitir a modificação de 'alarme_fim'
+    let { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento } = req.body;
     const user_id = req.session.user.id;
     const anexo_path = req.file ? req.file.path : null;
 
@@ -16,16 +17,22 @@ exports.createTicket = async (req, res) => {
         return res.status(400).json({ message: 'Todos os campos obrigatórios devem ser preenchidos.' });
     }
 
+    if (!alarme_fim || alarme_fim === 'null') {
+        alarme_fim = null;
+    }
+
     try {
+        // Query SQL sem o campo 'assunto'
         const sql = `
             INSERT INTO tickets (
                 user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, 
                 alarme_inicio, alarme_fim, anexo_path, horario_acionamento, status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `; 
+        // Lista de valores sem o campo 'assunto'
         const values = [
             user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao || null,
-            alarme_inicio, alarme_fim || null, anexo_path, horario_acionamento, 
+            alarme_inicio, alarme_fim, anexo_path, horario_acionamento, 
             'Em Atendimento'
         ];
 
@@ -38,146 +45,141 @@ exports.createTicket = async (req, res) => {
 };
 
 exports.getAllTickets = async (req, res) => {
-    const loggedInUser = req.session.user;
+    const loggedInUser = req.session.user;
 
-    // --- PARÂMETROS DE CONSULTA ---
-    const pagina = parseInt(req.query.pagina || '1', 10);
-    const limite = parseInt(req.query.limite || '20', 10);
-    const offset = (pagina - 1) * limite;
-    
-    const { ordenar, areas, prioridades_nomes, usuarios, status, startDate, endDate } = req.query;
+    // --- PARÂMETROS DE CONSULTA ---
+    const pagina = parseInt(req.query.pagina || '1', 10);
+    const limite = parseInt(req.query.limite || '20', 10);
+    const offset = (pagina - 1) * limite;
+    
+    const { ordenar, areas, prioridades_nomes, usuarios, status, startDate, endDate } = req.query;
 
-    const orderMap = {
-        'id_desc': 'ORDER BY t.id DESC',
-        'data_criacao_desc': 'ORDER BY t.data_criacao DESC',
-        'status_asc': 'ORDER BY t.status ASC',
-        'prioridade_asc': 'ORDER BY p.id ASC',
-        'acionamento_desc': 'ORDER BY t.horario_acionamento DESC',
-        'acionamento_asc': 'ORDER BY t.horario_acionamento ASC'
-    };
-    const orderClause = orderMap[ordenar || 'id_desc'] || 'ORDER BY t.id DESC';
+    const orderMap = {
+        'id_desc': 'ORDER BY t.id DESC',
+        'data_criacao_desc': 'ORDER BY t.data_criacao DESC',
+        'status_asc': 'ORDER BY t.status ASC',
+        'prioridade_asc': 'ORDER BY p.id ASC',
+        'acionamento_desc': 'ORDER BY t.horario_acionamento DESC',
+        'acionamento_asc': 'ORDER BY t.horario_acionamento ASC'
+    };
+    const orderClause = orderMap[ordenar || 'id_desc'] || 'ORDER BY t.id DESC';
 
-    try {
-        let whereClauses = [];
-        const queryParams = [];
+    try {
+        let whereClauses = [];
+        const queryParams = [];
 
-        // --- FILTRO DE SEGURANÇA (LÓGICA ATUALIZADA PARA GRUPOS) ---
-        if (loggedInUser.perfil !== 'admin') {
-            const [userAreas] = await pool.query('SELECT area_id FROM user_areas WHERE user_id = ?', [loggedInUser.id]);
-            if (userAreas.length > 0) {
-                const areaIds = userAreas.map(a => a.area_id);
-                const [allowedGroups] = await pool.query('SELECT id FROM ticket_grupos WHERE area_id IN (?)', [areaIds]);
-                if (allowedGroups.length > 0) {
-                    const groupIds = allowedGroups.map(g => g.id);
-                    whereClauses.push(`t.grupo_id IN (?)`);
-                    queryParams.push(groupIds);
-                } else {
-                    whereClauses.push('1=0'); // Usuário está em áreas que não têm grupos
-                }
-            } else {
-                whereClauses.push('1=0'); // Usuário sem área não vê nenhum ticket
-            }
-        }
+        // --- FILTRO DE SEGURANÇA (LÓGICA ATUALIZADA PARA GRUPOS) ---
+        if (loggedInUser.perfil !== 'admin') {
+            const [userAreas] = await pool.query('SELECT area_id FROM user_areas WHERE user_id = ?', [loggedInUser.id]);
+            if (userAreas.length > 0) {
+                const areaIds = userAreas.map(a => a.area_id);
+                const [allowedGroups] = await pool.query('SELECT id FROM ticket_grupos WHERE area_id IN (?)', [areaIds]);
+                if (allowedGroups.length > 0) {
+                    const groupIds = allowedGroups.map(g => g.id);
+                    whereClauses.push(`t.grupo_id IN (?)`);
+                    queryParams.push(groupIds);
+                } else {
+                    whereClauses.push('1=0'); // Usuário está em áreas que não têm grupos
+                }
+            } else {
+                whereClauses.push('1=0'); // Usuário sem área não vê nenhum ticket
+            }
+        }
 
-        // --- FILTROS DINÂMICOS (LÓGICA ATUALIZADA PARA ÁREA) ---
-        if (areas) {
-            const areaIds = areas.split(',');
-            const [groupsInAreas] = await pool.query('SELECT id FROM ticket_grupos WHERE area_id IN (?)', [areaIds]);
-            if (groupsInAreas.length > 0) {
-                const groupIds = groupsInAreas.map(g => g.id);
-                whereClauses.push(`t.grupo_id IN (?)`);
-                queryParams.push(groupIds);
-            } else {
-                 whereClauses.push('1=0'); // Filtrou por áreas que não têm grupos
-            }
-        }
-        
-        if (prioridades_nomes) {
-            const nomesPrioridades = prioridades_nomes.split(',');
-            const regexPattern = `^(${nomesPrioridades.join('|')})`;
-            whereClauses.push(`p.nome RLIKE ?`);
-            queryParams.push(regexPattern);
-        }
-        if (usuarios) {
-            whereClauses.push(`t.user_id IN (?)`);
-            queryParams.push(usuarios.split(','));
-        }
-        if (status) {
-            whereClauses.push(`t.status IN (?)`);
-            queryParams.push(status.split(','));
-        }
-        if (startDate && endDate) {
-            whereClauses.push(`DATE(t.data_criacao) BETWEEN ? AND ?`);
-            queryParams.push(startDate, endDate);
-        }
+        // --- FILTROS DINÂMICOS (LÓGICA ATUALIZADA PARA ÁREA) ---
+        if (areas) {
+            const areaIds = areas.split(',');
+            const [groupsInAreas] = await pool.query('SELECT id FROM ticket_grupos WHERE area_id IN (?)', [areaIds]);
+            if (groupsInAreas.length > 0) {
+                const groupIds = groupsInAreas.map(g => g.id);
+                whereClauses.push(`t.grupo_id IN (?)`);
+                queryParams.push(groupIds);
+            } else {
+                 whereClauses.push('1=0'); // Filtrou por áreas que não têm grupos
+            }
+        }
+        
+        if (prioridades_nomes) {
+            const nomesPrioridades = prioridades_nomes.split(',');
+            const regexPattern = `^(${nomesPrioridades.join('|')})`;
+            whereClauses.push(`p.nome RLIKE ?`);
+            queryParams.push(regexPattern);
+        }
+        if (usuarios) {
+            whereClauses.push(`t.user_id IN (?)`);
+            queryParams.push(usuarios.split(','));
+        }
+        if (status) {
+            whereClauses.push(`t.status IN (?)`);
+            queryParams.push(status.split(','));
+        }
+        if (startDate && endDate) {
+            whereClauses.push(`DATE(t.data_criacao) BETWEEN ? AND ?`);
+            queryParams.push(startDate, endDate);
+        }
 
-        const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+        const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-        // Query de contagem ajustada
-        const countSql = `
-            SELECT COUNT(*) as total 
+        // Query de contagem corrigida (sem espaços inválidos)
+        const countSql = `SELECT COUNT(*) as total 
             FROM tickets t
             LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
             LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
-            ${finalWhereClause}
-        `;
-        const [[{ total }]] = await pool.query(countSql, queryParams);
+            ${finalWhereClause}`;
+        const [[{ total }]] = await pool.query(countSql, queryParams);
 
-        // Query principal ajustada para buscar 'area_nome' através do grupo
-        const ticketsSql = `
-            SELECT 
-                t.id, t.status, t.data_criacao, t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
-                a.nome as area_nome, 
-                al.nome as alerta_nome, 
-                g.nome as grupo_nome,
-                u.nome as user_nome, 
-                p.nome as prioridade_nome
-            FROM tickets t
-            LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
-            LEFT JOIN ticket_areas a ON g.area_id = a.id
-            LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
-            LEFT JOIN user u ON t.user_id = u.id
-            LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
-            ${finalWhereClause}
-            ${orderClause} 
-            LIMIT ? OFFSET ?
-        `;
-        
-        const finalQueryParams = [...queryParams, limite, offset];
-        const [tickets] = await pool.query(ticketsSql, finalQueryParams);
-        
-        res.status(200).json({ pagina, total, tickets });
+        // Query principal corrigida (sem espaços inválidos)
+        const ticketsSql = `SELECT 
+            t.id, t.status, t.data_criacao, t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
+            a.nome as area_nome, 
+            al.nome as alerta_nome, 
+            g.nome as grupo_nome,
+            u.nome as user_nome, 
+            p.nome as prioridade_nome
+        FROM tickets t
+        LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
+        LEFT JOIN ticket_areas a ON g.area_id = a.id
+        LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
+        LEFT JOIN user u ON t.user_id = u.id
+        LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
+        ${finalWhereClause}
+        ${orderClause} 
+        LIMIT ? OFFSET ?`;
+        
+        const finalQueryParams = [...queryParams, limite, offset];
+        const [tickets] = await pool.query(ticketsSql, finalQueryParams);
+        
+        res.status(200).json({ pagina, total, tickets });
 
-    } catch (error) {
-        console.error("Erro ao buscar tickets:", error);
-        res.status(500).json({ message: 'Erro ao buscar tickets.' });
-    }
+    } catch (error) {
+        console.error("Erro ao buscar tickets:", error);
+        res.status(500).json({ message: 'Erro ao buscar tickets.' });
+    }
 };
+
 
 exports.getCardInfo = async (req, res) => {
     try {
         const queries = [
             pool.query("SELECT COUNT(*) as count FROM tickets"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Aberto'"),
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Em Atendimento'"),
             pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Resolvido'"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Aguardando Aprovação'")
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Encerrado'") 
         ];
         
         const results = await Promise.all(queries);
         
         res.status(200).json({
             total: results[0][0][0].count,
-            abertos: results[1][0][0].count,
+            emAtendimento: results[1][0][0].count, 
             resolvidos: results[2][0][0].count,
-            aprovacao: results[3][0][0].count
-            // O campo 'encerrados' foi removido
+            encerrados: results[3][0][0].count  
         });
     } catch (error) {
         console.error("Erro ao buscar informações dos cards:", error);
         res.status(500).json({ message: 'Erro ao buscar informações dos cards.' });
     }
 };
-
 exports.getTicketById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -200,33 +202,57 @@ exports.getTicketById = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
+
 exports.updateTicket = async (req, res) => {
     const { id: ticketId } = req.params;
     const userId = req.session.user.id;
-    const { remove_anexo, horario_acionamento, new_comment_text, ...ticketData } = req.body;
+    const newData = req.body;
     
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        let newAnexoPath;
-        const [existingTicketRows] = await connection.query('SELECT anexo_path FROM tickets WHERE id = ?', [ticketId]);
-        const oldAnexoPath = existingTicketRows[0]?.anexo_path;
+        const [existingTicketRows] = await connection.query('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+        if (existingTicketRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Ticket não encontrado.' });
+        }
+        const oldData = existingTicketRows[0];
 
+    
+        let newAnexoPath;
         if (req.file) { 
             newAnexoPath = req.file.path;
-            if (oldAnexoPath && fs.existsSync(oldAnexoPath)) fs.unlinkSync(oldAnexoPath);
-        } else if (remove_anexo === '1') { 
+            if (oldData.anexo_path && fs.existsSync(oldData.anexo_path)) fs.unlinkSync(oldData.anexo_path);
+        } else if (newData.remove_anexo === '1') { 
             newAnexoPath = null;
-            if (oldAnexoPath && fs.existsSync(oldAnexoPath)) fs.unlinkSync(oldAnexoPath);
+            if (oldData.anexo_path && fs.existsSync(oldData.anexo_path)) fs.unlinkSync(oldData.anexo_path);
         } else { 
-            newAnexoPath = oldAnexoPath;
+            newAnexoPath = oldData.anexo_path;
         }
 
-        const { descricao, ...camposParaAtualizar } = ticketData;
-        // 'area_id' foi removido
-        const { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status, alarme_inicio, alarme_fim } = camposParaAtualizar;
+        const finalData = {
+            alerta_id: newData.alerta_id !== undefined ? newData.alerta_id : oldData.alerta_id,
+            grupo_id: newData.grupo_id !== undefined ? newData.grupo_id : oldData.grupo_id,
+            tipo_solicitacao_id: newData.tipo_solicitacao_id !== undefined ? newData.tipo_solicitacao_id : oldData.tipo_solicitacao_id,
+            prioridade_id: newData.prioridade_id !== undefined ? newData.prioridade_id : oldData.prioridade_id,
+            status: newData.status !== undefined ? newData.status : oldData.status,
+            alarme_inicio: newData.alarme_inicio !== undefined ? newData.alarme_inicio : oldData.alarme_inicio,
+            alarme_fim: newData.alarme_fim !== undefined ? newData.alarme_fim : oldData.alarme_fim,
+            horario_acionamento: newData.horario_acionamento !== undefined ? newData.horario_acionamento : oldData.horario_acionamento
+        };
         
+        if ((finalData.status === 'Resolvido' || finalData.status === 'Normalizado') && (!finalData.alarme_fim || finalData.alarme_fim === 'null')) {
+    finalData.alarme_fim = new Date(); 
+}
+
+     
+        for (const key of ['alarme_inicio', 'alarme_fim', 'horario_acionamento']) {
+            if (finalData[key] === 'null' || finalData[key] === '') {
+                finalData[key] = null;
+            }
+        }
+
         const sql = `
             UPDATE tickets SET 
                 alerta_id = ?, grupo_id = ?, tipo_solicitacao_id = ?, 
@@ -235,14 +261,15 @@ exports.updateTicket = async (req, res) => {
             WHERE id = ?
         `;
         const values = [
-            alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, status,
-            alarme_inicio, alarme_fim || null, newAnexoPath, horario_acionamento, ticketId
+            finalData.alerta_id, finalData.grupo_id, finalData.tipo_solicitacao_id, finalData.prioridade_id, finalData.status,
+            finalData.alarme_inicio, finalData.alarme_fim, newAnexoPath, finalData.horario_acionamento, ticketId
         ];
         await connection.query(sql, values);
 
-        if (new_comment_text && new_comment_text.trim() !== '') {
+        // 6. Adiciona comentário (se houver)
+        if (newData.new_comment_text && newData.new_comment_text.trim() !== '') {
             const commentSql = 'INSERT INTO ticket_comments (ticket_id, user_id, comment_text) VALUES (?, ?, ?)';
-            await connection.query(commentSql, [ticketId, userId, new_comment_text.trim()]);
+            await connection.query(commentSql, [ticketId, userId, newData.new_comment_text.trim()]);
         }
 
         await connection.commit();
@@ -354,6 +381,21 @@ exports.createArea = async (req, res) => {
         res.status(500).json({ message: 'Erro no servidor ao cadastrar área.' });
     }
 };
+exports.deleteArea = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [grupos] = await pool.query('SELECT id FROM ticket_grupos WHERE area_id = ? LIMIT 1', [id]);
+        if (grupos.length > 0) return res.status(400).json({ message: 'Não é possível excluir: existem grupos associados a esta área.' });
+        
+        const [deleteResult] = await pool.query('DELETE FROM ticket_areas WHERE id = ?', [id]);
+        if (deleteResult.affectedRows === 0) return res.status(404).json({ message: 'Área não encontrada.' });
+        
+        res.status(200).json({ message: 'Área deletada com sucesso!' });
+    } catch (error) {
+        console.error("Erro ao deletar área:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};
 exports.createAlerta = async (req, res) => {
     const { areaId } = req.params;
     const { nome } = req.body;
@@ -377,6 +419,83 @@ exports.createAlerta = async (req, res) => {
         res.status(500).json({ message: 'Erro no servidor.' });
     }
 };
+exports.deleteAlerta = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [tickets] = await pool.query('SELECT id FROM tickets WHERE alerta_id = ? LIMIT 1', [id]);
+        if (tickets.length > 0) return res.status(400).json({ message: `Não é possível excluir: este alerta está associado ao ticket #${tickets[0].id}.` });
+        
+        const [deleteResult] = await pool.query('DELETE FROM ticket_alertas WHERE id = ?', [id]);
+        if (deleteResult.affectedRows === 0) return res.status(404).json({ message: 'Alerta não encontrado.' });
+        
+        res.status(200).json({ message: 'Alerta deletado com sucesso!' });
+    } catch (error) {
+        console.error("Erro ao deletar alerta:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};
+exports.createTipo = async (req, res) => {
+    const { areaId } = req.params;
+    const { nome } = req.body;
+    const nomeCapitalized = capitalize(nome);
+    if (!nome || !areaId) return res.status(400).json({ message: 'Nome e área são obrigatórios.' });
+    try {
+        const sql = 'INSERT INTO ticket_tipos_solicitacao (nome, area_id) VALUES (?, ?)';
+        const [result] = await pool.query(sql, [nomeCapitalized, areaId]);
+        res.status(201).json({ message: 'Tipo de solicitação criado!', novoItem: { id: result.insertId, nome: nomeCapitalized } });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'Este tipo de solicitação já existe.' });
+        console.error("Erro ao criar tipo:", error);
+        res.status(500).json({ message: 'Erro no servidor.' });
+    }
+};
+
+exports.deleteTipo = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [tickets] = await pool.query('SELECT id FROM tickets WHERE tipo_solicitacao_id = ? LIMIT 1', [id]);
+        if (tickets.length > 0) return res.status(400).json({ message: `Não é possível excluir: este tipo está associado ao ticket #${tickets[0].id}.` });
+        
+        const [deleteResult] = await pool.query('DELETE FROM ticket_tipos_solicitacao WHERE id = ?', [id]);
+        if (deleteResult.affectedRows === 0) return res.status(404).json({ message: 'Tipo de solicitação não encontrado.' });
+
+        res.status(200).json({ message: 'Tipo de solicitação deletado com sucesso!' });
+    } catch (error) {
+        console.error("Erro ao deletar tipo:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};
+exports.createPrioridade = async (req, res) => {
+    const { areaId } = req.params;
+    const { nome } = req.body;
+    const nomeCapitalized = capitalize(nome);
+    if (!nome || !areaId) return res.status(400).json({ message: 'Nome e área são obrigatórios.' });
+    try {
+        const sql = 'INSERT INTO ticket_prioridades (nome, area_id) VALUES (?, ?)';
+        const [result] = await pool.query(sql, [nomeCapitalized, areaId]);
+        res.status(201).json({ message: 'Prioridade criada!', novoItem: { id: result.insertId, nome: nomeCapitalized } });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'Esta prioridade já existe.' });
+        console.error("Erro ao criar prioridade:", error);
+        res.status(500).json({ message: 'Erro no servidor.' });
+    }
+};
+exports.deletePrioridade = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [tickets] = await pool.query('SELECT id FROM tickets WHERE prioridade_id = ? LIMIT 1', [id]);
+        if (tickets.length > 0) return res.status(400).json({ message: `Não é possível excluir: esta prioridade está associada ao ticket #${tickets[0].id}.` });
+
+        const [deleteResult] = await pool.query('DELETE FROM ticket_prioridades WHERE id = ?', [id]);
+        if (deleteResult.affectedRows === 0) return res.status(404).json({ message: 'Prioridade não encontrada.' });
+        
+        res.status(200).json({ message: 'Prioridade deletada com sucesso!' });
+    } catch (error) {
+        console.error("Erro ao deletar prioridade:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};
+
 
 exports.getCommentsByTicketId = async (req, res) => {
     const { id: ticketId } = req.params;
@@ -424,15 +543,15 @@ exports.createGrupo = async (req, res) => {
     }
 };
 exports.deleteGrupo = async (req, res) => {
-    const { grupoId } = req.params;
+    const { id } = req.params; // Alterado de grupoId para id
     try {
         // Verifica se o grupo está sendo usado em algum ticket
-        const [tickets] = await pool.query('SELECT id FROM tickets WHERE grupo_id = ? LIMIT 1', [grupoId]);
+        const [tickets] = await pool.query('SELECT id FROM tickets WHERE grupo_id = ? LIMIT 1', [id]); 
         if (tickets.length > 0) {
             return res.status(400).json({ message: `Não é possível excluir o grupo, pois ele está associado ao ticket #${tickets[0].id}.` });
         }
 
-        const [deleteResult] = await pool.query('DELETE FROM ticket_grupos WHERE id = ?', [grupoId]);
+        const [deleteResult] = await pool.query('DELETE FROM ticket_grupos WHERE id = ?', [id]); 
 
         if (deleteResult.affectedRows === 0) {
             return res.status(404).json({ message: 'Grupo não encontrado.' });
@@ -489,14 +608,15 @@ exports.exportTickets = async (req, res) => {
         const queryParams = [];
 
         // Adiciona filtro de permissão por área (reutilizando a lógica)
-        if (loggedInUser.perfil !== 'admin') {
+         if (loggedInUser.perfil !== 'admin') {
             const [userAreas] = await pool.query('SELECT area_id FROM user_areas WHERE user_id = ?', [loggedInUser.id]);
             if (userAreas.length > 0) {
                 const areaIds = userAreas.map(a => a.area_id);
-                whereClauses.push(`t.area_id IN (${areaIds.map(() => '?').join(',')})`);
-                queryParams.push(...areaIds);
+                // AQUI: Filtra por g.area_id em vez de t.area_id
+                whereClauses.push(`g.area_id IN (?)`);
+                queryParams.push(areaIds);
             } else {
-                whereClauses.push('1=0'); // Usuário sem área não exporta nada
+                whereClauses.push('1=0'); 
             }
         }
 
@@ -529,9 +649,9 @@ exports.exportTickets = async (req, res) => {
                 t.horario_acionamento as Atendimento,
                 t.descricao as Descrição
             FROM tickets t
-            LEFT JOIN ticket_areas a ON t.area_id = a.id
-            LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
             LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
+            LEFT JOIN ticket_areas a ON g.area_id = a.id
+            LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
             LEFT JOIN user u ON t.user_id = u.id
             LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
             ${finalWhereClause}
