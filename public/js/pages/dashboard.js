@@ -1,4 +1,4 @@
-let currentUser = null; 
+let currentUser = null;
 
 function toggleModal(modalId, show) {
     const modal = document.getElementById(modalId);
@@ -23,7 +23,7 @@ function showStatusModal(title, message, isError = false, onConfirm = null) {
         statusMensagem.innerHTML = message.replace(/\n/g, '<br>');
         statusBotaoFechar.className = isError ? "px-6 py-2 text-white rounded bg-red-600 hover:bg-red-700" : "px-6 py-2 text-white rounded bg-green-600 hover:bg-green-700";
         statusTitulo.className = isError ? "text-xl font-bold mb-2 text-red-600" : "text-xl font-bold mb-2 text-green-600";
-        
+
         statusBotaoFechar.onclick = () => {
             modal.classList.add('hidden');
             if (onConfirm) onConfirm();
@@ -51,7 +51,7 @@ function abrirModalNovoTicket() {
     fimAlarmeInput?.imask?.setInputValue('');
 
     const podeEditar = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
-    
+
     if (inicioAlarmeInput) {
         inicioAlarmeInput.readOnly = !podeEditar;
         inicioAlarmeInput.classList.toggle('bg-gray-200', !podeEditar);
@@ -62,7 +62,7 @@ function abrirModalNovoTicket() {
         inicioAtendimentoInput.classList.toggle('bg-gray-200', !podeEditar);
         inicioAtendimentoInput.classList.toggle('cursor-not-allowed', !podeEditar);
     }
-    
+
     toggleModal('modalTicket', true);
 }
 
@@ -75,18 +75,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let pastedFileEdit = null;
     let alertaIdToDelete = null;
     let grupoIdToDelete = null;
-    let areaIdToDelete = null;      
-    let tipoIdToDelete = null;      
+    let areaIdToDelete = null;
+    let tipoIdToDelete = null;
     let prioridadeIdToDelete = null;
 
     let currentAlertsList = [];
     let currentGruposList = [];
     let allUsersCache = [];
     let currentFilters = {};
-    let currentAreasList = [];      
-    let currentTiposList = [];     
+    let currentAreasList = [];
+    let currentTiposList = [];
     let currentPrioridadesList = [];
-    
+
     let columnConfig = [
         { key: 'id', title: 'Ticket#', visible: true },
         { key: 'area_nome', title: 'Área', visible: true },
@@ -94,6 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'user_nome', title: 'Usuário', visible: true },
         { key: 'prioridade_nome', title: 'Prioridade', visible: true },
         { key: 'status', title: 'Status', visible: true },
+        { key: 'descricao', title: 'Descrição', visible: false },
+        { key: 'ultimo_comentario', title: 'Último Comentário', visible: false },
         { key: 'alerta_nome', title: 'Alerta', visible: false },
         { key: 'grupo_nome', title: 'Grupo Resp.', visible: false },
         { key: 'alarme_inicio', title: 'Início Alarme', visible: false },
@@ -101,6 +103,41 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'horario_acionamento', title: 'Atendimento', visible: true },
         { key: 'actions', title: 'Ações', visible: true }
     ];
+
+    async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = 'Carregando...';
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Falha ao carregar dados');
+            let items = await response.json();
+
+            if (name === 'prioridades') {
+                const nomesUnicos = [...new Set(items.map(item => item.nome.split(' ')[0].split('(')[0].trim()))];
+                const itensAgrupados = nomesUnicos.map(nomeUnico => ({ id: nomeUnico, nome: nomeUnico }));
+                renderCheckboxes(containerId, itensAgrupados, 'prioridades_nomes');
+            } else {
+                renderCheckboxes(containerId, items, name, keyField, valueField);
+            }
+        } catch (error) {
+            container.innerHTML = 'Erro ao carregar opções.';
+        }
+    }
+
+    function renderCheckboxes(containerId, items, name, keyField = 'id', valueField = 'nome') {
+        const container = document.getElementById(containerId);
+        if (!container || !items) {
+            container.innerHTML = 'Nenhuma opção disponível.';
+            return;
+        }
+        container.innerHTML = items.map(item => `
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="filter-${name}-${item[keyField]}" name="${name}" value="${item[keyField]}" class="form-checkbox h-4 w-4">
+                <span>${item[valueField]}</span>
+            </label>
+        `).join('');
+    }
 
     const ticketsTable = document.getElementById('tickets-table');
     const adminMenu = document.getElementById('admin-menu');
@@ -140,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const grupoSuggestionsList = document.getElementById('grupo-suggestions-list');
     const btnDeleteGrupo = document.getElementById('btn-delete-grupo-selecionado');
 
-     const btnShowAddArea = document.getElementById('btn-show-add-area');
+    const btnShowAddArea = document.getElementById('btn-show-add-area');
     const btnDeleteArea = document.getElementById('btn-delete-area-selecionada');
     const addAreaContainer = document.getElementById('add-area-container');
     const inputNewArea = document.getElementById('input-new-area');
@@ -148,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveNewArea = document.getElementById('btn-save-new-area');
     const areaSuggestionsList = document.getElementById('area-suggestions-list');
 
-    // --- Elementos para Tipos ---
     const btnShowAddTipo = document.getElementById('btn-show-add-tipo');
     const btnDeleteTipo = document.getElementById('btn-delete-tipo-selecionado');
     const addTipoContainer = document.getElementById('add-tipo-container');
@@ -157,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveNewTipo = document.getElementById('btn-save-new-tipo');
     const tipoSuggestionsList = document.getElementById('tipo-suggestions-list');
 
-    // --- Elementos para Prioridades ---
     const btnShowAddPrioridade = document.getElementById('btn-show-add-prioridade');
     const btnDeletePrioridade = document.getElementById('btn-delete-prioridade-selecionada');
     const addPrioridadeContainer = document.getElementById('add-prioridade-container');
@@ -167,305 +202,290 @@ document.addEventListener('DOMContentLoaded', () => {
     const prioridadeSuggestionsList = document.getElementById('prioridade-suggestions-list');
 
     function handleDeleteOption(itemType, selectId, idVariableSetter, modalId) {
-    const selectElement = document.getElementById(selectId);
-    // O select de área é a referência para recarregar os outros
-    const areaSelectElement = document.getElementById('ticket-area'); 
-    const selectedId = selectElement.value;
+        const selectElement = document.getElementById(selectId);
+        const areaSelectElement = document.getElementById('ticket-area');
+        const selectedId = selectElement.value;
 
-    if (!selectedId) {
-        showStatusModal('Atenção!', `Por favor, selecione um(a) ${itemType} da lista para excluir.`, true);
-        return;
+        if (!selectedId) {
+            showStatusModal('Atenção!', `Por favor, selecione um(a) ${itemType} da lista para excluir.`, true);
+            return;
+        }
+
+        idVariableSetter({ id: selectedId, areaSelect: areaSelectElement });
+        toggleModal(modalId, true);
     }
-    
-    // Armazena o ID e a referência ao select da área na variável global apropriada
-    idVariableSetter({ id: selectedId, areaSelect: areaSelectElement });
-    toggleModal(modalId, true);
-}
 
-// 2. FUNÇÃO GENÉRICA PARA CONFIRMAR A EXCLUSÃO (API CALL)
-async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
-    if (!idHolder) return;
+    async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
+        if (!idHolder) return;
 
-    try {
-        const response = await fetch(`${endpoint}/${idHolder.id}`, {
-            method: 'DELETE'
-        });
-        const result = await response.json();
-        toggleModal(modalId, false);
-        
-        if (response.ok) {
-            showStatusModal('Sucesso!', result.message, false, () => {
-                // Dispara o 'change' na área para recarregar os dropdowns dependentes
-                // Se a própria área for deletada, recarrega todos os dropdowns do zero
-                if (itemType === 'area') {
-                    popularDropdownsTicket();
-                } else {
-                    idHolder.areaSelect.dispatchEvent(new Event('change'));
-                }
+        try {
+            const response = await fetch(`${endpoint}/${idHolder.id}`, {
+                method: 'DELETE'
             });
-        } else {
-            showStatusModal('Erro!', result.message, true);
+            const result = await response.json();
+            toggleModal(modalId, false);
+
+            if (response.ok) {
+                showStatusModal('Sucesso!', result.message, false, () => {
+                    if (itemType === 'area') {
+                        popularDropdownsTicket();
+                    } else {
+                        idHolder.areaSelect.dispatchEvent(new Event('change'));
+                    }
+                });
+            } else {
+                showStatusModal('Erro!', result.message, true);
+            }
+        } catch (error) {
+            toggleModal(modalId, false);
+            showStatusModal('Erro de Conexão', `Não foi possível deletar o(a) ${itemType}.`, true);
+        } finally {
+            idResetter();
         }
-    } catch (error) {
-        toggleModal(modalId, false);
-        showStatusModal('Erro de Conexão', `Não foi possível deletar o(a) ${itemType}.`, true);
-    } finally {
-        idResetter(); // Limpa a variável de ID
     }
-}
-const btnDeleteAlerta = document.getElementById('btn-delete-alerta-selecionado');
+    const btnDeleteAlerta = document.getElementById('btn-delete-alerta-selecionado');
+
+    btnDeleteArea?.addEventListener('click', () => {
+        handleDeleteOption('área', 'ticket-area', (val) => areaIdToDelete = val, 'modalConfirmarDeleteArea');
+    });
+
+    btnDeleteGrupo?.addEventListener('click', () => {
+        handleDeleteOption('grupo', 'ticket-grupo', (val) => grupoIdToDelete = val, 'modalConfirmarDeleteGrupo');
+    });
+
+    btnDeleteTipo?.addEventListener('click', () => {
+        handleDeleteOption('tipo', 'ticket-tipo', (val) => tipoIdToDelete = val, 'modalConfirmarDeleteTipo');
+    });
+
+    btnDeletePrioridade?.addEventListener('click', () => {
+        handleDeleteOption('prioridade', 'ticket-prioridade', (val) => prioridadeIdToDelete = val, 'modalConfirmarDeletePrioridade');
+    });
+
+    btnDeleteAlerta?.addEventListener('click', () => {
+        handleDeleteOption('alerta', 'ticket-alerta', (val) => alertaIdToDelete = val, 'modalConfirmarDeleteAlerta');
+    });
 
 
-btnDeleteArea?.addEventListener('click', () => {
-    handleDeleteOption('área', 'ticket-area', (val) => areaIdToDelete = val, 'modalConfirmarDeleteArea');
-});
+    document.getElementById('btn-confirm-delete-area')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('area', areaIdToDelete, '/api/tickets/options/areas', 'modalConfirmarDeleteArea', () => areaIdToDelete = null);
+    });
 
-btnDeleteGrupo?.addEventListener('click', () => {
-    handleDeleteOption('grupo', 'ticket-grupo', (val) => grupoIdToDelete = val, 'modalConfirmarDeleteGrupo');
-});
+    document.getElementById('btn-confirm-delete-grupo')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('grupo', grupoIdToDelete, '/api/tickets/options/grupos', 'modalConfirmarDeleteGrupo', () => grupoIdToDelete = null);
+    });
 
-btnDeleteTipo?.addEventListener('click', () => {
-    handleDeleteOption('tipo', 'ticket-tipo', (val) => tipoIdToDelete = val, 'modalConfirmarDeleteTipo');
-});
+    document.getElementById('btn-confirm-delete-tipo')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('tipo', tipoIdToDelete, '/api/tickets/options/tipos', 'modalConfirmarDeleteTipo', () => tipoIdToDelete = null);
+    });
 
-btnDeletePrioridade?.addEventListener('click', () => {
-    handleDeleteOption('prioridade', 'ticket-prioridade', (val) => prioridadeIdToDelete = val, 'modalConfirmarDeletePrioridade');
-});
+    document.getElementById('btn-confirm-delete-prioridade')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('prioridade', prioridadeIdToDelete, '/api/tickets/options/prioridades', 'modalConfirmarDeletePrioridade', () => prioridadeIdToDelete = null);
+    });
 
-btnDeleteAlerta?.addEventListener('click', () => {
-    handleDeleteOption('alerta', 'ticket-alerta', (val) => alertaIdToDelete = val, 'modalConfirmarDeleteAlerta');
-});
+    document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('alerta', alertaIdToDelete, '/api/tickets/options/alertas', 'modalConfirmarDeleteAlerta', () => alertaIdToDelete = null);
+    });
 
+    document.getElementById('btn-cancel-delete-area')?.addEventListener('click', () => {
+        areaIdToDelete = null;
+        toggleModal('modalConfirmarDeleteArea', false);
+    });
 
-// === BOTÕES DE CONFIRMAÇÃO (dentro dos modais) ===
-document.getElementById('btn-confirm-delete-area')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('area', areaIdToDelete, '/api/tickets/options/areas', 'modalConfirmarDeleteArea', () => areaIdToDelete = null);
-});
+    document.getElementById('btn-cancel-delete-grupo')?.addEventListener('click', () => {
+        grupoIdToDelete = null;
+        toggleModal('modalConfirmarDeleteGrupo', false);
+    });
 
-document.getElementById('btn-confirm-delete-grupo')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('grupo', grupoIdToDelete, '/api/tickets/options/grupos', 'modalConfirmarDeleteGrupo', () => grupoIdToDelete = null);
-});
+    document.getElementById('btn-cancel-delete-tipo')?.addEventListener('click', () => {
+        tipoIdToDelete = null;
+        toggleModal('modalConfirmarDeleteTipo', false);
+    });
 
-document.getElementById('btn-confirm-delete-tipo')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('tipo', tipoIdToDelete, '/api/tickets/options/tipos', 'modalConfirmarDeleteTipo', () => tipoIdToDelete = null);
-});
+    document.getElementById('btn-cancel-delete-prioridade')?.addEventListener('click', () => {
+        prioridadeIdToDelete = null;
+        toggleModal('modalConfirmarDeletePrioridade', false);
+    });
+    document.getElementById('btn-cancel-delete-alerta')?.addEventListener('click', () => {
+        alertaIdToDelete = null;
+        toggleModal('modalConfirmarDeleteAlerta', false);
+    });
 
-document.getElementById('btn-confirm-delete-prioridade')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('prioridade', prioridadeIdToDelete, '/api/tickets/options/prioridades', 'modalConfirmarDeletePrioridade', () => prioridadeIdToDelete = null);
-});
-
-document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('alerta', alertaIdToDelete, '/api/tickets/options/alertas', 'modalConfirmarDeleteAlerta', () => alertaIdToDelete = null);
-});
-
-// === BOTÕES DE CANCELAR (dentro dos modais) ===
-document.getElementById('btn-cancel-delete-area')?.addEventListener('click', () => {
-    areaIdToDelete = null;
-    toggleModal('modalConfirmarDeleteArea', false);
-});
-
-document.getElementById('btn-cancel-delete-grupo')?.addEventListener('click', () => {
-    grupoIdToDelete = null;
-    toggleModal('modalConfirmarDeleteGrupo', false);
-});
-
-document.getElementById('btn-cancel-delete-tipo')?.addEventListener('click', () => {
-    tipoIdToDelete = null;
-    toggleModal('modalConfirmarDeleteTipo', false);
-});
-
-document.getElementById('btn-cancel-delete-prioridade')?.addEventListener('click', () => {
-    prioridadeIdToDelete = null;
-    toggleModal('modalConfirmarDeletePrioridade', false);
-});
-document.getElementById('btn-cancel-delete-alerta')?.addEventListener('click', () => {
-    alertaIdToDelete = null;
-    toggleModal('modalConfirmarDeleteAlerta', false);
-});
-   // --- LÓGICA PARA GERENCIAR PRIORIDADES ---
-const resetAddPrioridadeForm = () => {
-    if (addPrioridadeContainer) addPrioridadeContainer.classList.add('hidden');
-    if (btnShowAddPrioridade) btnShowAddPrioridade.classList.remove('hidden');
-    const prioridadeSelect = document.getElementById('ticket-prioridade');
-    if (btnDeletePrioridade && prioridadeSelect?.value) {
-        btnDeletePrioridade.classList.remove('hidden');
-    }
-    if (inputNewPrioridade) inputNewPrioridade.value = '';
-    if (prioridadeSuggestionsList) prioridadeSuggestionsList.innerHTML = '';
-    if (btnSaveNewPrioridade) btnSaveNewPrioridade.disabled = false;
-};
-
-btnShowAddPrioridade?.addEventListener('click', () => {
-    const areaSelect = document.getElementById('ticket-area');
-    if (!areaSelect || !areaSelect.value) return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
-
-    addPrioridadeContainer.classList.remove('hidden');
-    btnShowAddPrioridade.classList.add('hidden');
-    if(btnDeletePrioridade) btnDeletePrioridade.classList.add('hidden');
-    inputNewPrioridade.focus();
-    setupAutocomplete('input-new-prioridade', 'prioridade-suggestions-list', currentPrioridadesList);
-});
-
-btnCancelAddPrioridade?.addEventListener('click', resetAddPrioridadeForm);
-
-btnSaveNewPrioridade?.addEventListener('click', async () => {
-    const nomeNovaPrioridade = capitalize(inputNewPrioridade.value.trim());
-    const areaId = document.getElementById('ticket-area').value;
-    if (!nomeNovaPrioridade || !areaId) return showStatusModal('Erro!', 'O nome da nova prioridade e a área são obrigatórios.', true);
-
-    btnSaveNewPrioridade.disabled = true;
-    btnSaveNewPrioridade.textContent = 'Salvando...';
-    try {
-        const response = await fetch(`/api/tickets/options/areas/${areaId}/prioridades`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome: nomeNovaPrioridade })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message);
-        const { novoItem } = result;
+    const resetAddPrioridadeForm = () => {
+        if (addPrioridadeContainer) addPrioridadeContainer.classList.add('hidden');
+        if (btnShowAddPrioridade) btnShowAddPrioridade.classList.remove('hidden');
         const prioridadeSelect = document.getElementById('ticket-prioridade');
-        const newOption = new Option(novoItem.nome, novoItem.id, true, true);
-        prioridadeSelect.add(newOption);
-        currentPrioridadesList.push(novoItem);
-
-        resetAddPrioridadeForm();
-        prioridadeSelect.dispatchEvent(new Event('change'));
-    } catch (error) {
-        showStatusModal('Erro!', error.message, true);
-    } finally {
-        btnSaveNewPrioridade.disabled = false;
-        btnSaveNewPrioridade.textContent = 'Salvar';
-    }
-});
-
-// --- LÓGICA PARA GERENCIAR TIPOS ---
-const resetAddTipoForm = () => {
-    if (addTipoContainer) addTipoContainer.classList.add('hidden');
-    if (btnShowAddTipo) btnShowAddTipo.classList.remove('hidden');
-    const tipoSelect = document.getElementById('ticket-tipo');
-    if (btnDeleteTipo && tipoSelect?.value) {
-        btnDeleteTipo.classList.remove('hidden');
-    }
-    if (inputNewTipo) inputNewTipo.value = '';
-    if (tipoSuggestionsList) tipoSuggestionsList.innerHTML = '';
-    if (btnSaveNewTipo) btnSaveNewTipo.disabled = false;
-};
-
-btnShowAddTipo?.addEventListener('click', () => {
-    const areaSelect = document.getElementById('ticket-area');
-    if (!areaSelect || !areaSelect.value) return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
-    
-    addTipoContainer.classList.remove('hidden');
-    btnShowAddTipo.classList.add('hidden');
-    if(btnDeleteTipo) btnDeleteTipo.classList.add('hidden');
-    inputNewTipo.focus();
-    setupAutocomplete('input-new-tipo', 'tipo-suggestions-list', currentTiposList);
-});
-
-btnCancelAddTipo?.addEventListener('click', resetAddTipoForm);
-
-btnSaveNewTipo?.addEventListener('click', async () => {
-    const nomeNovoTipo = capitalize(inputNewTipo.value.trim());
-    const areaId = document.getElementById('ticket-area').value;
-    if (!nomeNovoTipo || !areaId) return showStatusModal('Erro!', 'O nome do novo tipo e a área são obrigatórios.', true);
-
-    btnSaveNewTipo.disabled = true;
-    btnSaveNewTipo.textContent = 'Salvando...';
-    try {
-        const response = await fetch(`/api/tickets/options/areas/${areaId}/tipos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome: nomeNovoTipo })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message);
-
-        // --- CORREÇÃO AQUI ---
-        // Trocamos result.novoTipo por result.novoItem
-        const { novoItem } = result;
-        const tipoSelect = document.getElementById('ticket-tipo');
-        const newOption = new Option(novoItem.nome, novoItem.id, true, true);
-        tipoSelect.add(newOption);
-        currentTiposList.push(novoItem);
-        // --- FIM DA CORREÇÃO ---
-
-        resetAddTipoForm();
-        tipoSelect.dispatchEvent(new Event('change'));
-    } catch (error) {
-        showStatusModal('Erro!', error.message, true);
-    } finally {
-        btnSaveNewTipo.disabled = false;
-        btnSaveNewTipo.textContent = 'Salvar';
-    }
-});
-
-
-    // --- LÓGICA PARA GERENCIAR ÁREAS ---
-const resetAddAreaForm = () => {
-    if (addAreaContainer) addAreaContainer.classList.add('hidden');
-    if (btnShowAddArea) btnShowAddArea.classList.remove('hidden');
-    const areaSelect = document.getElementById('ticket-area');
-    if (btnDeleteArea && areaSelect?.value) {
-        btnDeleteArea.classList.remove('hidden');
-    }
-    if (inputNewArea) inputNewArea.value = '';
-    if (areaSuggestionsList) areaSuggestionsList.innerHTML = '';
-    if (btnSaveNewArea) btnSaveNewArea.disabled = false;
-};
-
-btnShowAddArea?.addEventListener('click', () => {
-    addAreaContainer.classList.remove('hidden');
-    btnShowAddArea.classList.add('hidden');
-    if(btnDeleteArea) btnDeleteArea.classList.add('hidden');
-    inputNewArea.focus();
-    setupAutocomplete('input-new-area', 'area-suggestions-list', currentAreasList);
-});
-
-btnCancelAddArea?.addEventListener('click', resetAddAreaForm);
-
-btnSaveNewArea?.addEventListener('click', async () => {
-    const nomeNovaArea = capitalize(inputNewArea.value.trim());
-    if (!nomeNovaArea) return showStatusModal('Erro!', 'O nome da nova área é obrigatório.', true);
-
-    btnSaveNewArea.disabled = true;
-    btnSaveNewArea.textContent = 'Salvando...';
-    try {
-        const response = await fetch('/api/tickets/options/areas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome: nomeNovaArea })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message);
-        await popularDropdownsTicket();
-        
-        const areaSelect = document.getElementById('ticket-area');
-        if (areaSelect) {
-            areaSelect.value = result.novaArea.id;
-            areaSelect.dispatchEvent(new Event('change'));
+        if (btnDeletePrioridade && prioridadeSelect?.value) {
+            btnDeletePrioridade.classList.remove('hidden');
         }
+        if (inputNewPrioridade) inputNewPrioridade.value = '';
+        if (prioridadeSuggestionsList) prioridadeSuggestionsList.innerHTML = '';
+        if (btnSaveNewPrioridade) btnSaveNewPrioridade.disabled = false;
+    };
 
-        resetAddAreaForm();
-    } catch (error) {
-        showStatusModal('Erro!', error.message, true);
-    } finally {
-        btnSaveNewArea.disabled = false;
-        btnSaveNewArea.textContent = 'Salvar';
-    }
-});
+    btnShowAddPrioridade?.addEventListener('click', () => {
+        const areaSelect = document.getElementById('ticket-area');
+        if (!areaSelect || !areaSelect.value) return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
+
+        addPrioridadeContainer.classList.remove('hidden');
+        btnShowAddPrioridade.classList.add('hidden');
+        if (btnDeletePrioridade) btnDeletePrioridade.classList.add('hidden');
+        inputNewPrioridade.focus();
+        setupAutocomplete('input-new-prioridade', 'prioridade-suggestions-list', currentPrioridadesList);
+    });
+
+    btnCancelAddPrioridade?.addEventListener('click', resetAddPrioridadeForm);
+
+    btnSaveNewPrioridade?.addEventListener('click', async () => {
+        const nomeNovaPrioridade = capitalize(inputNewPrioridade.value.trim());
+        const areaId = document.getElementById('ticket-area').value;
+        if (!nomeNovaPrioridade || !areaId) return showStatusModal('Erro!', 'O nome da nova prioridade e a área são obrigatórios.', true);
+
+        btnSaveNewPrioridade.disabled = true;
+        btnSaveNewPrioridade.textContent = 'Salvando...';
+        try {
+            const response = await fetch(`/api/tickets/options/areas/${areaId}/prioridades`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome: nomeNovaPrioridade })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+            const { novoItem } = result;
+            const prioridadeSelect = document.getElementById('ticket-prioridade');
+            const newOption = new Option(novoItem.nome, novoItem.id, true, true);
+            prioridadeSelect.add(newOption);
+            currentPrioridadesList.push(novoItem);
+
+            resetAddPrioridadeForm();
+            prioridadeSelect.dispatchEvent(new Event('change'));
+        } catch (error) {
+            showStatusModal('Erro!', error.message, true);
+        } finally {
+            btnSaveNewPrioridade.disabled = false;
+            btnSaveNewPrioridade.textContent = 'Salvar';
+        }
+    });
+
+    const resetAddTipoForm = () => {
+        if (addTipoContainer) addTipoContainer.classList.add('hidden');
+        if (btnShowAddTipo) btnShowAddTipo.classList.remove('hidden');
+        const tipoSelect = document.getElementById('ticket-tipo');
+        if (btnDeleteTipo && tipoSelect?.value) {
+            btnDeleteTipo.classList.remove('hidden');
+        }
+        if (inputNewTipo) inputNewTipo.value = '';
+        if (tipoSuggestionsList) tipoSuggestionsList.innerHTML = '';
+        if (btnSaveNewTipo) btnSaveNewTipo.disabled = false;
+    };
+
+    btnShowAddTipo?.addEventListener('click', () => {
+        const areaSelect = document.getElementById('ticket-area');
+        if (!areaSelect || !areaSelect.value) return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
+
+        addTipoContainer.classList.remove('hidden');
+        btnShowAddTipo.classList.add('hidden');
+        if (btnDeleteTipo) btnDeleteTipo.classList.add('hidden');
+        inputNewTipo.focus();
+        setupAutocomplete('input-new-tipo', 'tipo-suggestions-list', currentTiposList);
+    });
+
+    btnCancelAddTipo?.addEventListener('click', resetAddTipoForm);
+
+    btnSaveNewTipo?.addEventListener('click', async () => {
+        const nomeNovoTipo = capitalize(inputNewTipo.value.trim());
+        const areaId = document.getElementById('ticket-area').value;
+        if (!nomeNovoTipo || !areaId) return showStatusModal('Erro!', 'O nome do novo tipo e a área são obrigatórios.', true);
+
+        btnSaveNewTipo.disabled = true;
+        btnSaveNewTipo.textContent = 'Salvando...';
+        try {
+            const response = await fetch(`/api/tickets/options/areas/${areaId}/tipos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome: nomeNovoTipo })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+            const { novoItem } = result;
+            const tipoSelect = document.getElementById('ticket-tipo');
+            const newOption = new Option(novoItem.nome, novoItem.id, true, true);
+            tipoSelect.add(newOption);
+            currentTiposList.push(novoItem);
+            resetAddTipoForm();
+            tipoSelect.dispatchEvent(new Event('change'));
+        } catch (error) {
+            showStatusModal('Erro!', error.message, true);
+        } finally {
+            btnSaveNewTipo.disabled = false;
+            btnSaveNewTipo.textContent = 'Salvar';
+        }
+    });
+
+
+    const resetAddAreaForm = () => {
+        if (addAreaContainer) addAreaContainer.classList.add('hidden');
+        if (btnShowAddArea) btnShowAddArea.classList.remove('hidden');
+        const areaSelect = document.getElementById('ticket-area');
+        if (btnDeleteArea && areaSelect?.value) {
+            btnDeleteArea.classList.remove('hidden');
+        }
+        if (inputNewArea) inputNewArea.value = '';
+        if (areaSuggestionsList) areaSuggestionsList.innerHTML = '';
+        if (btnSaveNewArea) btnSaveNewArea.disabled = false;
+    };
+
+    btnShowAddArea?.addEventListener('click', () => {
+        addAreaContainer.classList.remove('hidden');
+        btnShowAddArea.classList.add('hidden');
+        if (btnDeleteArea) btnDeleteArea.classList.add('hidden');
+        inputNewArea.focus();
+        setupAutocomplete('input-new-area', 'area-suggestions-list', currentAreasList);
+    });
+
+    btnCancelAddArea?.addEventListener('click', resetAddAreaForm);
+
+    btnSaveNewArea?.addEventListener('click', async () => {
+        const nomeNovaArea = capitalize(inputNewArea.value.trim());
+        if (!nomeNovaArea) return showStatusModal('Erro!', 'O nome da nova área é obrigatório.', true);
+
+        btnSaveNewArea.disabled = true;
+        btnSaveNewArea.textContent = 'Salvando...';
+        try {
+            const response = await fetch('/api/tickets/options/areas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome: nomeNovaArea })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+            await popularDropdownsTicket();
+
+            const areaSelect = document.getElementById('ticket-area');
+            if (areaSelect) {
+                areaSelect.value = result.novaArea.id;
+                areaSelect.dispatchEvent(new Event('change'));
+            }
+
+            resetAddAreaForm();
+        } catch (error) {
+            showStatusModal('Erro!', error.message, true);
+        } finally {
+            btnSaveNewArea.disabled = false;
+            btnSaveNewArea.textContent = 'Salvar';
+        }
+    });
 
     btnShowAddGrupo?.addEventListener('click', () => {
-    const areaSelect = document.getElementById('ticket-area');
-    if (!areaSelect || !areaSelect.value) {
-        return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
-    }
-    addGrupoContainer.classList.remove('hidden');
-    btnShowAddGrupo.classList.add('hidden');
-    if(btnDeleteGrupo) btnDeleteGrupo.classList.add('hidden');
-    inputNewGrupo.focus();
-    setupAutocomplete('input-new-grupo', 'grupo-suggestions-list', currentGruposList);
-});
+        const areaSelect = document.getElementById('ticket-area');
+        if (!areaSelect || !areaSelect.value) {
+            return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
+        }
+        addGrupoContainer.classList.remove('hidden');
+        btnShowAddGrupo.classList.add('hidden');
+        if (btnDeleteGrupo) btnDeleteGrupo.classList.add('hidden');
+        inputNewGrupo.focus();
+        setupAutocomplete('input-new-grupo', 'grupo-suggestions-list', currentGruposList);
+    });
 
     const resetAddGrupoForm = () => {
         if (addGrupoContainer) addGrupoContainer.classList.add('hidden');
@@ -517,7 +537,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         }
     });
 
-    
+
     const maskOptions = {
         mask: 'd/`m/`Y `H:`M',
         pattern: 'd/`m/`Y `H:`M',
@@ -533,11 +553,11 @@ btnSaveNewArea?.addEventListener('click', async () => {
 
     ['alarme_inicio', 'horario_acionamento', 'alarme_fim'].forEach(name => {
         const createInput = document.querySelector(`#formAbrirTicket input[name="${name}"]`);
-        if(createInput) IMask(createInput, maskOptions);
+        if (createInput) IMask(createInput, maskOptions);
     });
     ['edit-alarme-inicio', 'edit-horario-acionamento', 'edit-alarme-fim'].forEach(id => {
         const editInput = document.getElementById(id);
-        if(editInput) IMask(editInput, maskOptions);
+        if (editInput) IMask(editInput, maskOptions);
     });
     function convertBrDateToIso(brDate) {
         if (!brDate || brDate.includes('d') || brDate.includes('m') || brDate.includes('a')) return null;
@@ -549,7 +569,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
     }
 
     btnGerenciarUsuarios?.addEventListener('click', () => toggleModal('modalGerenciarUsuarios', true));
-    
+
     btnGerenciarUsuariosGerente?.addEventListener('click', () => toggleModal('modalGerenciarUsuarios', true));
 
     btnGerenciarUsuarios?.addEventListener('click', () => {
@@ -608,11 +628,11 @@ btnSaveNewArea?.addEventListener('click', async () => {
     }
     btnAbrirFiltros?.addEventListener('click', async () => {
         toggleModal('modalFiltros', true);
-        
+
         await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
         await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
         await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
-        
+
         const statusList = [
             { id: 'Em Atendimento', nome: 'Em Atendimento' },
             { id: 'Normalizado', nome: 'Normalizado' },
@@ -621,27 +641,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         renderCheckboxes('filtro-status-container', statusList, 'status');
     });
 
-    async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        container.innerHTML = 'Carregando...';
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Falha ao carregar dados');
-            let items = await response.json();
-
-            if (name === 'prioridades') {
-                const nomesUnicos = [...new Set(items.map(item => item.nome.split(' ')[0].split('(')[0].trim()))];
-                const itensAgrupados = nomesUnicos.map(nomeUnico => ({ id: nomeUnico, nome: nomeUnico }));
-                renderCheckboxes(containerId, itensAgrupados, 'prioridades_nomes'); 
-            } else {
-                renderCheckboxes(containerId, items, name, keyField, valueField);
-            }
-        } catch (error) {
-            container.innerHTML = 'Erro ao carregar opções.';
-        }
-    }
-
+    // ALTERAÇÃO: Melhoria na função renderCheckboxes para corrigir layout
     function renderCheckboxes(containerId, items, name, keyField = 'id', valueField = 'nome') {
         const container = document.getElementById(containerId);
         if (!container || !items) {
@@ -649,12 +649,13 @@ btnSaveNewArea?.addEventListener('click', async () => {
             return;
         }
         container.innerHTML = items.map(item => `
-            <div class="flex items-center">
+            <label class="flex items-center space-x-2 cursor-pointer">
                 <input type="checkbox" id="filter-${name}-${item[keyField]}" name="${name}" value="${item[keyField]}" class="form-checkbox h-4 w-4">
-                <label for="filter-${name}-${item[keyField]}" class="ml-2">${item[valueField]}</label>
-            </div>
+                <span>${item[valueField]}</span>
+            </label>
         `).join('');
     }
+
 
     formFiltros?.addEventListener('change', (e) => {
         if (e.target.name === 'date_range') {
@@ -695,12 +696,12 @@ btnSaveNewArea?.addEventListener('click', async () => {
         Object.keys(filters).forEach(key => {
             if (!filters[key]) delete filters[key];
         });
-        
+
         currentFilters = filters;
         carregarTickets(1);
         toggleModal('modalFiltros', false);
     });
-    
+
     function createAreaCheckboxes(container, areaList, selectedAreaIds = []) {
         container.innerHTML = '';
 
@@ -708,8 +709,10 @@ btnSaveNewArea?.addEventListener('click', async () => {
         allCheckboxDiv.className = 'flex items-center mb-2';
         const allChecked = selectedAreaIds.length > 0 && selectedAreaIds.length === areaList.length;
         allCheckboxDiv.innerHTML = `
-            <input type="checkbox" id="${container.id}-check-all" class="form-checkbox h-4 w-4" ${allChecked ? 'checked' : ''}>
-            <label for="${container.id}-check-all" class="ml-2 font-bold">Todos</label>
+            <label class="flex items-center space-x-2 font-bold cursor-pointer">
+                <input type="checkbox" id="${container.id}-check-all" class="form-checkbox h-4 w-4" ${allChecked ? 'checked' : ''}>
+                <span>Todos</span>
+            </label>
         `;
         container.appendChild(allCheckboxDiv);
 
@@ -720,8 +723,10 @@ btnSaveNewArea?.addEventListener('click', async () => {
             const div = document.createElement('div');
             div.className = 'flex items-center';
             div.innerHTML = `
-                <input type="checkbox" id="area-${area.id}-${container.id}" name="area_ids" value="${area.id}" class="form-checkbox h-4 w-4 area-checkbox" ${isChecked ? 'checked' : ''}>
-                <label for="area-${area.id}-${container.id}" class="ml-2">${area.nome}</label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="area-${area.id}-${container.id}" name="area_ids" value="${area.id}" class="form-checkbox h-4 w-4 area-checkbox" ${isChecked ? 'checked' : ''}>
+                    <span>${area.nome}</span>
+                </label>
             `;
             container.appendChild(div);
         });
@@ -742,11 +747,12 @@ btnSaveNewArea?.addEventListener('click', async () => {
         });
     }
 
+    // ALTERAÇÃO: Melhoria na função renderComments para corrigir layout
     function renderComments(comments) {
         const container = document.getElementById('comments-list-container');
         if (!container) return;
 
-        if (comments.length === 0) {
+        if (!comments || comments.length === 0) {
             container.innerHTML = '<p class="text-sm text-center text-gray-500">Nenhum comentário ainda.</p>';
             return;
         }
@@ -759,7 +765,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
                     </div>
                 </div>
                 <div class="flex-1 bg-gray-100 p-3 rounded-lg">
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between items-baseline">
                         <p class="font-semibold text-sm">${comment.user_nome} ${comment.user_sobrenome || ''}</p>
                         <p class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleString('pt-BR')}</p>
                     </div>
@@ -769,12 +775,13 @@ btnSaveNewArea?.addEventListener('click', async () => {
         `).join('');
     }
 
+    // ALTERAÇÃO: Melhoria na função appendComment para corrigir layout
     function appendComment(comment) {
         const container = document.getElementById('comments-list-container');
         if (container.querySelector('p')) {
             container.innerHTML = '';
         }
-        
+
         const commentHtml = `
             <div class="flex items-start space-x-3">
                 <div class="flex-shrink-0">
@@ -783,7 +790,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
                     </div>
                 </div>
                 <div class="flex-1 bg-gray-100 p-3 rounded-lg">
-                    <div class="flex justify-between items-center">
+                    <div class="flex justify-between items-baseline">
                         <p class="font-semibold text-sm">${comment.user_nome} ${comment.user_sobrenome || ''}</p>
                         <p class="text-xs text-gray-500">${new Date(comment.created_at).toLocaleString('pt-BR')}</p>
                     </div>
@@ -793,6 +800,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         `;
         container.insertAdjacentHTML('beforeend', commentHtml);
     }
+
 
     function renderUserList(users) {
         if (!users || users.length === 0) {
@@ -808,7 +816,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
 
     searchUserListInput?.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase();
-        const filteredUsers = allUsersCache.filter(user => 
+        const filteredUsers = allUsersCache.filter(user =>
             user.nome.toLowerCase().includes(searchTerm) ||
             user.sobre.toLowerCase().includes(searchTerm) ||
             user.login.toLowerCase().includes(searchTerm)
@@ -852,10 +860,10 @@ btnSaveNewArea?.addEventListener('click', async () => {
     const statusSelectEdit = document.getElementById('edit-ticket-status');
 
     if (fimAlarmeInputEdit && statusSelectEdit) {
-        fimAlarmeInputEdit.addEventListener('input', () => { 
+        fimAlarmeInputEdit.addEventListener('input', () => {
             if (fimAlarmeInputEdit.value && !fimAlarmeInput.value.includes('d')) {
                 statusSelectEdit.value = 'Resolvido';
-            } 
+            }
         });
     }
     formEditarUsuarioAdmin?.elements['novaSenha'].addEventListener('input', (e) => {
@@ -868,7 +876,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         e.preventDefault();
         const formData = new FormData(formEditarUsuarioAdmin);
         const data = Object.fromEntries(formData.entries());
-        data.area_ids = formData.getAll('area_ids').map(Number); 
+        data.area_ids = formData.getAll('area_ids').map(Number);
         if (data.novaSenha) {
             const rules = checkPasswordStrength(data.novaSenha);
             if (Object.values(rules).some(rule => !rule)) {
@@ -878,7 +886,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
                 return showStatusModal('Erro de Validação', 'As senhas não coincidem.', true);
             }
         }
-        
+
         try {
             const response = await fetch(`/api/users/${data.id}`, {
                 method: 'PUT',
@@ -891,7 +899,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
 
             showStatusModal('Sucesso!', result.message, false, () => {
                 toggleModal('modalEditarUsuarioAdmin', false);
-                btnAbrirModalListaUsuarios.click(); 
+                btnAbrirModalListaUsuarios.click();
             });
 
         } catch (error) {
@@ -910,26 +918,20 @@ btnSaveNewArea?.addEventListener('click', async () => {
             const response = await fetch('/api/users/me');
             if (!response.ok) throw new Error('Não foi possível carregar seus dados.');
             const user = await response.json();
-            
-            currentUser = user; 
+
+            currentUser = user;
 
             formMinhaConta.elements['nome'].value = user.nome || '';
             formMinhaConta.elements['sobrenome'].value = user.sobrenome || '';
             formMinhaConta.elements['login'].value = user.login || '';
             formMinhaConta.elements['telefone'].value = user.telefone || '';
-            
+
             if (user.perfil === 'admin') {
-                areaContainer.innerHTML = `
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Áreas</label>
-                    <div class="p-2 border rounded-md max-h-32 overflow-y-auto bg-gray-50"></div>
-                `;
+                areaContainer.innerHTML = `<label class="block text-sm font-semibold text-gray-700 mb-2">Áreas</label><div class="p-2 border rounded-md max-h-32 overflow-y-auto bg-gray-50"></div>`;
                 const allAreas = await getAreasList();
                 createAreaCheckboxes(areaContainer.querySelector('.p-2'), allAreas, user.area_ids);
             } else {
-                areaContainer.innerHTML = `
-                    <label class="block text-sm font-semibold text-gray-700">Áreas</label>
-                    <input type="text" value="${user.areas_nome || 'Nenhuma'}" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed">
-                `;
+                areaContainer.innerHTML = `<label class="block text-sm font-semibold text-gray-700">Áreas</label><input type="text" value="${user.areas_nome || 'Nenhuma'}" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed">`;
             }
 
             formMinhaConta.elements['novaSenha'].value = '';
@@ -974,7 +976,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
                 body: JSON.stringify(data)
             });
             const result = await response.json();
-            
+
             if (!response.ok) throw new Error(result.message);
 
             showStatusModal('Sucesso!', result.message, false, () => {
@@ -986,7 +988,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
             showStatusModal('Erro!', error.message, true);
         }
     });
-    
+
     async function getAreasList() {
         try {
             const response = await fetch('/api/tickets/options/areas');
@@ -1003,7 +1005,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
             const newStatus = event.target.value;
             const fimAlarmeInput = document.getElementById('edit-alarme-fim');
             if (newStatus === 'Resolvido' || newStatus === 'Normalizado') {
-                if (fimAlarmeInput && !fimAlarmeInput.value) { 
+                if (fimAlarmeInput && !fimAlarmeInput.value) {
                     const now = new Date();
                     const formattedDateTime = now.toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
                     const iMask = IMask.find(fimAlarmeInput);
@@ -1019,7 +1021,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
 
     function handlePaste(event, targetTextarea, previewElement, fileStoreCallback) {
         event.preventDefault();
-        
+
         const clipboardItems = event.clipboardData.items;
         let foundImage = false;
 
@@ -1030,33 +1032,33 @@ btnSaveNewArea?.addEventListener('click', async () => {
             if (item.kind === 'file' && item.type.startsWith('image/')) {
                 foundImage = true;
                 const imageFile = item.getAsFile();
-                
-                fileStoreCallback(imageFile); 
+
+                fileStoreCallback(imageFile);
 
                 const wrapper = document.createElement('div');
-                wrapper.className = 'relative inline-block mt-2'; 
+                wrapper.className = 'relative inline-block mt-2';
 
                 const img = document.createElement('img');
                 img.src = URL.createObjectURL(imageFile);
                 img.className = 'max-w-[200px] max-h-[200px] rounded border border-gray-300';
-                
+
                 const removeBtn = document.createElement('button');
                 removeBtn.textContent = '×';
                 removeBtn.type = 'button';
                 removeBtn.className = 'absolute top-0 right-0 -mt-2 -mr-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xl font-bold leading-none hover:bg-red-700 focus:outline-none transition-transform transform hover:scale-110';
                 removeBtn.title = 'Remover imagem';
-                
+
                 removeBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    fileStoreCallback(null);      
-                    previewElement.innerHTML = ''; 
+                    fileStoreCallback(null);
+                    previewElement.innerHTML = '';
                 });
 
                 wrapper.appendChild(img);
                 wrapper.appendChild(removeBtn);
                 previewElement.appendChild(wrapper);
 
-                break; 
+                break;
             }
         }
 
@@ -1115,11 +1117,11 @@ btnSaveNewArea?.addEventListener('click', async () => {
         if ($(ticketsTable).data('colResizable')) {
             $(ticketsTable).colResizable({ disable: true });
         }
-    
+
         const thead = ticketsTable.querySelector('thead tr');
         const tbody = ticketsTable.querySelector('tbody');
         if (!thead || !tbody) return;
-    
+
         thead.innerHTML = '';
         tbody.innerHTML = '';
         const visibleColumns = columnConfig.filter(col => col.visible);
@@ -1131,7 +1133,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
                 thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
             }
         });
-    
+
         if (!tickets || tickets.length === 0) {
             tbody.innerHTML = `<tr><td colspan="${visibleColumns.length}" class="text-center p-4">Nenhum ticket encontrado.</td></tr>`;
         } else {
@@ -1147,9 +1149,9 @@ btnSaveNewArea?.addEventListener('click', async () => {
                             hour: '2-digit', minute: '2-digit'
                         });
                     };
-    
+
                     switch (col.key) {
-                        case 'id': 
+                        case 'id':
                             cellValue = `#INC-${ticket.id}`;
                             break;
                         case 'data_criacao':
@@ -1173,7 +1175,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
             });
             tbody.innerHTML = tableContent;
         }
-    
+
         $(ticketsTable).colResizable({
             liveDrag: true,
             gripInnerHtml: "<div class='JCLRgrip'></div>",
@@ -1211,7 +1213,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
                 window.location.href = '/login';
                 return;
             }
-            currentUser = await response.json(); 
+            currentUser = await response.json();
             const nomeUsuarioEl = document.getElementById('nome-usuario');
             if (nomeUsuarioEl) nomeUsuarioEl.textContent = `${currentUser.nome || ''} ${currentUser.sobrenome || ''}`.trim();
             if (adminMenu && currentUser.perfil === 'admin') {
@@ -1226,7 +1228,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
             window.location.href = '/login';
         }
     }
-    
+
 
     async function logout() {
         try {
@@ -1238,7 +1240,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         }
     }
 
-    
+
     function popularDropdown(selectId, data, placeholder) {
         const select = document.getElementById(selectId);
         if (!select) return;
@@ -1253,96 +1255,86 @@ btnSaveNewArea?.addEventListener('click', async () => {
         }
     }
     async function handleAreaChange(areaSelectElement, tipoSelectId, prioridadeSelectId, grupoSelectId, alertaSelectId) {
-    const areaId = areaSelectElement.value;
+        const areaId = areaSelectElement.value;
 
-    // Elementos Select
-    const tipoSelect = document.getElementById(tipoSelectId);
-    const prioridadeSelect = document.getElementById(prioridadeSelectId);
-    const grupoSelect = document.getElementById(grupoSelectId);
-    const alertaSelect = document.getElementById(alertaSelectId);
+        const tipoSelect = document.getElementById(tipoSelectId);
+        const prioridadeSelect = document.getElementById(prioridadeSelectId);
+        const grupoSelect = document.getElementById(grupoSelectId);
+        const alertaSelect = document.getElementById(alertaSelectId);
 
-    // --- Início das Modificações ---
+        const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
 
-    // 1. Reseta e desabilita todos os botões de gerenciamento
-    const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
-    
-    // Esconde todos os botões de adicionar e formulários
-    [btnShowAddArea, btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.add('hidden'));
-    [addAreaContainer, addGrupoContainer, addTipoContainer, addPrioridadeContainer, addAlertaContainer].forEach(cont => cont?.classList.add('hidden'));
-    
-    // Esconde todos os botões de excluir
-    [btnDeleteArea, btnDeleteGrupo, btnDeleteTipo, btnDeletePrioridade, btnDeleteAlerta].forEach(btn => btn?.classList.add('hidden'));
+        [btnShowAddArea, btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.add('hidden'));
+        [addAreaContainer, addGrupoContainer, addTipoContainer, addPrioridadeContainer, addAlertaContainer].forEach(cont => cont?.classList.add('hidden'));
 
-    // 2. Lógica de Permissão: Mostra os botões de "Adicionar" se tiver permissão E uma área estiver selecionada
-    if (canManage) {
-        btnShowAddArea?.classList.remove('hidden'); // Botão de Área sempre visível para admin
-        if (areaId) {
-            [btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.remove('hidden'));
+        [btnDeleteArea, btnDeleteGrupo, btnDeleteTipo, btnDeletePrioridade, btnDeleteAlerta].forEach(btn => btn?.classList.add('hidden'));
+
+        if (canManage) {
+            btnShowAddArea?.classList.remove('hidden');
+            if (areaId) {
+                [btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.remove('hidden'));
+            }
         }
-    }
 
-    // --- Fim das Modificações ---
+        const selects = [
+            { element: tipoSelect, placeholder: 'Selecione uma Área' },
+            { element: prioridadeSelect, placeholder: 'Selecione uma Área' },
+            { element: grupoSelect, placeholder: 'Selecione uma Área' },
+            { element: alertaSelect, placeholder: 'Selecione uma Área' },
+        ];
 
-    const selects = [
-        { element: tipoSelect, placeholder: 'Selecione uma Área' },
-        { element: prioridadeSelect, placeholder: 'Selecione uma Área' },
-        { element: grupoSelect, placeholder: 'Selecione uma Área' },
-        { element: alertaSelect, placeholder: 'Selecione uma Área' },
-    ];
-
-    selects.forEach(s => {
-        if (s.element) {
-            popularDropdown(s.element.id, [], s.placeholder);
-            s.element.disabled = true;
-        }
-    });
-
-    if (areaId) {
         selects.forEach(s => {
-            if (s.element) s.element.innerHTML = '<option value="">Carregando...</option>';
+            if (s.element) {
+                popularDropdown(s.element.id, [], s.placeholder);
+                s.element.disabled = true;
+            }
         });
 
-        try {
-            const [tiposRes, prioridadesRes, gruposRes, alertasRes, areasRes] = await Promise.all([
-                fetch(`/api/tickets/options/areas/${areaId}/tipos`),
-                fetch(`/api/tickets/options/areas/${areaId}/prioridades`),
-                fetch(`/api/tickets/options/areas/${areaId}/grupos`),
-                fetch(`/api/tickets/options/areas/${areaId}/alertas`),
-                fetch('/api/tickets/options/areas') // Busca todas as áreas para o cache
-            ]);
+        if (areaId) {
+            selects.forEach(s => {
+                if (s.element) s.element.innerHTML = '<option value="">Carregando...</option>';
+            });
 
-            if (!tiposRes.ok || !prioridadesRes.ok || !gruposRes.ok || !alertasRes.ok || !areasRes.ok) {
-                throw new Error('Falha ao buscar dados da área.');
+            try {
+                const [tiposRes, prioridadesRes, gruposRes, alertasRes, areasRes] = await Promise.all([
+                    fetch(`/api/tickets/options/areas/${areaId}/tipos`),
+                    fetch(`/api/tickets/options/areas/${areaId}/prioridades`),
+                    fetch(`/api/tickets/options/areas/${areaId}/grupos`),
+                    fetch(`/api/tickets/options/areas/${areaId}/alertas`),
+                    fetch('/api/tickets/options/areas')
+                ]);
+
+                if (!tiposRes.ok || !prioridadesRes.ok || !gruposRes.ok || !alertasRes.ok || !areasRes.ok) {
+                    throw new Error('Falha ao buscar dados da área.');
+                }
+
+                const [tipos, prioridades, grupos, alertas, areas] = await Promise.all([
+                    tiposRes.json(), prioridadesRes.json(), gruposRes.json(), alertasRes.json(), areasRes.json()
+                ]);
+
+                currentTiposList = tipos;
+                currentPrioridadesList = prioridades;
+                currentGruposList = grupos;
+                currentAlertsList = alertas;
+                currentAreasList = areas;
+
+                popularDropdown(tipoSelectId, tipos, 'Selecione o Tipo');
+                popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
+                popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
+                popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
+
+                selects.forEach(s => {
+                    if (s.element) s.element.disabled = false;
+                });
+
+            } catch (error) {
+                console.error("Erro ao carregar dados da área:", error);
+                selects.forEach(s => {
+                    if (s.element) popularDropdown(s.element.id, [], 'Erro ao carregar');
+                });
             }
-
-            const [tipos, prioridades, grupos, alertas, areas] = await Promise.all([
-                tiposRes.json(), prioridadesRes.json(), gruposRes.json(), alertasRes.json(), areasRes.json()
-            ]);
-
-            // 3. Cache de Dados: Popula todas as variáveis de cache
-            currentTiposList = tipos;
-            currentPrioridadesList = prioridades;
-            currentGruposList = grupos;
-            currentAlertsList = alertas;
-            currentAreasList = areas; // Cache da lista de áreas
-
-            popularDropdown(tipoSelectId, tipos, 'Selecione o Tipo');
-            popularDropdown(prioridadeSelectId, prioridades, 'Selecione a Prioridade');
-            popularDropdown(grupoSelectId, grupos, 'Selecione o Grupo');
-            popularDropdown(alertaSelectId, alertas, 'Selecione o Alerta');
-
-            selects.forEach(s => {
-                if (s.element) s.element.disabled = false;
-            });
-
-        } catch (error) {
-            console.error("Erro ao carregar dados da área:", error);
-            selects.forEach(s => {
-                if (s.element) popularDropdown(s.element.id, [], 'Erro ao carregar');
-            });
         }
     }
-}
     async function popularDropdownsTicket() {
         const fetchAndPopulate = async (selectId, url, placeholder) => {
             try {
@@ -1361,22 +1353,22 @@ btnSaveNewArea?.addEventListener('click', async () => {
     }
 
 
-  async function carregarInfoCards() {
-    try {
-        const response = await fetch('/api/tickets/cards-info');
-        if (!response.ok) throw new Error('Falha ao carregar cards');
-        const data = await response.json();
-        
-        document.getElementById('card-total').textContent = data.total;
-        document.getElementById('card-em-atendimento').textContent = data.emAtendimento;
-        document.getElementById('card-resolvidos').textContent = data.resolvidos;
-        document.getElementById('card-encerrados').textContent = data.encerrados; 
+    async function carregarInfoCards() {
+        try {
+            const response = await fetch('/api/tickets/cards-info');
+            if (!response.ok) throw new Error('Falha ao carregar cards');
+            const data = await response.json();
 
-    } catch (error) {
-        console.error("Erro ao carregar info dos cards:", error);
+            document.getElementById('card-total').textContent = data.total;
+            document.getElementById('card-em-atendimento').textContent = data.emAtendimento;
+            document.getElementById('card-resolvidos').textContent = data.resolvidos;
+            document.getElementById('card-encerrados').textContent = data.encerrados;
+
+        } catch (error) {
+            console.error("Erro ao carregar info dos cards:", error);
+        }
     }
-}
-    
+
     async function carregarTickets(pagina = 1) {
         paginaAtual = pagina;
         const porPagina = document.getElementById('qtdPorPagina')?.value || 20;
@@ -1389,7 +1381,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         if (queryString) {
             url += `&${queryString}`;
         }
-        
+
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error('Falha ao carregar tickets');
@@ -1409,7 +1401,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         container.innerHTML = '';
         const totalPaginas = Math.ceil(total / porPagina);
 
-        if (totalPaginas <= 1) return; 
+        if (totalPaginas <= 1) return;
 
         const btnPrev = document.createElement('button');
         btnPrev.innerHTML = '&laquo;';
@@ -1417,7 +1409,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         btnPrev.disabled = pagina === 1;
         btnPrev.onclick = () => carregarTickets(pagina - 1);
         container.appendChild(btnPrev);
-    
+
         for (let i = 1; i <= totalPaginas; i++) {
             if (i === 1 || i === totalPaginas || (i >= pagina - 2 && i <= pagina + 2)) {
                 const btn = document.createElement('button');
@@ -1432,7 +1424,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
                 container.appendChild(span);
             }
         }
-    
+
         const btnNext = document.createElement('button');
         btnNext.innerHTML = '&raquo;';
         btnNext.className = 'border px-3 py-1 rounded-md mx-1 text-sm bg-white hover:bg-gray-100';
@@ -1441,7 +1433,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         container.appendChild(btnNext);
     }
 
-    
+
     function criarSeletorItensPorPagina() {
         const container = document.getElementById('items-por-pagina-container');
         if (!container) return;
@@ -1479,8 +1471,8 @@ btnSaveNewArea?.addEventListener('click', async () => {
             </div>
             ${meses.map((mes, index) => `
                 <div class="flex items-center">
-                    <input type="checkbox" id="month-${index+1}" name="months" value="${index+1}" class="form-checkbox h-4 w-4 month-checkbox">
-                    <label for="month-${index+1}" class="ml-2 text-sm">${mes}</label>
+                    <input type="checkbox" id="month-${index + 1}" name="months" value="${index + 1}" class="form-checkbox h-4 w-4 month-checkbox">
+                    <label for="month-${index + 1}" class="ml-2 text-sm">${mes}</label>
                 </div>
             `).join('')}
         `;
@@ -1513,110 +1505,110 @@ btnSaveNewArea?.addEventListener('click', async () => {
     });
 
     async function abrirModalEditar(ticketId) {
-    pastedFileEdit = null;
-    const preview = document.getElementById('paste-preview-edit');
-    if (preview) preview.innerHTML = '';
-    formEditarTicket.reset();
+        pastedFileEdit = null;
+        const preview = document.getElementById('paste-preview-edit');
+        if (preview) preview.innerHTML = '';
+        formEditarTicket.reset();
 
-    try {
-        const commentsContainer = document.getElementById('comments-list-container');
-        if (commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-gray-500">Carregando...</p>';
+        try {
+            const commentsContainer = document.getElementById('comments-list-container');
+            if (commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-gray-500">Carregando...</p>';
 
-        const [ticketResponse, commentsResponse] = await Promise.all([
-            fetch(`/api/tickets/${ticketId}`),
-            fetch(`/api/tickets/${ticketId}/comments`)
-        ]);
+            const [ticketResponse, commentsResponse] = await Promise.all([
+                fetch(`/api/tickets/${ticketId}`),
+                fetch(`/api/tickets/${ticketId}/comments`)
+            ]);
 
-        if (!ticketResponse.ok) {
-            throw new Error('Ticket não encontrado');
-        }
-        const ticket = await ticketResponse.json();
-
-        const formatIsoToBr = (isoString) => {
-            if (!isoString) return '';
-            const date = new Date(isoString);
-            if (isNaN(date)) return '';
-            return date.toLocaleString('pt-BR', {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit'
-            }).replace(',', '');
-        };
-
-        document.getElementById('edit-ticket-id').value = ticket.id;
-        document.getElementById('edit-ticket-status').value = ticket.status;
-        document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-
- 
-        document.getElementById('edit-alarme-inicio').imask?.setInputValue(formatIsoToBr(ticket.alarme_inicio));
-        document.getElementById('edit-horario-acionamento').imask?.setInputValue(formatIsoToBr(ticket.horario_acionamento));
-        document.getElementById('edit-alarme-fim').imask?.setInputValue(formatIsoToBr(ticket.alarme_fim));
-    
-        
-        const linkContainer = document.getElementById('current-attachment-container');
-        const linkSpan = document.getElementById('current-attachment-link');
-        const removeAnexoInput = document.getElementById('edit-remove-anexo');
-        if (linkContainer && linkSpan && removeAnexoInput) {
-            removeAnexoInput.value = '0';
-            linkContainer.classList.add('hidden');
-            if (ticket.anexo_path) {
-                const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
-                linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
-                linkContainer.classList.remove('hidden');
+            if (!ticketResponse.ok) {
+                throw new Error('Ticket não encontrado');
             }
-        }
+            const ticket = await ticketResponse.json();
 
-        const areaSelect = document.getElementById('edit-ticket-area');
-        areaSelect.value = ticket.area_id;
+            const formatIsoToBr = (isoString) => {
+                if (!isoString) return '';
+                const date = new Date(isoString);
+                if (isNaN(date)) return '';
+                return date.toLocaleString('pt-BR', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                }).replace(',', '');
+            };
 
-        await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
-        
-        document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
-        document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id;
-        
-        const grupoSelect = document.getElementById('edit-ticket-grupo');
-        grupoSelect.value = ticket.grupo_id;
+            document.getElementById('edit-ticket-id').value = ticket.id;
+            document.getElementById('edit-ticket-status').value = ticket.status;
+            document.getElementById('edit-ticket-descricao').value = ticket.descricao;
 
-        
-        const alertaSelect = document.getElementById('edit-ticket-alerta');
-        alertaSelect.value = ticket.alerta_id;
-        alertaSelect.dispatchEvent(new Event('change'));
-        
-        const deleteButton = document.getElementById('btn-delete-ticket');
-        if (deleteButton) {
-            deleteButton.classList.toggle('hidden', !(currentUser && currentUser.perfil === 'admin'));
+
+            document.getElementById('edit-alarme-inicio').imask?.setInputValue(formatIsoToBr(ticket.alarme_inicio));
+            document.getElementById('edit-horario-acionamento').imask?.setInputValue(formatIsoToBr(ticket.horario_acionamento));
+            document.getElementById('edit-alarme-fim').imask?.setInputValue(formatIsoToBr(ticket.alarme_fim));
+
+
+            const linkContainer = document.getElementById('current-attachment-container');
+            const linkSpan = document.getElementById('current-attachment-link');
+            const removeAnexoInput = document.getElementById('edit-remove-anexo');
+            if (linkContainer && linkSpan && removeAnexoInput) {
+                removeAnexoInput.value = '0';
+                linkContainer.classList.add('hidden');
+                if (ticket.anexo_path) {
+                    const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
+                    linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
+                    linkContainer.classList.remove('hidden');
+                }
+            }
+
+            const areaSelect = document.getElementById('edit-ticket-area');
+            areaSelect.value = ticket.area_id;
+
+            await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
+
+            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
+            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id;
+
+            const grupoSelect = document.getElementById('edit-ticket-grupo');
+            grupoSelect.value = ticket.grupo_id;
+
+
+            const alertaSelect = document.getElementById('edit-ticket-alerta');
+            alertaSelect.value = ticket.alerta_id;
+            alertaSelect.dispatchEvent(new Event('change'));
+
+            const deleteButton = document.getElementById('btn-delete-ticket');
+            if (deleteButton) {
+                deleteButton.classList.toggle('hidden', !(currentUser && currentUser.perfil === 'admin'));
+            }
+
+            if (commentsResponse.ok) {
+                const comments = await commentsResponse.json();
+                renderComments(comments);
+            } else {
+                if (commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-red-500">Erro ao carregar comentários.</p>';
+            }
+
+            toggleModal('modalEditarTicket', true);
+
+        } catch (error) {
+            toggleModal('modalEditarTicket', false);
+            console.error("Erro ao abrir modal de edição:", error);
+            showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
         }
-        
-        if (commentsResponse.ok) {
-            const comments = await commentsResponse.json();
-            renderComments(comments);
-        } else {
-            if (commentsContainer) commentsContainer.innerHTML = '<p class="text-sm text-center text-red-500">Erro ao carregar comentários.</p>';
-        }
-        
-        toggleModal('modalEditarTicket', true);
-        
-    } catch (error) {
-        toggleModal('modalEditarTicket', false);
-        console.error("Erro ao abrir modal de edição:", error);
-        showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
     }
-}
 
     document.getElementById('ticket-area')?.addEventListener('change', (event) => {
         handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
     });
 
     document.getElementById('edit-ticket-area')?.addEventListener('change', (event) => {
-        handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta'); 
+        handleAreaChange(event.target, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
     });
-    
+
 
     document.getElementById('btn-cancel-create')?.addEventListener('click', () => {
-        formAbrirTicket.reset(); 
-        
+        formAbrirTicket.reset();
+
         ['ticket-grupo', 'ticket-alerta', 'ticket-tipo', 'ticket-prioridade'].forEach(id => {
             const select = document.getElementById(id);
-            if(select) {
+            if (select) {
                 select.innerHTML = '<option value="">-- Selecione uma Área Primeiro --</option>';
                 select.disabled = true;
             }
@@ -1625,8 +1617,8 @@ btnSaveNewArea?.addEventListener('click', async () => {
         const preview = document.getElementById('paste-preview-create');
         if (preview) preview.innerHTML = '';
         pastedFileCreate = null;
-        
-        toggleModal('modalTicket', false); 
+
+        toggleModal('modalTicket', false);
     });
 
     document.getElementById('btn-cancel-edit')?.addEventListener('click', () => {
@@ -1643,70 +1635,70 @@ btnSaveNewArea?.addEventListener('click', async () => {
     const inputNewAlerta = document.getElementById('input-new-alerta');
     const btnCancelAddAlerta = document.getElementById('btn-cancel-add-alerta');
     const btnSaveNewAlerta = document.getElementById('btn-save-new-alerta');
-    const suggestionsList = document.getElementById('alerta-suggestions-list');     
-    
-   function setupAutocomplete(inputId, suggestionsContainerId, listSource) {
-    const input = document.getElementById(inputId);
-    const suggestionsContainer = document.getElementById(suggestionsContainerId);
-    const btnSave = input.closest('div').querySelector('button[id*="save"]');
+    const suggestionsList = document.getElementById('alerta-suggestions-list');
 
-    if (!input || !suggestionsContainer) return;
+    function setupAutocomplete(inputId, suggestionsContainerId, listSource) {
+        const input = document.getElementById(inputId);
+        const suggestionsContainer = document.getElementById(suggestionsContainerId);
+        const btnSave = input.closest('div').querySelector('button[id*="save"]');
 
-    input.addEventListener('input', () => {
-        const query = input.value.trim().toLowerCase();
-        suggestionsContainer.innerHTML = '';
-        if (btnSave) btnSave.disabled = false;
+        if (!input || !suggestionsContainer) return;
 
-        if (!query) return;
+        input.addEventListener('input', () => {
+            const query = input.value.trim().toLowerCase();
+            suggestionsContainer.innerHTML = '';
+            if (btnSave) btnSave.disabled = false;
 
-        const exactMatch = listSource.find(item => item.nome.toLowerCase() === query);
-        if (exactMatch) {
-            suggestionsContainer.innerHTML = `<div class="p-2 text-sm text-red-600 font-bold">Este item já existe.</div>`;
-            if (btnSave) btnSave.disabled = true;
-            return;
-        }
+            if (!query) return;
 
-        const similarMatches = listSource.filter(item => item.nome.toLowerCase().includes(query));
-        if (similarMatches.length > 0) {
-            similarMatches.forEach(item => {
-                const option = document.createElement('div');
-                option.className = 'p-2 text-sm cursor-pointer hover:bg-blue-100';
-                option.textContent = item.nome;
-                option.addEventListener('click', () => {
-                    input.value = item.nome;
-                    suggestionsContainer.innerHTML = '';
+            const exactMatch = listSource.find(item => item.nome.toLowerCase() === query);
+            if (exactMatch) {
+                suggestionsContainer.innerHTML = `<div class="p-2 text-sm text-red-600 font-bold">Este item já existe.</div>`;
+                if (btnSave) btnSave.disabled = true;
+                return;
+            }
+
+            const similarMatches = listSource.filter(item => item.nome.toLowerCase().includes(query));
+            if (similarMatches.length > 0) {
+                similarMatches.forEach(item => {
+                    const option = document.createElement('div');
+                    option.className = 'p-2 text-sm cursor-pointer hover:bg-blue-100';
+                    option.textContent = item.nome;
+                    option.addEventListener('click', () => {
+                        input.value = item.nome;
+                        suggestionsContainer.innerHTML = '';
+                    });
+                    suggestionsContainer.appendChild(option);
                 });
-                suggestionsContainer.appendChild(option);
-            });
-        } else {
-             const feedback = document.createElement('div');
-             feedback.className = 'p-2 text-sm text-green-600';
-             feedback.textContent = 'Nome disponível!';
-             suggestionsContainer.appendChild(feedback);
-        }
-    });
-}
+            } else {
+                const feedback = document.createElement('div');
+                feedback.className = 'p-2 text-sm text-green-600';
+                feedback.textContent = 'Nome disponível!';
+                suggestionsContainer.appendChild(feedback);
+            }
+        });
+    }
 
     btnShowAddAlerta?.addEventListener('click', () => {
-        const areaSelect = document.getElementById('ticket-area'); 
+        const areaSelect = document.getElementById('ticket-area');
         if (!areaSelect || !areaSelect.value) {
             return showStatusModal('Atenção!', 'Por favor, selecione uma Área primeiro.', true);
         }
         addAlertaContainer.classList.remove('hidden');
         btnShowAddAlerta.classList.add('hidden');
-        if(btnDeleteAlerta) btnDeleteAlerta.classList.add('hidden');
+        if (btnDeleteAlerta) btnDeleteAlerta.classList.add('hidden');
         inputNewAlerta.focus();
         setupAutocomplete('input-new-alerta', 'alerta-suggestions-list', currentAlertsList);
     });
 
     const resetAddAlertaForm = () => {
-        if(addAlertaContainer) addAlertaContainer.classList.add('hidden');
-        if(btnShowAddAlerta) btnShowAddAlerta.classList.remove('hidden');
+        if (addAlertaContainer) addAlertaContainer.classList.add('hidden');
+        if (btnShowAddAlerta) btnShowAddAlerta.classList.remove('hidden');
         const alertaSelect = document.getElementById('ticket-alerta');
-        if(btnDeleteAlerta && alertaSelect?.value) btnDeleteAlerta.classList.remove('hidden');
-        if(inputNewAlerta) inputNewAlerta.value = '';
-        if(suggestionsList) suggestionsList.innerHTML = '';
-        if(btnSaveNewAlerta) btnSaveNewAlerta.disabled = false;
+        if (btnDeleteAlerta && alertaSelect?.value) btnDeleteAlerta.classList.remove('hidden');
+        if (inputNewAlerta) inputNewAlerta.value = '';
+        if (suggestionsList) suggestionsList.innerHTML = '';
+        if (btnSaveNewAlerta) btnSaveNewAlerta.disabled = false;
     };
     btnCancelAddAlerta?.addEventListener('click', resetAddAlertaForm);
 
@@ -1719,7 +1711,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
             showStatusModal('Erro!', 'O nome do novo alerta e a área são obrigatórios.', true);
             return;
         }
-        
+
         btnSaveNewAlerta.disabled = true;
         btnSaveNewAlerta.textContent = 'Salvando...';
 
@@ -1740,9 +1732,9 @@ btnSaveNewArea?.addEventListener('click', async () => {
             const alertaSelect = document.getElementById('ticket-alerta');
             const newOption = new Option(novoAlerta.nome, novoAlerta.id, true, true);
             alertaSelect.add(newOption);
-            
+
             currentAlertsList.push(novoAlerta);
-            
+
             resetAddAlertaForm();
             alertaSelect.dispatchEvent(new Event('change'));
 
@@ -1765,22 +1757,22 @@ btnSaveNewArea?.addEventListener('click', async () => {
         });
     }
 
-    if (formCriarArea) { 
-        formCriarArea.addEventListener('submit', async (event) => { 
+    if (formCriarArea) {
+        formCriarArea.addEventListener('submit', async (event) => {
             event.preventDefault();
-            const nome = formCriarArea.querySelector('input[name="area_name"]').value; 
+            const nome = formCriarArea.querySelector('input[name="area_name"]').value;
             try {
-                const response = await fetch('/api/tickets/options/areas', { 
+                const response = await fetch('/api/tickets/options/areas', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome }), 
+                    body: JSON.stringify({ nome }),
                 });
                 const result = await response.json();
                 if (response.ok) {
                     showStatusModal('Sucesso!', result.message, false);
                     toggleModal('modalCriarArea', false);
-                    formCriarArea.reset(); 
-                    popularDropdownsTicket(); 
+                    formCriarArea.reset();
+                    popularDropdownsTicket();
                 } else {
                     showStatusModal('Erro!', result.message, true);
                 }
@@ -1789,10 +1781,10 @@ btnSaveNewArea?.addEventListener('click', async () => {
             }
         });
     }
-    
+
     if (formCriarUsuario) {
         const selectPerfil = document.getElementById('selectPerfil');
-       selectPerfil?.addEventListener('change', async () => {
+        selectPerfil?.addEventListener('change', async () => {
             const perfil = selectPerfil.value;
             const areaContainer = document.getElementById('container-selecao-area');
             const areaCheckboxContainer = document.getElementById('area-checkbox-container');
@@ -1801,7 +1793,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
             document.getElementById('campos-support').classList.toggle('hidden', perfil !== 'support' && perfil !== 'admin' && perfil !== 'gerente');
 
             if (areaContainer) {
-                areaContainer.classList.toggle('hidden', !perfil); 
+                areaContainer.classList.toggle('hidden', !perfil);
                 if (perfil && areaCheckboxContainer) {
                     areaCheckboxContainer.innerHTML = 'Carregando áreas...';
                     const allAreas = await getAreasList();
@@ -1817,12 +1809,12 @@ btnSaveNewArea?.addEventListener('click', async () => {
             const formData = new FormData(formCriarUsuario);
             const data = Object.fromEntries(formData.entries());
             data.area_ids = formData.getAll('area_ids').map(Number);
-            
+
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!data.login || !emailRegex.test(data.login)) {
                 return showStatusModal('Erro de Validação', 'Por favor, insira um formato de e-mail válido.', true);
             }
-           
+
             try {
                 const response = await fetch('/api/users', {
                     method: 'POST',
@@ -1848,7 +1840,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         btnCancelCreateUser.addEventListener('click', () => {
             const selectPerfil = document.getElementById('selectPerfil');
             formCriarUsuario.reset();
-            if(selectPerfil) {
+            if (selectPerfil) {
                 selectPerfil.dispatchEvent(new Event('change'));
             }
             toggleModal('modalCriarUsuario', false);
@@ -1882,7 +1874,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         event.preventDefault();
         const targetItem = event.target.closest('li');
         if (!targetItem || !draggedItemKey) return;
-        
+
         const droppedOnKey = targetItem.dataset.key;
         if (draggedItemKey === droppedOnKey) return;
 
@@ -1891,7 +1883,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
 
         const [draggedItem] = columnConfig.splice(draggedIndex, 1);
         columnConfig.splice(droppedOnIndex, 0, draggedItem);
-        
+
         saveColumnConfig();
         populateCustomizerModal();
         carregarTickets(paginaAtual);
@@ -1910,11 +1902,18 @@ btnSaveNewArea?.addEventListener('click', async () => {
         const timeParts = parts[1].split(':');
         return new Date(dateParts[2], dateParts[1] - 1, dateParts[0], timeParts[0], timeParts[1]);
     }
-    
+
     formAbrirTicket?.addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(formAbrirTicket);
 
+        const alarmeInicioVal = formData.get('alarme_inicio');
+        const horarioAcionamentoVal = formData.get('horario_acionamento');
+
+        if (!alarmeInicioVal || alarmeInicioVal.includes('d') || !horarioAcionamentoVal || horarioAcionamentoVal.includes('d')) {
+            return showStatusModal('Campo Obrigatório', 'Os campos "Início do Alarme" e "Início do Atendimento" devem ser preenchidos.', true);
+        }
+    
         const inicioAtendimentoVal = formData.get('horario_acionamento');
         const fimAlarmeVal = formData.get('alarme_fim');
 
@@ -1938,29 +1937,29 @@ btnSaveNewArea?.addEventListener('click', async () => {
         try {
             const response = await fetch('/api/tickets', {
                 method: 'POST',
-                body: formData 
+                body: formData
             });
             const result = await response.json();
-            toggleModal('modalTicket', false);
+            
             if (response.ok) {
+                toggleModal('modalTicket', false);
                 showStatusModal('Sucesso!', result.message, false);
                 formAbrirTicket.reset();
-                carregarTickets(); 
+                carregarTickets();
                 carregarInfoCards();
             } else {
                 showStatusModal('Erro!', result.message, true);
             }
         } catch (error) {
-            toggleModal('modalTicket', false);
             showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
         } finally {
             pastedFileCreate = null;
             const preview = document.getElementById('paste-preview-create');
-            if(preview) preview.innerHTML = '';
+            if (preview) preview.innerHTML = '';
         }
     });
-    
-    
+
+
     formEditarTicket?.addEventListener('submit', async (event) => {
         event.preventDefault();
         const ticketId = document.getElementById('edit-ticket-id').value;
@@ -1987,7 +1986,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
         const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
         if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
             formData.set('anexo', pastedFileEdit, pastedFileEdit.name);
-            formData.set('remove_anexo', '0'); 
+            formData.set('remove_anexo', '0');
         }
 
         try {
@@ -1996,12 +1995,12 @@ btnSaveNewArea?.addEventListener('click', async () => {
                 body: formData
             });
             const result = await response.json();
-            
+
             if (response.ok) {
                 toggleModal('modalEditarTicket', false);
                 showStatusModal('Sucesso!', result.message, false, () => {
                     carregarTickets(paginaAtual);
-                    carregarInfoCards(); 
+                    carregarInfoCards();
                 });
             } else {
                 showStatusModal('Erro!', result.message, true);
@@ -2011,28 +2010,30 @@ btnSaveNewArea?.addEventListener('click', async () => {
         } finally {
             pastedFileEdit = null;
             const preview = document.getElementById('paste-preview-edit');
-            if(preview) preview.innerHTML = '';
+            if (preview) preview.innerHTML = '';
             document.getElementById('new-comment-text').value = '';
         }
     });
-    
+
     tabelaTicketsBody?.addEventListener('click', (event) => {
         const editButton = event.target.closest('.btn-edit-ticket');
         if (editButton) {
             abrirModalEditar(editButton.dataset.id);
         }
     });
+    // ALTERAÇÃO 2: Adicionando um console.log para diagnosticar o botão de deletar
     document.getElementById('btn-delete-ticket')?.addEventListener('click', () => {
+        console.log("Botão Deletar Ticket clicado!"); // <-- LINHA DE TESTE
         ticketIdToDelete = document.getElementById('edit-ticket-id').value;
         toggleModal('modalConfirmarDelete', true);
     });
 
     document.getElementById('btn-cancel-delete')?.addEventListener('click', () => {
-        ticketIdToDelete = null; 
+        ticketIdToDelete = null;
         toggleModal('modalConfirmarDelete', false);
     });
     document.getElementById('btn-confirm-delete')?.addEventListener('click', async () => {
-        if (!ticketIdToDelete) return; 
+        if (!ticketIdToDelete) return;
 
         try {
             const response = await fetch(`/api/tickets/${ticketIdToDelete}`, {
@@ -2044,7 +2045,7 @@ btnSaveNewArea?.addEventListener('click', async () => {
 
             if (response.ok) {
                 showStatusModal('Sucesso!', result.message, false);
-                carregarTickets(); 
+                carregarTickets();
                 carregarInfoCards();
             } else {
                 showStatusModal('Erro!', result.message, true);
@@ -2054,38 +2055,37 @@ btnSaveNewArea?.addEventListener('click', async () => {
             toggleModal('modalEditarTicket', false);
             showStatusModal('Erro de Conexão', 'Não foi possível deletar o ticket.', true);
         } finally {
-            ticketIdToDelete = null; 
+            ticketIdToDelete = null;
         }
     });
     function addDeleteButtonListener(selectId, buttonId) {
-    document.getElementById(selectId)?.addEventListener('change', (event) => {
-        const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
-        const btnDelete = document.getElementById(buttonId);
-        if (btnDelete) {
-            // O botão só aparece se um valor for selecionado E o usuário tiver permissão
-            btnDelete.classList.toggle('hidden', !event.target.value || !canManage);
-        }
-    });
-}
+        document.getElementById(selectId)?.addEventListener('change', (event) => {
+            const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
+            const btnDelete = document.getElementById(buttonId);
+            if (btnDelete) {
+                btnDelete.classList.toggle('hidden', !event.target.value || !canManage);
+            }
+        });
+    }
 
-addDeleteButtonListener('ticket-area', 'btn-delete-area-selecionada');
-addDeleteButtonListener('ticket-grupo', 'btn-delete-grupo-selecionado');
-addDeleteButtonListener('ticket-tipo', 'btn-delete-tipo-selecionado');
-addDeleteButtonListener('ticket-prioridade', 'btn-delete-prioridade-selecionada');
-addDeleteButtonListener('ticket-alerta', 'btn-delete-alerta-selecionado');
+    addDeleteButtonListener('ticket-area', 'btn-delete-area-selecionada');
+    addDeleteButtonListener('ticket-grupo', 'btn-delete-grupo-selecionado');
+    addDeleteButtonListener('ticket-tipo', 'btn-delete-tipo-selecionado');
+    addDeleteButtonListener('ticket-prioridade', 'btn-delete-prioridade-selecionada');
+    addDeleteButtonListener('ticket-alerta', 'btn-delete-alerta-selecionado');
 
 
-addDeleteButtonListener('edit-ticket-area', 'btn-delete-area-selecionada-edit'); 
-addDeleteButtonListener('edit-ticket-grupo', 'btn-delete-grupo-selecionado-edit');
-addDeleteButtonListener('edit-ticket-tipo', 'btn-delete-tipo-selecionado-edit');
-addDeleteButtonListener('edit-ticket-prioridade', 'btn-delete-prioridade-selecionado-edit');
-addDeleteButtonListener('edit-ticket-alerta', 'btn-delete-alerta-selecionado-edit');
+    addDeleteButtonListener('edit-ticket-area', 'btn-delete-area-selecionada-edit');
+    addDeleteButtonListener('edit-ticket-grupo', 'btn-delete-grupo-selecionado-edit');
+    addDeleteButtonListener('edit-ticket-tipo', 'btn-delete-tipo-selecionado-edit');
+    addDeleteButtonListener('edit-ticket-prioridade', 'btn-delete-prioridade-selecionado-edit');
+    addDeleteButtonListener('edit-ticket-alerta', 'btn-delete-alerta-selecionado-edit');
 
     document.getElementById('ordenarPor')?.addEventListener('change', () => carregarTickets(1));
 
 
     loadColumnConfig();
-    criarSeletorItensPorPagina(); 
+    criarSeletorItensPorPagina();
     carregarDadosUsuario();
     popularDropdownsTicket();
     carregarInfoCards();
