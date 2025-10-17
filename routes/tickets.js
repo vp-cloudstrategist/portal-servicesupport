@@ -41,7 +41,9 @@ router.delete('/options/tipos/:id', requireAdmin, ticketController.deleteTipo);
 router.post('/options/areas/:areaId/prioridades', requireAdmin, ticketController.createPrioridade);
 router.delete('/options/prioridades/:id', requireAdmin, ticketController.deletePrioridade);
 
-
+router.get('/options/status', requireLogin, ticketController.getStatus);
+router.post('/options/status', requireAdmin, ticketController.createStatus);
+router.delete('/options/status/:id', requireAdmin, ticketController.deleteStatus);
 // --- Rota para Exportação ---
 router.get('/export', requireLogin, ticketController.exportTickets);
 

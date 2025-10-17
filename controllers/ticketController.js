@@ -8,12 +8,12 @@ const capitalize = (str) => {
 };
 
 exports.createTicket = async (req, res) => {
-    let { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento } = req.body;
+    let { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento, status_id } = req.body; // MODIFICADO
     const user_id = req.session.user.id;
     const anexo_path = req.file ? req.file.path : null;
-    
-    if (!grupo_id || !alerta_id || !tipo_solicitacao_id || !prioridade_id || !alarme_inicio || alarme_inicio === 'null' || !horario_acionamento || horario_acionamento === 'null') {
-        return res.status(400).json({ message: 'Todos os campos obrigatórios, incluindo datas de início, devem ser preenchidos.' });
+
+    if (!grupo_id || !alerta_id || !tipo_solicitacao_id || !prioridade_id || !alarme_inicio || alarme_inicio === 'null' || !horario_acionamento || horario_acionamento === 'null' || !status_id) { // MODIFICADO
+        return res.status(400).json({ message: 'Todos os campos obrigatórios devem ser preenchidos.' });
     }
 
     if (!alarme_fim || alarme_fim === 'null') {
@@ -24,13 +24,13 @@ exports.createTicket = async (req, res) => {
         const sql = `
             INSERT INTO tickets (
                 user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, 
-                alarme_inicio, alarme_fim, anexo_path, horario_acionamento, status
+                alarme_inicio, alarme_fim, anexo_path, horario_acionamento, status_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
+        `; // MODIFICADO
         const values = [
             user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao || null,
             alarme_inicio, alarme_fim, anexo_path, horario_acionamento,
-            'Em Atendimento'
+            status_id // MODIFICADO
         ];
 
         const [result] = await pool.query(sql, values);
@@ -126,24 +126,26 @@ exports.getAllTickets = async (req, res) => {
 
         // ALTERAÇÃO: Adicionado t.descricao e a subquery para ultimo_comentario
         const ticketsSql = `
-            SELECT 
-                t.id, t.status, t.data_criacao, t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
-                t.descricao, -- <<< NOVO
-                a.nome as area_nome, 
-                al.nome as alerta_nome, 
-                g.nome as grupo_nome,
-                u.nome as user_nome, 
-                p.nome as prioridade_nome,
-                (SELECT comment_text FROM ticket_comments tc WHERE tc.ticket_id = t.id ORDER BY tc.created_at DESC LIMIT 1) as ultimo_comentario -- <<< NOVO
-            FROM tickets t
-            LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
-            LEFT JOIN ticket_areas a ON g.area_id = a.id
-            LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
-            LEFT JOIN user u ON t.user_id = u.id
-            LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
-            ${finalWhereClause}
-            ${orderClause} 
-            LIMIT ? OFFSET ?`;
+    SELECT 
+        t.id, t.data_criacao, t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
+        t.descricao,
+        s.nome as status, -- <<< MODIFICADO
+        a.nome as area_nome, 
+        al.nome as alerta_nome, 
+        g.nome as grupo_nome,
+        u.nome as user_nome, 
+        p.nome as prioridade_nome,
+        (SELECT comment_text FROM ticket_comments tc WHERE tc.ticket_id = t.id ORDER BY tc.created_at DESC LIMIT 1) as ultimo_comentario
+    FROM tickets t
+    LEFT JOIN ticket_status s ON t.status_id = s.id 
+    LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
+    LEFT JOIN ticket_areas a ON g.area_id = a.id
+    LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
+    LEFT JOIN user u ON t.user_id = u.id
+    LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
+    ${finalWhereClause}
+    ${orderClause} 
+    LIMIT ? OFFSET ?`;
 
         const finalQueryParams = [...queryParams, limite, offset];
         const [tickets] = await pool.query(ticketsSql, finalQueryParams);
@@ -155,27 +157,21 @@ exports.getAllTickets = async (req, res) => {
         res.status(500).json({ message: 'Erro ao buscar tickets.' });
     }
 };
-// =================================================================================
-// === FIM DA FUNÇÃO ALTERADA ===
-// =================================================================================
-
 
 exports.getCardInfo = async (req, res) => {
     try {
         const queries = [
-            pool.query("SELECT COUNT(*) as count FROM tickets"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Em Atendimento'"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Resolvido'"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status = 'Encerrado'")
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = 1"), // Em Atendimento
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = 3"), // Resolvido
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = 2")  // Normalizado
         ];
-
+        
         const results = await Promise.all(queries);
-
+        
         res.status(200).json({
-            total: results[0][0][0].count,
-            emAtendimento: results[1][0][0].count,
-            resolvidos: results[2][0][0].count,
-            encerrados: results[3][0][0].count
+            emAtendimento: results[0][0][0].count, 
+            resolvidos: results[1][0][0].count,
+            normalizado: results[2][0][0].count
         });
     } catch (error) {
         console.error("Erro ao buscar informações dos cards:", error);
@@ -221,15 +217,14 @@ exports.updateTicket = async (req, res) => {
         }
         const oldData = existingTicketRows[0];
 
-
         let newAnexoPath;
-        if (req.file) {
+        if (req.file) { 
             newAnexoPath = req.file.path;
             if (oldData.anexo_path && fs.existsSync(oldData.anexo_path)) fs.unlinkSync(oldData.anexo_path);
-        } else if (newData.remove_anexo === '1') {
+        } else if (newData.remove_anexo === '1') { 
             newAnexoPath = null;
             if (oldData.anexo_path && fs.existsSync(oldData.anexo_path)) fs.unlinkSync(oldData.anexo_path);
-        } else {
+        } else { 
             newAnexoPath = oldData.anexo_path;
         }
 
@@ -238,16 +233,17 @@ exports.updateTicket = async (req, res) => {
             grupo_id: newData.grupo_id !== undefined ? newData.grupo_id : oldData.grupo_id,
             tipo_solicitacao_id: newData.tipo_solicitacao_id !== undefined ? newData.tipo_solicitacao_id : oldData.tipo_solicitacao_id,
             prioridade_id: newData.prioridade_id !== undefined ? newData.prioridade_id : oldData.prioridade_id,
-            status: newData.status !== undefined ? newData.status : oldData.status,
+            status_id: newData.status_id !== undefined ? newData.status_id : oldData.status_id, // MODIFICADO
             alarme_inicio: newData.alarme_inicio !== undefined ? newData.alarme_inicio : oldData.alarme_inicio,
             alarme_fim: newData.alarme_fim !== undefined ? newData.alarme_fim : oldData.alarme_fim,
             horario_acionamento: newData.horario_acionamento !== undefined ? newData.horario_acionamento : oldData.horario_acionamento
         };
 
-        if ((finalData.status === 'Resolvido' || finalData.status === 'Normalizado') && (!finalData.alarme_fim || finalData.alarme_fim === 'null')) {
-            finalData.alarme_fim = new Date();
+        const [statusRows] = await connection.query('SELECT nome FROM ticket_status WHERE id = ?', [finalData.status_id]);
+        const statusName = statusRows.length > 0 ? statusRows[0].nome : '';
+        if ((statusName === 'Resolvido' || statusName === 'Normalizado') && (!finalData.alarme_fim || finalData.alarme_fim === 'null')) {
+            finalData.alarme_fim = new Date(); 
         }
-
 
         for (const key of ['alarme_inicio', 'alarme_fim', 'horario_acionamento']) {
             if (finalData[key] === 'null' || finalData[key] === '') {
@@ -258,12 +254,12 @@ exports.updateTicket = async (req, res) => {
         const sql = `
             UPDATE tickets SET 
                 alerta_id = ?, grupo_id = ?, tipo_solicitacao_id = ?, 
-                prioridade_id = ?, status = ?, alarme_inicio = ?, alarme_fim = ?,
+                prioridade_id = ?, status_id = ?, alarme_inicio = ?, alarme_fim = ?,
                 anexo_path = ?, horario_acionamento = ?
             WHERE id = ?
-        `;
+        `; 
         const values = [
-            finalData.alerta_id, finalData.grupo_id, finalData.tipo_solicitacao_id, finalData.prioridade_id, finalData.status,
+            finalData.alerta_id, finalData.grupo_id, finalData.tipo_solicitacao_id, finalData.prioridade_id, finalData.status_id, 
             finalData.alarme_inicio, finalData.alarme_fim, newAnexoPath, finalData.horario_acionamento, ticketId
         ];
         await connection.query(sql, values);
@@ -357,7 +353,7 @@ exports.getTiposByArea = async (req, res) => {
 exports.getPrioridadesByArea = async (req, res) => {
     try {
         const { areaId } = req.params;
-        const [rows] = await pool.query('SELECT id, nome FROM ticket_prioridades WHERE area_id = ?', [areaId]);
+        const [rows] = await pool.query('SELECT id, nome FROM ticket_prioridades WHERE area_id = ? ORDER BY nome ASC', [areaId]);
         res.status(200).json(rows);
     } catch (error) {
         console.error("Erro ao buscar prioridades por área:", error);
@@ -682,5 +678,51 @@ exports.exportTickets = async (req, res) => {
     } catch (error) {
         console.error("Erro ao exportar tickets:", error);
         res.status(500).send('Erro interno ao gerar o relatório.');
+    }
+};
+exports.getStatus = async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT id, nome FROM ticket_status ORDER BY nome ASC');
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error("Erro ao buscar status:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
+};
+
+exports.createStatus = async (req, res) => {
+    const { nome } = req.body;
+    if (!nome) {
+        return res.status(400).json({ message: 'O nome do status é obrigatório.' });
+    }
+    try {
+        const [result] = await pool.query('INSERT INTO ticket_status (nome) VALUES (?)', [capitalize(nome)]);
+        res.status(201).json({ message: 'Status criado com sucesso!', novoItem: { id: result.insertId, nome: capitalize(nome) } });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'Este status já existe.' });
+        }
+        console.error("Erro ao criar status:", error);
+        res.status(500).json({ message: 'Erro no servidor.' });
+    }
+};
+
+exports.deleteStatus = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [tickets] = await pool.query('SELECT id FROM tickets WHERE status_id = ? LIMIT 1', [id]);
+        if (tickets.length > 0) {
+            return res.status(400).json({ message: `Não é possível excluir: este status está em uso no ticket #${tickets[0].id}.` });
+        }
+        
+        const [deleteResult] = await pool.query('DELETE FROM ticket_status WHERE id = ?', [id]);
+        if (deleteResult.affectedRows === 0) {
+            return res.status(404).json({ message: 'Status não encontrado.' });
+        }
+        
+        res.status(200).json({ message: 'Status deletado com sucesso!' });
+    } catch (error) {
+        console.error("Erro ao deletar status:", error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };

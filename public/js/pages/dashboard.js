@@ -78,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let areaIdToDelete = null;
     let tipoIdToDelete = null;
     let prioridadeIdToDelete = null;
+    let statusIdToDelete = null;
+    let currentStatusList = [];
 
     let currentAlertsList = [];
     let currentGruposList = [];
@@ -158,6 +160,13 @@ document.addEventListener('DOMContentLoaded', () => {
         populateCustomizerModal();
         toggleModal('modalColumnCustomizer', true);
     });
+    const btnShowAddStatus = document.getElementById('btn-show-add-status');
+    const btnDeleteStatus = document.getElementById('btn-delete-status-selecionado');
+    const addStatusContainer = document.getElementById('add-status-container');
+    const inputNewStatus = document.getElementById('input-new-status');
+    const btnCancelAddStatus = document.getElementById('btn-cancel-add-status');
+    const btnSaveNewStatus = document.getElementById('btn-save-new-status');
+
 
     const visibilityList = document.getElementById('column-visibility-list');
     const orderList = document.getElementById('column-order-list');
@@ -216,33 +225,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
-        if (!idHolder) return;
+    if (!idHolder) return;
 
-        try {
-            const response = await fetch(`${endpoint}/${idHolder.id}`, {
-                method: 'DELETE'
+    try {
+        const response = await fetch(`${endpoint}/${idHolder.id}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        toggleModal(modalId, false);
+
+        if (response.ok) {
+            showStatusModal('Sucesso!', result.message, false, async () => {
+                
+                if (itemType === 'area') {
+                    await popularDropdownsTicket();
+                } 
+                else if (itemType === 'status') {
+                    const response = await fetch('/api/tickets/options/status');
+                    const statusItems = await response.json();
+                    currentStatusList = statusItems;
+                    popularDropdown('ticket-status', statusItems, 'Selecione o Status');
+                    popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
+                } 
+                else {
+                    idHolder.areaSelect.dispatchEvent(new Event('change'));
+                }
+
             });
-            const result = await response.json();
-            toggleModal(modalId, false);
-
-            if (response.ok) {
-                showStatusModal('Sucesso!', result.message, false, () => {
-                    if (itemType === 'area') {
-                        popularDropdownsTicket();
-                    } else {
-                        idHolder.areaSelect.dispatchEvent(new Event('change'));
-                    }
-                });
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            toggleModal(modalId, false);
-            showStatusModal('Erro de Conexão', `Não foi possível deletar o(a) ${itemType}.`, true);
-        } finally {
-            idResetter();
+        } else {
+            showStatusModal('Erro!', result.message, true);
         }
+    } catch (error) {
+        toggleModal(modalId, false);
+        showStatusModal('Erro de Conexão', `Não foi possível deletar o(a) ${itemType}.`, true);
+    } finally {
+        idResetter();
     }
+}
     const btnDeleteAlerta = document.getElementById('btn-delete-alerta-selecionado');
 
     btnDeleteArea?.addEventListener('click', () => {
@@ -305,10 +324,68 @@ document.addEventListener('DOMContentLoaded', () => {
         prioridadeIdToDelete = null;
         toggleModal('modalConfirmarDeletePrioridade', false);
     });
+    document.getElementById('btn-cancel-delete-status')?.addEventListener('click', () => {
+    statusIdToDelete = null; 
+    toggleModal('modalConfirmarDeleteStatus', false); 
+});
     document.getElementById('btn-cancel-delete-alerta')?.addEventListener('click', () => {
         alertaIdToDelete = null;
         toggleModal('modalConfirmarDeleteAlerta', false);
     });
+    const resetAddStatusForm = () => {
+    if (addStatusContainer) addStatusContainer.classList.add('hidden');
+    if (btnShowAddStatus) btnShowAddStatus.classList.remove('hidden');
+    const statusSelect = document.getElementById('ticket-status');
+    // Mostra o botão de deletar se um status estiver selecionado
+    if (btnDeleteStatus && statusSelect?.value) {
+        btnDeleteStatus.classList.remove('hidden');
+    }
+    if (inputNewStatus) inputNewStatus.value = '';
+    if (btnSaveNewStatus) btnSaveNewStatus.disabled = false;
+};
+
+btnShowAddStatus?.addEventListener('click', () => {
+    addStatusContainer.classList.remove('hidden');
+    btnShowAddStatus.classList.add('hidden');
+    if (btnDeleteStatus) btnDeleteStatus.classList.add('hidden');
+    inputNewStatus.focus();
+    setupAutocomplete('input-new-status', 'status-suggestions-list', currentStatusList); 
+});
+
+btnCancelAddStatus?.addEventListener('click', resetAddStatusForm);
+
+btnSaveNewStatus?.addEventListener('click', async () => {
+    const nomeNovoStatus = capitalize(inputNewStatus.value.trim());
+    if (!nomeNovoStatus) {
+        return showStatusModal('Erro!', 'O nome do novo status é obrigatório.', true);
+    }
+
+    btnSaveNewStatus.disabled = true;
+    btnSaveNewStatus.textContent = 'Salvando...';
+    try {
+        const response = await fetch('/api/tickets/options/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: nomeNovoStatus })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message);
+
+        const { novoItem } = result;
+        const statusSelect = document.getElementById('ticket-status');
+        const newOption = new Option(novoItem.nome, novoItem.id, true, true);
+        statusSelect.add(newOption);
+        currentStatusList.push(novoItem);
+
+        resetAddStatusForm();
+        statusSelect.dispatchEvent(new Event('change')); // Avisa que o valor mudou
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true);
+    } finally {
+        btnSaveNewStatus.disabled = false;
+        btnSaveNewStatus.textContent = 'Salvar';
+    }
+});
 
     const resetAddPrioridadeForm = () => {
         if (addPrioridadeContainer) addPrioridadeContainer.classList.add('hidden');
@@ -1242,18 +1319,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function popularDropdown(selectId, data, placeholder) {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-        select.innerHTML = `<option value="">-- ${placeholder} --</option>`;
-        if (Array.isArray(data)) {
-            data.forEach(item => {
-                const option = document.createElement('option');
-                option.value = item.id;
-                option.textContent = item.nome;
-                select.appendChild(option);
-            });
-        }
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    select.innerHTML = `<option value="">-- ${placeholder} --</option>`;
+
+    if (Array.isArray(data)) {
+        data.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = item.nome;
+            select.appendChild(option);
+        });
     }
+
+    if (Array.isArray(data) && data.length === 1) {
+        select.value = data[0].id;
+
+        select.dispatchEvent(new Event('change'));
+    }
+}
     async function handleAreaChange(areaSelectElement, tipoSelectId, prioridadeSelectId, grupoSelectId, alertaSelectId) {
         const areaId = areaSelectElement.value;
 
@@ -1270,11 +1355,15 @@ document.addEventListener('DOMContentLoaded', () => {
         [btnDeleteArea, btnDeleteGrupo, btnDeleteTipo, btnDeletePrioridade, btnDeleteAlerta].forEach(btn => btn?.classList.add('hidden'));
 
         if (canManage) {
-            btnShowAddArea?.classList.remove('hidden');
-            if (areaId) {
-                [btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.remove('hidden'));
-            }
-        }
+
+    btnShowAddArea?.classList.remove('hidden');
+    btnShowAddStatus?.classList.remove('hidden');
+
+
+    if (areaId) {
+        [btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.remove('hidden'));
+    }
+}
 
         const selects = [
             { element: tipoSelect, placeholder: 'Selecione uma Área' },
@@ -1350,24 +1439,37 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchAndPopulate('ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
         fetchAndPopulate('edit-ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
         fetchAndPopulate('selectArea', '/api/tickets/options/areas', 'Selecione a Área');
-    }
-
-
-    async function carregarInfoCards() {
         try {
-            const response = await fetch('/api/tickets/cards-info');
-            if (!response.ok) throw new Error('Falha ao carregar cards');
-            const data = await response.json();
-
-            document.getElementById('card-total').textContent = data.total;
-            document.getElementById('card-em-atendimento').textContent = data.emAtendimento;
-            document.getElementById('card-resolvidos').textContent = data.resolvidos;
-            document.getElementById('card-encerrados').textContent = data.encerrados;
-
-        } catch (error) {
-            console.error("Erro ao carregar info dos cards:", error);
-        }
+        const response = await fetch('/api/tickets/options/status');
+        if (!response.ok) throw new Error('Falha ao carregar status');
+        const statusItems = await response.json();
+        
+        currentStatusList = statusItems; 
+        
+        popularDropdown('ticket-status', statusItems, 'Selecione o Status');
+        popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
+    } catch (error) {
+        console.error('Erro ao popular os seletores de Status:', error);
+        popularDropdown('ticket-status', [], 'Erro ao carregar');
+        popularDropdown('edit-ticket-status', [], 'Erro ao carregar');
     }
+}
+async function carregarInfoCards() {
+    try {
+        const response = await fetch('/api/tickets/cards-info');
+        if (!response.ok) throw new Error('Falha ao carregar cards');
+        const data = await response.json();
+        document.getElementById('card-em-atendimento').textContent = data.emAtendimento;
+        document.getElementById('card-resolvidos').textContent = data.resolvidos;
+        
+        if (document.getElementById('card-normalizado')) {
+             document.getElementById('card-normalizado').textContent = data.normalizado;
+        }
+
+    } catch (error) {
+        console.error("Erro ao carregar info dos cards:", error);
+    }
+}
 
     async function carregarTickets(pagina = 1) {
         paginaAtual = pagina;
@@ -2080,6 +2182,13 @@ document.addEventListener('DOMContentLoaded', () => {
     addDeleteButtonListener('edit-ticket-tipo', 'btn-delete-tipo-selecionado-edit');
     addDeleteButtonListener('edit-ticket-prioridade', 'btn-delete-prioridade-selecionado-edit');
     addDeleteButtonListener('edit-ticket-alerta', 'btn-delete-alerta-selecionado-edit');
+    addDeleteButtonListener('ticket-status', 'btn-delete-status-selecionado');
+btnDeleteStatus?.addEventListener('click', () => {
+    handleDeleteOption('status', 'ticket-status', (val) => statusIdToDelete = val, 'modalConfirmarDeleteStatus');
+});
+document.getElementById('btn-confirm-delete-status')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('status', statusIdToDelete, '/api/tickets/options/status', 'modalConfirmarDeleteStatus', () => statusIdToDelete = null);
+});
 
     document.getElementById('ordenarPor')?.addEventListener('change', () => carregarTickets(1));
 
