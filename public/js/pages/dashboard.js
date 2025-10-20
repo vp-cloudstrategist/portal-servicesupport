@@ -112,26 +112,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (createInput) IMask(createInput, maskOptions);
     });
 
-    async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        container.innerHTML = 'Carregando...';
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Falha ao carregar dados');
-            let items = await response.json();
+   async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = 'Carregando...';
+    try {
+        const response = await fetch(url, { cache: 'no-cache' });
+        
+        if (!response.ok) throw new Error('Falha ao carregar dados');
+        let items = await response.json();
 
-            if (name === 'prioridades') {
-                const nomesUnicos = [...new Set(items.map(item => item.nome.split(' ')[0].split('(')[0].trim()))];
-                const itensAgrupados = nomesUnicos.map(nomeUnico => ({ id: nomeUnico, nome: nomeUnico }));
-                renderCheckboxes(containerId, itensAgrupados, 'prioridades_nomes');
-            } else {
-                renderCheckboxes(containerId, items, name, keyField, valueField);
-            }
-        } catch (error) {
-            container.innerHTML = 'Erro ao carregar opções.';
+        if (name === 'prioridades') {
+            const nomesUnicos = [...new Set(items.map(item => item.nome.split(' ')[0].split('(')[0].trim()))];
+            const itensAgrupados = nomesUnicos.map(nomeUnico => ({ id: nomeUnico, nome: nomeUnico }));
+            renderCheckboxes(containerId, itensAgrupados, 'prioridades_nomes');
+        } else {
+            renderCheckboxes(containerId, items, name, keyField, valueField);
         }
+    } catch (error) {
+        container.innerHTML = 'Erro ao carregar opções.';
     }
+}
 
     function renderCheckboxes(containerId, items, name, keyField = 'id', valueField = 'nome') {
         const container = document.getElementById(containerId);
@@ -704,19 +705,15 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         }).join('');
     }
     btnAbrirFiltros?.addEventListener('click', async () => {
-        toggleModal('modalFiltros', true);
+    toggleModal('modalFiltros', true);
 
-        await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
-        await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
-        await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
 
-        const statusList = [
-            { id: 'Em Atendimento', nome: 'Em Atendimento' },
-            { id: 'Normalizado', nome: 'Normalizado' },
-            { id: 'Resolvido', nome: 'Resolvido' }
-        ];
-        renderCheckboxes('filtro-status-container', statusList, 'status');
-    });
+    await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
+    await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
+    await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
+    
+    await popularFiltroCheckboxes('filtro-status-container', '/api/tickets/options/status', 'status');
+});
 
     // ALTERAÇÃO: Melhoria na função renderCheckboxes para corrigir layout
     function renderCheckboxes(containerId, items, name, keyField = 'id', valueField = 'nome') {

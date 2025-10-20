@@ -5,70 +5,89 @@ const crypto = require('crypto');
 
 // VERIFICAÇÃO DE SENHA E ENVIO DE CÓDIGO 2FA PARA TODOS
 exports.login = async (req, res) => {
-  try {
-    const { login, password } = req.body;
-    if (!login || !password) {
-      return res.status(400).json({ message: 'Login e senha são obrigatórios.' });
-    }
+    try {
+        const { login, password } = req.body;
+        if (!login || !password) {
+            return res.status(400).json({ message: 'Login e senha são obrigatórios.' });
+        }
 
-    const [rows] = await pool.query('SELECT * FROM user WHERE login = ?', [login]);
-    const user = rows[0];
+        const [rows] = await pool.query('SELECT * FROM user WHERE login = ?', [login]);
+        const user = rows[0];
 
-    if (!user) { return res.status(401).json({ message: 'Credenciais inválidas.' }); }
+        if (!user) { return res.status(401).json({ message: 'Credenciais inválidas.' }); }
 
-    const isMatch = await bcrypt.compare(password, user.passwd);
-    if (!isMatch) { return res.status(401).json({ message: 'Credenciais inválidas.' }); }
-    if (user.statu === 'novo') {
-        req.session.forceResetLogin = user.login;
-        return res.status(202).json({ 
-            message: 'Redefinição de senha obrigatória para primeiro acesso.',
-            login: user.login 
+        const isMatch = await bcrypt.compare(password, user.passwd);
+        if (!isMatch) { return res.status(401).json({ message: 'Credenciais inválidas.' }); }
+        
+        if (user.statu === 'novo') {
+            req.session.forceResetLogin = user.login;
+            return res.status(202).json({ 
+                message: 'Redefinição de senha obrigatória para primeiro acesso.',
+                login: user.login 
+            });
+        }
+
+        
+        let otpToken;
+        let responseMessage;
+        const now = new Date();
+
+        if (user.otp_token && user.otp_expires_at && new Date(user.otp_expires_at) > now) {
+            otpToken = user.otp_token;
+            responseMessage = 'Um código de verificação válido para hoje já foi enviado. Verifique seu e-mail (incluindo spam).';
+            console.log(`Reenviando token diário existente (${otpToken}) para ${user.login}`);
+        } else {
+            otpToken = Math.floor(100000 + Math.random() * 900000).toString();
+            
+            // Define a expiração para o final do dia de hoje (23:59:59)
+            const expiresAt = new Date();
+            expiresAt.setHours(23, 59, 59, 999);
+
+            await pool.query('UPDATE user SET otp_token = ?, otp_expires_at = ? WHERE id = ?', [otpToken, expiresAt, user.id]);
+            
+            responseMessage = 'Um novo código de verificação foi enviado para o seu e-mail.';
+            console.log(`Gerando novo token diário (${otpToken}) para ${user.login}`);
+        }
+
+        const emailHtml = `
+            <div style="font-family: Arial, sans-serif; font-size:14px; color:#333; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:8px;">
+              <div style="background-color:#f8f8f8; padding:20px; text-align:center;">
+                <img src="https://support.nexxtcloud.app/app/logo.png" alt="Nexxt Cloud" style="width:150px;">
+              </div>
+              <div style="padding:30px; text-align:center; line-height:1.5;">
+                <h2 style="color:#0c1231;">Seu Código de Verificação</h2>
+                <p>Olá <strong>${user.nome}</strong>,</p>
+                <p>Use o código abaixo para completar seu login no Portal Nexxt Cloud Support.</p>
+                <div style="margin:30px 0;">
+                  <p style="background-color:#e9ecef; font-size:24px; font-weight:bold; padding:10px 20px; border-radius:6px; display:inline-block; letter-spacing: 5px;">
+                    ${otpToken}
+                  </p>
+                </div>
+                <p style="font-size:12px; color:#777;">Este código é válido para o dia de hoje.</p>
+              </div>
+              <div style="background-color:#f8f8f8; padding:20px; text-align:center; font-size:12px; color:#555;">
+                Nexxt Cloud © 2025 • Todos os direitos reservados<br>
+                <a href="https://service.nexxtcloud.app/login" style="color:#555; text-decoration:none;">service.nexxtcloud.app/login</a>
+              </div>
+            </div>
+        `;
+        const transporter = nodemailer.createTransport({
+            host: process.env.EMAIL_HOST, port: process.env.EMAIL_PORT, secure: false, 
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
         });
+        await transporter.sendMail({
+            from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
+            to: user.login,
+            subject: 'Seu Código de Verificação',
+            html: emailHtml
+        });
+        
+        return res.status(206).json({ message: responseMessage, login: user.login });
+
+    } catch (error) {
+        console.error('Erro no login:', error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
     }
-
-    const otpToken = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); 
-    await pool.query('UPDATE user SET otp_token = ?, otp_expires_at = ? WHERE id = ?', [otpToken, expiresAt, user.id]);
-
-     const emailHtml = `
-      <div style="font-family: Arial, sans-serif; font-size:14px; color:#333; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:8px;">
-        <div style="background-color:#f8f8f8; padding:20px; text-align:center;">
-          <img src="https://support.nexxtcloud.app/app/logo.png" alt="Nexxt Cloud" style="width:150px;">
-        </div>
-        <div style="padding:30px; text-align:center; line-height:1.5;">
-          <h2 style="color:#0c1231;">Seu Código de Verificação</h2>
-          <p>Olá <strong>${user.nome}</strong>,</p>
-          <p>Use o código abaixo para completar seu login no Portal Nexxt Cloud Support.</p>
-          <div style="margin:30px 0;">
-            <p style="background-color:#e9ecef; font-size:24px; font-weight:bold; padding:10px 20px; border-radius:6px; display:inline-block; letter-spacing: 5px;">
-              ${otpToken}
-            </p>
-          </div>
-          <p style="font-size:12px; color:#777;">Este código é válido por 10 minutos.</p>
-        </div>
-        <div style="background-color:#f8f8f8; padding:20px; text-align:center; font-size:12px; color:#555;">
-          Nexxt Cloud © 2025 • Todos os direitos reservados<br>
-          <a href="https://service.nexxtcloud.app/login" style="color:#555; text-decoration:none;">service.nexxtcloud.app/login</a>
-        </div>
-      </div>
-    `;
-    const transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST, port: process.env.EMAIL_PORT, secure: false, 
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-    });
-    await transporter.sendMail({
-        from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
-        to: user.login,
-        subject: 'Seu Código de Verificação',
-        html: emailHtml
-    });
-    
-    return res.status(206).json({ message: 'Verificação de dois fatores necessária.', login: user.login });
-
-  } catch (error) {
-    console.error('Erro no login:', error);
-    res.status(500).json({ message: 'Erro interno no servidor.' });
-  }
 };
 
 // VERIFICAÇÃO DO CÓDIGO 2FA
@@ -80,10 +99,11 @@ exports.verify2FA = async (req, res) => {
         }
         const [rows] = await pool.query('SELECT * FROM user WHERE login = ?', [login]);
         const user = rows[0];
+
+        // Verifica se o token está correto e se não expirou
         if (!user || user.otp_token !== otpToken || new Date() > new Date(user.otp_expires_at)) {
             return res.status(401).json({ message: 'Código inválido ou expirado.' });
         }
-        await pool.query('UPDATE user SET otp_token = NULL, otp_expires_at = NULL WHERE id = ?', [user.id]);
         req.session.user = { id: user.id, nome: user.nome, login: user.login, sobrenome: user.sobre, perfil: user.perfil };
         res.status(200).json({ message: 'Login verificado com sucesso!' });
     } catch (error) {

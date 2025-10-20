@@ -408,8 +408,13 @@ exports.createArea = async (req, res) => {
         return res.status(400).json({ message: 'O nome da área é obrigatório.' });
     }
     try {
-        const [result] = await pool.query('INSERT INTO ticket_areas (nome) VALUES (?)', [nome]);
-        res.status(201).json({ message: 'Área cadastrada com sucesso!', areaId: result.insertId });
+        const [result] = await pool.query('INSERT INTO ticket_areas (nome) VALUES (?)', [capitalize(nome)]);
+        
+        res.status(201).json({ 
+            message: 'Área cadastrada com sucesso!', 
+            novaArea: { id: result.insertId, nome: capitalize(nome) } 
+        });
+
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ message: 'Essa área já está cadastrada.' });
