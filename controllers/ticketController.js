@@ -175,25 +175,23 @@ exports.getAllTickets = async (req, res) => {
 
 exports.getCardInfo = async (req, res) => {
     try {
-        // ===== CONSULTAS TORNADAS MAIS ROBUSTAS (sem IDs fixos) =====
         const queries = [
             pool.query("SELECT COUNT(*) as count FROM tickets"), // Total
             pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = (SELECT id FROM ticket_status WHERE nome = 'Em Atendimento')"),
             pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = (SELECT id FROM ticket_status WHERE nome = 'Resolvido')"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = (SELECT id FROM ticket_status WHERE nome = 'Normalizado')"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = (SELECT id FROM ticket_status WHERE nome = 'Encerrado')") // Encerrados (opcional)
+            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = (SELECT id FROM ticket_status WHERE nome = 'Normalizado')")
         ];
         
-        const results = await Promise.all(queries.map(p => p.catch(e => e))); // Evita que uma query falhe e quebre todas as outras
+        const results = await Promise.all(queries.map(p => p.catch(e => e)));
         
-        const getCount = (result) => result instanceof Error ? 0 : result[0][0].count;
+        const getCount = (result) => result instanceof Error ? 0 : (result[0][0]?.count || 0);
 
         res.status(200).json({
             total: getCount(results[0]),
             emAtendimento: getCount(results[1]), 
             resolvidos: getCount(results[2]),
             normalizado: getCount(results[3]),
-            encerrados: getCount(results[4])
+            encerrados: 0 
         });
     } catch (error) {
         console.error("Erro ao buscar informações dos cards:", error);

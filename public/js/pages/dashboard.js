@@ -1482,31 +1482,25 @@ async function carregarInfoCards() {
         if (!response.ok) throw new Error('Falha ao carregar cards');
         const data = await response.json();
 
-        // --- LINHAS ADICIONADAS ---
-        // Atualiza o card com o total de tickets
+        // Atualiza os cards que realmente existem com os dados vindos da API
         if (document.getElementById('card-total')) {
-            document.getElementById('card-total').textContent = data.total;
+            document.getElementById('card-total').textContent = data.total || 0;
         }
-        // Atualiza o card de tickets encerrados
-        if (document.getElementById('card-encerrados')) {
-            document.getElementById('card-encerrados').textContent = data.encerrados;
-        }
-        // --- FIM DAS LINHAS ADICIONADAS ---
-
         if (document.getElementById('card-em-atendimento')) {
-            document.getElementById('card-em-atendimento').textContent = data.emAtendimento;
+            document.getElementById('card-em-atendimento').textContent = data.emAtendimento || 0;
         }
         if (document.getElementById('card-resolvidos')) {
-            document.getElementById('card-resolvidos').textContent = data.resolvidos;
+            document.getElementById('card-resolvidos').textContent = data.resolvidos || 0;
         }
+        // A lógica para "Normalizados" está correta e foi mantida
         if (document.getElementById('card-normalizado')) {
-             document.getElementById('card-normalizado').textContent = data.normalizado;
+             document.getElementById('card-normalizado').textContent = data.normalizado || 0;
         }
 
     } catch (error) {
         console.error("Erro ao carregar info dos cards:", error);
-        // Em caso de erro, define um valor padrão para não ficar em loop de "carregando"
-        const cards = ['card-total', 'card-em-atendimento', 'card-resolvidos', 'card-normalizado', 'card-encerrados'];
+        // Em caso de erro, define um valor padrão para os cards existentes
+        const cards = ['card-total', 'card-em-atendimento', 'card-resolvidos', 'card-normalizado'];
         cards.forEach(id => {
             const card = document.getElementById(id);
             if(card) card.textContent = '0';
