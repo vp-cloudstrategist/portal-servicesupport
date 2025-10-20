@@ -1083,30 +1083,31 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         }
     }
 
-    // CORREÇÃO: Lógica de automação de status corrigida
-    if (statusSelectEdit) {
-        statusSelectEdit.addEventListener('change', (event) => {
-            const selectedStatusId = event.target.value;
-            const fimAlarmeInput = document.getElementById('edit-alarme-fim');
-            
-            // Procura o status selecionado na lista para pegar o nome
-            const selectedStatus = currentStatusList.find(s => s.id == selectedStatusId);
 
-            if (selectedStatus && (selectedStatus.nome === 'Resolvido' || selectedStatus.nome === 'Normalizado')) {
-                // Se o campo de data final estiver vazio (ou só com placeholders)
-                if (fimAlarmeInput && (!fimAlarmeInput.value || fimAlarmeInput.value.includes('d'))) {
-                    const now = new Date();
-                    const formattedDateTime = now.toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
-                    const iMask = IMask.find(fimAlarmeInput);
-                    if (iMask) {
-                        iMask.value = formattedDateTime;
-                    } else {
-                        fimAlarmeInput.value = formattedDateTime;
-                    }
+    if (statusSelectEdit) {
+    statusSelectEdit.addEventListener('change', (event) => {
+        const selectedStatusId = event.target.value;
+        const fimAlarmeInput = document.getElementById('edit-alarme-fim');
+        
+        const selectedStatus = currentStatusList.find(s => s.id == selectedStatusId);
+
+        if (selectedStatus && (selectedStatus.nome === 'Resolvido' || selectedStatus.nome === 'Normalizado')) {
+            if (fimAlarmeInput && (!fimAlarmeInput.value || fimAlarmeInput.value.includes('d'))) {
+                const now = new Date();
+                const formattedDateTime = now.toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+                
+                
+                const iMask = fimAlarmeInput.imask; 
+                
+                if (iMask) {
+                    iMask.value = formattedDateTime;
+                } else {
+                    fimAlarmeInput.value = formattedDateTime;
                 }
             }
-        });
-    }
+        }
+    });
+}
 
     function handlePaste(event, targetTextarea, previewElement, fileStoreCallback) {
         event.preventDefault();
