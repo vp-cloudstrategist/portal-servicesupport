@@ -1,10 +1,11 @@
 let currentUser = null;
 
 function toggleModal(modalId, show) {
+    console.log(`--- DEBUG (toggleModal): Tentando ${show ? 'MOSTRAR' : 'ESCONDER'} o modal #${modalId} ---`);
     const modal = document.getElementById(modalId);
-    if (modal) {
+    
         modal.classList.toggle('hidden', !show);
-    }
+        
 }
 
 function capitalize(str) {
@@ -219,22 +220,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSaveNewPrioridade = document.getElementById('btn-save-new-prioridade');
     const prioridadeSuggestionsList = document.getElementById('prioridade-suggestions-list');
 
-    function handleDeleteOption(itemType, selectId, idVariableSetter, modalId) {
-        const selectElement = document.getElementById(selectId);
-        const areaSelectElement = document.getElementById('ticket-area');
-        const selectedId = selectElement.value;
+   function handleDeleteOption(itemType, selectId, idVariableSetter, modalId) {
+    const selectElement = document.getElementById(selectId);
+    const areaSelectElement = document.getElementById('ticket-area'); 
+    const selectedId = selectElement ? selectElement.value : null;
 
-        if (!selectedId) {
-            showStatusModal('Atenção!', `Por favor, selecione um(a) ${itemType} da lista para excluir.`, true);
-            return;
-        }
-
-        idVariableSetter({ id: selectedId, areaSelect: areaSelectElement });
-        toggleModal(modalId, true);
+    if (!selectedId) {
+        showStatusModal('Atenção!', `Por favor, selecione um(a) ${itemType} da lista para excluir.`, true);
+        return;
     }
 
-    async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
-    if (!idHolder) return;
+
+    idVariableSetter({ id: selectedId, areaSelect: areaSelectElement });
+    toggleModal(modalId, true);
+}
+
+   async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
+    // Agora 'idHolder' é um objeto { id: '...', areaSelect: <elemento> }
+    if (!idHolder || !idHolder.id) return;
 
     try {
         const response = await fetch(`${endpoint}/${idHolder.id}`, {
@@ -245,21 +248,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (response.ok) {
             showStatusModal('Sucesso!', result.message, false, async () => {
-                
+                // Lógica de atualização após a exclusão
                 if (itemType === 'area') {
                     await popularDropdownsTicket();
-                } 
-                else if (itemType === 'status') {
-                    const response = await fetch('/api/tickets/options/status');
-                    const statusItems = await response.json();
+                } else if (itemType === 'status') {
+                    // Recarrega a lista de status
+                    const statusResponse = await fetch('/api/tickets/options/status');
+                    const statusItems = await statusResponse.json();
                     currentStatusList = statusItems;
-                    popularDropdown('ticket-status', statusItems, 'Selecione o Status');
+                    const defaultStatus = statusItems.find(s => s.nome === 'Em Atendimento');
+                    const defaultStatusId = defaultStatus ? defaultStatus.id : null;
+                    popularDropdown('ticket-status', statusItems, 'Selecione o Status', defaultStatusId);
                     popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
-                } 
-                else {
-                    idHolder.areaSelect.dispatchEvent(new Event('change'));
+                } else {
+                    // CORREÇÃO: Para outros itens, força a atualização dos dropdowns da área
+                    if (idHolder.areaSelect) {
+                        idHolder.areaSelect.dispatchEvent(new Event('change'));
+                    }
                 }
-
             });
         } else {
             showStatusModal('Erro!', result.message, true);
@@ -294,25 +300,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    document.getElementById('btn-confirm-delete-area')?.addEventListener('click', () => {
-        handleConfirmDeleteOption('area', areaIdToDelete, '/api/tickets/options/areas', 'modalConfirmarDeleteArea', () => areaIdToDelete = null);
-    });
+   document.getElementById('btn-confirm-delete-area')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('area', areaIdToDelete, '/api/tickets/options/areas', 'modalConfirmarDeleteArea', () => areaIdToDelete = null);
+});
 
-    document.getElementById('btn-confirm-delete-grupo')?.addEventListener('click', () => {
-        handleConfirmDeleteOption('grupo', grupoIdToDelete, '/api/tickets/options/grupos', 'modalConfirmarDeleteGrupo', () => grupoIdToDelete = null);
-    });
+document.getElementById('btn-confirm-delete-grupo')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('grupo', grupoIdToDelete, '/api/tickets/options/grupos', 'modalConfirmarDeleteGrupo', () => grupoIdToDelete = null);
+});
 
-    document.getElementById('btn-confirm-delete-tipo')?.addEventListener('click', () => {
-        handleConfirmDeleteOption('tipo', tipoIdToDelete, '/api/tickets/options/tipos', 'modalConfirmarDeleteTipo', () => tipoIdToDelete = null);
-    });
+document.getElementById('btn-confirm-delete-tipo')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('tipo', tipoIdToDelete, '/api/tickets/options/tipos', 'modalConfirmarDeleteTipo', () => tipoIdToDelete = null);
+});
 
-    document.getElementById('btn-confirm-delete-prioridade')?.addEventListener('click', () => {
-        handleConfirmDeleteOption('prioridade', prioridadeIdToDelete, '/api/tickets/options/prioridades', 'modalConfirmarDeletePrioridade', () => prioridadeIdToDelete = null);
-    });
+document.getElementById('btn-confirm-delete-prioridade')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('prioridade', prioridadeIdToDelete, '/api/tickets/options/prioridades', 'modalConfirmarDeletePrioridade', () => prioridadeIdToDelete = null);
+});
 
-    document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', () => {
-        handleConfirmDeleteOption('alerta', alertaIdToDelete, '/api/tickets/options/alertas', 'modalConfirmarDeleteAlerta', () => alertaIdToDelete = null);
-    });
+document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('alerta', alertaIdToDelete, '/api/tickets/options/alertas', 'modalConfirmarDeleteAlerta', () => alertaIdToDelete = null);
+});
+
+document.getElementById('btn-confirm-delete-status')?.addEventListener('click', () => {
+    handleConfirmDeleteOption('status', statusIdToDelete, '/api/tickets/options/status', 'modalConfirmarDeleteStatus', () => statusIdToDelete = null);
+});
 
     document.getElementById('btn-cancel-delete-area')?.addEventListener('click', () => {
         areaIdToDelete = null;
@@ -431,7 +441,10 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         currentStatusList.push(novoItem);
 
         resetAddStatusForm();
-        statusSelect.dispatchEvent(new Event('change')); // Avisa que o valor mudou
+        statusSelect.dispatchEvent(new Event('change'));
+        await carregarInfoCards();
+
+
     } catch (error) {
         showStatusModal('Erro!', error.message, true);
     } finally {
@@ -1583,29 +1596,61 @@ async function carregarInfoCards() {
         if (!response.ok) throw new Error('Falha ao carregar cards');
         const data = await response.json();
 
-        // Atualiza os cards que realmente existem com os dados vindos da API
-        if (document.getElementById('card-total')) {
-            document.getElementById('card-total').textContent = data.total || 0;
-        }
-        if (document.getElementById('card-em-atendimento')) {
-            document.getElementById('card-em-atendimento').textContent = data.emAtendimento || 0;
-        }
-        if (document.getElementById('card-resolvidos')) {
-            document.getElementById('card-resolvidos').textContent = data.resolvidos || 0;
-        }
-        // A lógica para "Normalizados" está correta e foi mantida
-        if (document.getElementById('card-normalizado')) {
-             document.getElementById('card-normalizado').textContent = data.normalizado || 0;
-        }
+        const cardContainer = document.getElementById('card-container');
+        if (!cardContainer) return;
+
+        cardContainer.innerHTML = ''; 
+
+        let todosCardHtml = `
+            <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" data-status-name="all">
+                <div class="flex justify-between items-start">
+                    <img src="/images/total.png" alt="Ícone Todos Tickets" class="w-15 h-12" />
+                    <p class="text-3xl font-black text-black">${data.total || 0}</p>
+                </div>
+                <div>
+                    <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Todos<br>Tickets</p>
+                </div>
+            </div>
+        `;
+        cardContainer.innerHTML += todosCardHtml;
+
+        data.counts.forEach(item => {
+            
+            const iconSrc = '/images/aberto.png'; 
+            
+            const cardHtml = `
+                <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" data-status-name="${item.nome}">
+                    <div class="flex justify-between items-start">
+                        <img src="${iconSrc}" alt="Ícone ${item.nome}" class="w-15 h-12" />
+                        <p class="text-3xl font-black text-black">${item.count || 0}</p>
+                    </div>
+                    <div>
+                        <p class="text-lg font-bold text-[#0A0E2B] leading-tight">${item.nome}</p>
+                    </div>
+                </div>
+            `;
+            cardContainer.innerHTML += cardHtml;
+        });
+        const allCards = document.querySelectorAll('.status-card');
+        allCards.forEach(card => {
+            card.addEventListener('click', () => {
+                allCards.forEach(c => c.classList.remove('ring-4', 'ring-blue-500'));
+                card.classList.add('ring-4', 'ring-blue-500');
+
+                const statusName = card.dataset.statusName;
+                
+                if (statusName === 'all') {
+                    delete currentFilters.status;
+                } else {
+                    currentFilters.status = statusName;
+                }
+
+                carregarTickets(1);
+            });
+        });
 
     } catch (error) {
         console.error("Erro ao carregar info dos cards:", error);
-        // Em caso de erro, define um valor padrão para os cards existentes
-        const cards = ['card-total', 'card-em-atendimento', 'card-resolvidos', 'card-normalizado'];
-        cards.forEach(id => {
-            const card = document.getElementById(id);
-            if(card) card.textContent = '0';
-        });
     }
 }
 
@@ -2370,14 +2415,37 @@ async function carregarInfoCards() {
         }
     });
     function addDeleteButtonListener(selectId, buttonId) {
-        document.getElementById(selectId)?.addEventListener('change', (event) => {
-            const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
-            const btnDelete = document.getElementById(buttonId);
-            if (btnDelete) {
-                btnDelete.classList.toggle('hidden', !event.target.value || !canManage);
-            }
-        });
+    const selectElement = document.getElementById(selectId);
+    if (!selectElement) {
+        // Este console.error ajuda a encontrar erros de digitação nos IDs
+        console.error(`[ERRO de Configuração] O dropdown #${selectId} não foi encontrado.`);
+        return;
     }
+
+    selectElement.addEventListener('change', (event) => {
+        console.clear();
+        console.log(`--- DEBUG: Dropdown #${selectId} foi alterado! ---`);
+        
+        // 1. VAMOS VERIFICAR O OBJETO DE USUÁRIO ATUAL
+        console.log("1. Verificando permissões com o objeto 'currentUser':", currentUser);
+
+        // 2. VERIFICANDO A LÓGICA DE PERMISSÃO
+        const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
+        console.log(`2. O usuário é admin ou support (canManage)? ${canManage}`);
+
+        const valorSelecionado = event.target.value;
+        const btnDelete = document.getElementById(buttonId);
+
+        if (btnDelete) {
+            const deveEsconder = !valorSelecionado || !canManage;
+            console.log(`3. Botão deve ficar escondido? ${deveEsconder} (porque valorSelecionado=${!!valorSelecionado} e canManage=${canManage})`);
+            btnDelete.classList.toggle('hidden', deveEsconder);
+        } else {
+            console.error(`ERRO: O botão de exclusão #${buttonId} não foi encontrado!`);
+        }
+        console.log(`--- FIM DO DEBUG ---`);
+    });
+}
     document.getElementById('btn-remove-anexo')?.addEventListener('click', () => {
     // Esconde o link do anexo atual
     document.getElementById('current-attachment-container')?.classList.add('hidden');
@@ -2424,9 +2492,6 @@ document.getElementById('btn-reload-page').addEventListener('click', () => {
     addDeleteButtonListener('ticket-status', 'btn-delete-status-selecionado');
 btnDeleteStatus?.addEventListener('click', () => {
     handleDeleteOption('status', 'ticket-status', (val) => statusIdToDelete = val, 'modalConfirmarDeleteStatus');
-});
-document.getElementById('btn-confirm-delete-status')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('status', statusIdToDelete, '/api/tickets/options/status', 'modalConfirmarDeleteStatus', () => statusIdToDelete = null);
 });
 
     document.getElementById('ordenarPor')?.addEventListener('change', () => carregarTickets(1));

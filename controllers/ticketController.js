@@ -175,24 +175,27 @@ exports.getAllTickets = async (req, res) => {
 
 exports.getCardInfo = async (req, res) => {
     try {
-        const queries = [
-            pool.query("SELECT COUNT(*) as count FROM tickets"), // Total
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = (SELECT id FROM ticket_status WHERE nome = 'Em Atendimento')"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = (SELECT id FROM ticket_status WHERE nome = 'Resolvido')"),
-            pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = (SELECT id FROM ticket_status WHERE nome = 'Normalizado')")
-        ];
+
+        const [[{ total }]] = await pool.query("SELECT COUNT(*) as total FROM tickets");
+
+        const [statuses] = await pool.query("SELECT id, nome FROM ticket_status ORDER BY id");
+
+        const countPromises = statuses.map(status => {
+            return pool.query("SELECT COUNT(*) as count FROM tickets WHERE status_id = ?", [status.id]);
+        });
         
-        const results = await Promise.all(queries.map(p => p.catch(e => e)));
-        
-        const getCount = (result) => result instanceof Error ? 0 : (result[0][0]?.count || 0);
+        const results = await Promise.all(countPromises);
+
+        const counts = statuses.map((status, index) => ({
+            nome: status.nome,
+            count: results[index][0][0].count
+        }));
 
         res.status(200).json({
-            total: getCount(results[0]),
-            emAtendimento: getCount(results[1]), 
-            resolvidos: getCount(results[2]),
-            normalizado: getCount(results[3]),
-            encerrados: 0 
+            total: total,
+            counts: counts
         });
+
     } catch (error) {
         console.error("Erro ao buscar informações dos cards:", error);
         res.status(500).json({ message: 'Erro ao buscar informações dos cards.' });

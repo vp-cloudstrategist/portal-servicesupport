@@ -109,44 +109,8 @@
         </div>
 
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-        <div class="flex justify-between items-start">
-            <img src="/images/total.png" alt="Ícone Tickets" class="w-15 h-12" />
-            <p id="card-total" class="text-3xl font-black text-black">--</p>
-        </div>
-        <div>
-            <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Todos<br>Tickets</p>
-        </div>
+      <div id="card-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
     </div>
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-        <div class="flex justify-between items-start">
-            <img src="/images/aberto.png" alt="Ícone Tickets" class="w-15 h-12" />
-            <p id="card-em-atendimento" class="text-3xl font-black text-black">--</p>
-        </div>
-        <div>
-            <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Em<br>Atendimento</p>
-        </div>
-    </div>
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-        <div class="flex justify-between items-start">
-            <img src="/images/resolvido.png" alt="Ícone Tickets" class="w-15 h-12" />
-            <p id="card-resolvidos" class="text-3xl font-black text-black">--</p>
-        </div>
-        <div>
-            <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Resolvidos</p>
-        </div>
-    </div>
-    <div class="bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full">
-        <div class="flex justify-between items-start">
-            <img src="/images/encerrado.png" alt="Ícone Tickets Normalizados" class="w-15 h-12" />
-            <p id="card-normalizado" class="text-3xl font-black text-black">--</p>
-        </div>
-        <div>
-            <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Tickets<br>Normalizados</p>
-        </div>
-    </div>
-</div>
 
        
 
@@ -829,6 +793,7 @@
                 </div>
             </div>
         </div>
+    </div>
         <div class="flex-shrink-0 p-6 pt-4 border-t">
     <div class="flex justify-between items-center">
         <div>
@@ -863,37 +828,37 @@
         </div>
     </div>
 </div>
-        <div id="modalConfirmarDeleteArea" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
-            <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
-                <p class="text-gray-600 mb-6">Tem certeza que deseja apagar esta Área? Esta ação não pode ser desfeita.</p>
-                <div class="flex justify-center gap-4">
-                    <button id="btn-confirm-delete-area" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
-                    <button id="btn-cancel-delete-area" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
-                </div>
-            </div>
+<div id="modalConfirmarDeleteArea" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+    <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
+        <p class="text-gray-600 mb-6">Tem certeza que deseja apagar esta Área? Esta ação não pode ser desfeita.</p>
+        <div class="flex justify-center gap-4">
+            <button id="btn-confirm-delete-area" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
+            <button id="btn-cancel-delete-area" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
         </div>
-        <div id="modalConfirmarDeleteTipo" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
-            <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
-                <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este Tipo de Solicitação?</p>
-                <div class="flex justify-center gap-4">
-                    <button id="btn-confirm-delete-tipo" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
-                    <button id="btn-cancel-delete-tipo" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
-                </div>
-            </div>
+    </div>
+</div>
+<div id="modalConfirmarDeleteTipo" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+    <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
+        <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este Tipo de Solicitação?</p>
+        <div class="flex justify-center gap-4">
+            <button id="btn-confirm-delete-tipo" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
+            <button id="btn-cancel-delete-tipo" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
         </div>
-        <div id="modalConfirmarDeletePrioridade" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
-            <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
-                <p class="text-gray-600 mb-6">Tem certeza que deseja apagar esta Prioridade?</p>
-                <div class="flex justify-center gap-4">
-                    <button id="btn-confirm-delete-prioridade" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
-                    <button id="btn-cancel-delete-prioridade" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
-                </div>
-            </div>
+    </div>
+</div>
+<div id="modalConfirmarDeletePrioridade" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+    <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
+        <p class="text-gray-600 mb-6">Tem certeza que deseja apagar esta Prioridade?</p>
+        <div class="flex justify-center gap-4">
+            <button id="btn-confirm-delete-prioridade" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
+            <button id="btn-cancel-delete-prioridade" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
         </div>
-        <div id="modalConfirmarDeleteStatus" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+    </div>
+</div>
+<div id="modalConfirmarDeleteStatus" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
     <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
         <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este Status? Esta ação não pode ser desfeita.</p>
@@ -903,7 +868,7 @@
         </div>
     </div>
 </div>
-        <div id="modalConfirmarDeleteAlerta" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
+<div id="modalConfirmarDeleteAlerta" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] hidden">
     <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
         <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este Alerta? Esta ação não pode ser desfeita.</p>
@@ -914,6 +879,16 @@
     </div>
 </div>
 
+<div id="modalConfirmarDeleteUsuario" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[150] hidden">
+    <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Confirmar Exclusão</h3>
+        <p class="text-gray-600 mb-6">Tem certeza que deseja apagar este usuário? Esta ação não pode ser desfeita.</p>
+        <div class="flex justify-center gap-4">
+            <button id="btn-cancel-delete-user" class="px-6 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
+            <button id="btn-confirm-delete-user" class="px-6 py-2 text-white bg-red-600 rounded hover:bg-red-700">Sim, Apagar</button>
+        </div>
+    </div>
+</div>
         <div id="modalCriarArea" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
             <div class="bg-white w-full max-w-lg rounded-xl shadow-lg relative flex flex-col max-h-[90vh]">
                  <div class="flex-shrink-0 p-6 pb-4 border-b">
