@@ -44,9 +44,9 @@ exports.createUser = async (req, res) => {
         }
         
         await connection.beginTransaction();
-
         const nomeCapitalized = capitalize(nome);
         const sobrenomeCapitalized = capitalize(sobrenome);
+
         const senhaTemporaria = crypto.randomBytes(8).toString('hex') + 'A1!';
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(senhaTemporaria, salt);
@@ -69,7 +69,7 @@ exports.createUser = async (req, res) => {
                 </div>
                 <div style="padding:30px; line-height:1.5;">
                     <h2 style="color:#0c1231;">Bem-vindo ao Portal de Suporte</h2>
-                    <p>Olá <strong>${nome}</strong>,</p>
+                    <p>Olá <strong>${nomeCapitalized}</strong>,</p>
                     <p>Uma conta foi criada para você em nosso portal. Use as seguintes credenciais para seu primeiro acesso:</p>
                     <p style="margin-top:20px;"><strong>Login:</strong> ${login}</p>
                     <p><strong>Senha Temporária:</strong> <span style="font-weight:bold; font-size:18px; color: #d9534f;">${senhaTemporaria}</span></p>
@@ -108,7 +108,42 @@ exports.createUser = async (req, res) => {
         if (connection) connection.release();
     }
 };
+exports.deleteUser = async (req, res) => {
+    const loggedInUserId = req.session.user.id;
+    const { id: targetUserId } = req.params;
 
+    // Medida de segurança: impede que um usuário se auto-delete
+    if (String(loggedInUserId) === String(targetUserId)) {
+        return res.status(400).json({ message: 'Você não pode deletar sua própria conta.' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        await connection.query('DELETE FROM user_areas WHERE user_id = ?', [targetUserId]);
+
+        const [deleteResult] = await connection.query('DELETE FROM user WHERE id = ?', [targetUserId]);
+
+        if (deleteResult.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+
+        await connection.commit();
+        res.status(200).json({ message: 'Usuário deletado com sucesso!' });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Erro ao deletar usuário:', error);
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            return res.status(400).json({ message: 'Não é possível deletar este usuário, pois ele possui tickets associados.' });
+        }
+        res.status(500).json({ message: 'Erro interno no servidor ao deletar o usuário.' });
+    } finally {
+        if (connection) connection.release();
+    }
+};
 exports.getAllUsers = async (req, res) => {
     const loggedInUser = req.session.user;
     try {

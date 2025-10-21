@@ -68,6 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let prioridadeIdToDelete = null;
     let statusIdToDelete = null;
     let currentStatusList = [];
+    let ticketAbertoParaEdicao = null;
+    let userIdToDelete = null;
 
     let currentAlertsList = [];
     let currentGruposList = [];
@@ -339,6 +341,50 @@ document.addEventListener('DOMContentLoaded', () => {
         alertaIdToDelete = null;
         toggleModal('modalConfirmarDeleteAlerta', false);
     });
+
+    document.getElementById('btn-deletar-usuario')?.addEventListener('click', () => {
+    const userId = document.querySelector('#formEditarUsuarioAdmin input[name="id"]')?.value;
+    if (userId) {
+        userIdToDelete = userId;
+        toggleModal('modalConfirmarDeleteUsuario', true);
+    } else {
+        showStatusModal('Erro!', 'Não foi possível identificar o usuário a ser deletado.', true);
+    }
+});
+
+document.getElementById('btn-cancel-delete-user')?.addEventListener('click', () => {
+    userIdToDelete = null;
+    toggleModal('modalConfirmarDeleteUsuario', false);
+});
+
+document.getElementById('btn-confirm-delete-user')?.addEventListener('click', async () => {
+    if (!userIdToDelete) return;
+
+    try {
+        const response = await fetch(`/api/users/${userIdToDelete}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+
+        toggleModal('modalConfirmarDeleteUsuario', false);
+
+        if (response.ok) {
+            showStatusModal('Sucesso!', result.message, false, () => {
+                // Fecha os modais e atualiza a lista de usuários
+                toggleModal('modalEditarUsuarioAdmin', false);
+                btnAbrirModalListaUsuarios.click();
+            });
+        } else {
+            showStatusModal('Erro!', result.message, true);
+        }
+    } catch (error) {
+        toggleModal('modalConfirmarDeleteUsuario', false);
+        showStatusModal('Erro de Conexão', 'Não foi possível deletar o usuário.', true);
+    } finally {
+        userIdToDelete = null;
+    }
+});
+
     const resetAddStatusForm = () => {
     if (addStatusContainer) addStatusContainer.classList.add('hidden');
     if (btnShowAddStatus) btnShowAddStatus.classList.remove('hidden');
@@ -504,6 +550,61 @@ btnSaveNewStatus?.addEventListener('click', async () => {
             btnSaveNewTipo.textContent = 'Salvar';
         }
     });
+    document.getElementById('btn-duplicar-ticket')?.addEventListener('click', async () => {
+    if (!ticketAbertoParaEdicao) {
+        showStatusModal('Erro!', 'Não foi possível encontrar os dados do ticket para duplicar.', true);
+        return;
+    }
+
+    const formatIsoToBr = (isoString) => {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return '';
+        
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
+    };
+
+  
+    toggleModal('modalEditarTicket', false);
+
+ 
+    abrirModalNovoTicket();
+
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    console.log("Duplicando dados:", ticketAbertoParaEdicao);
+    const inicioAlarmeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio"]');
+    if (inicioAlarmeInput && inicioAlarmeInput.imask) {
+        inicioAlarmeInput.imask.value = formatIsoToBr(ticketAbertoParaEdicao.alarme_inicio);
+    }
+
+    const inicioAtendimentoInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento"]');
+    if (inicioAtendimentoInput && inicioAtendimentoInput.imask) {
+        inicioAtendimentoInput.imask.value = formatIsoToBr(ticketAbertoParaEdicao.horario_acionamento);
+    }
+    const statusSelect = document.getElementById('ticket-status');
+    if (statusSelect) {
+        statusSelect.value = ticketAbertoParaEdicao.status_id;
+    }
+    document.getElementById('ticket-descricao').value = ticketAbertoParaEdicao.descricao;
+    
+    const areaSelect = document.getElementById('ticket-area');
+    areaSelect.value = ticketAbertoParaEdicao.area_id;
+
+    await handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
+    
+    document.getElementById('ticket-grupo').value = ticketAbertoParaEdicao.grupo_id;
+    document.getElementById('ticket-tipo').value = ticketAbertoParaEdicao.tipo_solicitacao_id;
+    document.getElementById('ticket-prioridade').value = ticketAbertoParaEdicao.prioridade_id;
+    document.getElementById('ticket-alerta').value = ticketAbertoParaEdicao.alerta_id;
+});
 
 
     const resetAddAreaForm = () => {
@@ -1655,6 +1756,7 @@ async function carregarInfoCards() {
             throw new Error('Ticket não encontrado');
         }
         const ticket = await ticketResponse.json();
+        ticketAbertoParaEdicao = ticket;
 
         const formatIsoToBr = (isoString) => {
             if (!isoString) return '';
@@ -1962,36 +2064,73 @@ async function carregarInfoCards() {
             document.getElementById('botao-salvar-container').classList.toggle('hidden', !perfil);
         });
 
-        formCriarUsuario.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const formData = new FormData(formCriarUsuario);
-            const data = Object.fromEntries(formData.entries());
-            data.area_ids = formData.getAll('area_ids').map(Number);
+       formCriarUsuario.addEventListener('submit', async (event) => {
+    event.preventDefault();
 
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!data.login || !emailRegex.test(data.login)) {
-                return showStatusModal('Erro de Validação', 'Por favor, insira um formato de e-mail válido.', true);
-            }
+    const submitButton = document.querySelector('button[form="formCriarUsuario"]');
+    
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Salvando...';
+    }
 
-            try {
-                const response = await fetch('/api/users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    showStatusModal('Sucesso!', result.message, false);
-                    toggleModal('modalCriarUsuario', false);
-                    formCriarUsuario.reset();
-                    selectPerfil.dispatchEvent(new Event('change'));
-                } else {
-                    showStatusModal('Erro!', result.message, true);
-                }
-            } catch (error) {
-                showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
+    try {
+        const formData = new FormData(formCriarUsuario);
+        const data = Object.fromEntries(formData.entries());
+        data.area_ids = formData.getAll('area_ids').map(Number);
+
+        const email = data.login_user || data.login_support;
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email)) {
+            showStatusModal('Erro de Validação', 'Por favor, insira um formato de e-mail válido.', true);
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Salvar Usuário';
             }
+            return;
+        }
+        
+        delete data.login_user;
+        delete data.login_support;
+        data.login = email;
+        
+        data.nome = data.nome_user || data.nome_support;
+        data.sobrenome = data.sobrenome_user || data.sobrenome_support;
+        delete data.nome_user;
+        delete data.nome_support;
+        delete data.sobrenome_user;
+        delete data.sobrenome_support;
+
+        const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
         });
+        const result = await response.json();
+        
+        if (response.ok) {
+            showStatusModal('Sucesso!', result.message, false);
+            toggleModal('modalCriarUsuario', false);
+            formCriarUsuario.reset();
+            
+            const selectPerfil = document.getElementById('selectPerfil');
+            if (selectPerfil) {
+                selectPerfil.value = '';
+                selectPerfil.dispatchEvent(new Event('change'));
+            }
+        } else {
+            showStatusModal('Erro!', result.message, true);
+        }
+    } catch (error) {
+        showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Salvar Usuário';
+        }
+    }
+});
     }
     const btnCancelCreateUser = document.getElementById('btn-cancel-create-user');
     if (btnCancelCreateUser) {
@@ -2249,6 +2388,25 @@ async function carregarInfoCards() {
     if (fileInput) {
         fileInput.value = '';
     }
+});
+const CLIENT_VERSION = "1.0.0"; 
+
+function checkForUpdates() {
+    console.log("Verificando atualizações...");
+    fetch('/api/version', { cache: 'no-cache' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.version !== CLIENT_VERSION) {
+                document.getElementById('update-notification').classList.remove('hidden');
+            }
+        })
+        .catch(err => console.error("Erro ao verificar versão:", err));
+}
+
+
+setInterval(checkForUpdates, 15 * 60 * 1000); 
+document.getElementById('btn-reload-page').addEventListener('click', () => {
+    window.location.reload(true); 
 });
 
     addDeleteButtonListener('ticket-area', 'btn-delete-area-selecionada');

@@ -3,7 +3,6 @@ const pool = require('../config/db.js');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
-// VERIFICAÇÃO DE SENHA E ENVIO DE CÓDIGO 2FA PARA TODOS
 exports.login = async (req, res) => {
     try {
         const { login, password } = req.body;
@@ -27,26 +26,40 @@ exports.login = async (req, res) => {
             });
         }
 
-        
+
+        const redisClient = req.app.get('redisClient');
+        if (!redisClient || !redisClient.isReady) {
+            console.error("[LOGIN] Cliente Redis não está pronto ou não foi encontrado!");
+        } else {
+            const daily2faKey = `2fa-completed:${user.id}`;
+            const alreadyVerifiedToday = await new Promise((resolve, reject) => {
+                redisClient.get(daily2faKey, (err, reply) => {
+                    if (err) return reject(err);
+                    resolve(reply);
+                });
+            });
+
+            if (alreadyVerifiedToday === 'true') {
+                console.log(`Usuário ${user.login} já verificado hoje. Pulando 2FA.`);
+                req.session.user = { id: user.id, nome: user.nome, login: user.login, sobrenome: user.sobre, perfil: user.perfil };
+                return res.status(200).json({ message: 'Login bem-sucedido!' });
+            }
+        }
+
+
         let otpToken;
         let responseMessage;
         const now = new Date();
 
         if (user.otp_token && user.otp_expires_at && new Date(user.otp_expires_at) > now) {
             otpToken = user.otp_token;
-            responseMessage = 'Um código de verificação válido para hoje já foi enviado. Verifique seu e-mail (incluindo spam).';
-            console.log(`Reenviando token diário existente (${otpToken}) para ${user.login}`);
+            responseMessage = 'Um código de verificação válido para hoje já foi enviado. Verifique seu e-mail.';
         } else {
             otpToken = Math.floor(100000 + Math.random() * 900000).toString();
-            
-            // Define a expiração para o final do dia de hoje (23:59:59)
             const expiresAt = new Date();
             expiresAt.setHours(23, 59, 59, 999);
-
             await pool.query('UPDATE user SET otp_token = ?, otp_expires_at = ? WHERE id = ?', [otpToken, expiresAt, user.id]);
-            
             responseMessage = 'Um novo código de verificação foi enviado para o seu e-mail.';
-            console.log(`Gerando novo token diário (${otpToken}) para ${user.login}`);
         }
 
         const emailHtml = `
@@ -90,7 +103,6 @@ exports.login = async (req, res) => {
     }
 };
 
-// VERIFICAÇÃO DO CÓDIGO 2FA
 exports.verify2FA = async (req, res) => {
     try {
         const { login, otpToken } = req.body;
@@ -99,19 +111,40 @@ exports.verify2FA = async (req, res) => {
         }
         const [rows] = await pool.query('SELECT * FROM user WHERE login = ?', [login]);
         const user = rows[0];
+        const now = new Date();
 
-        // Verifica se o token está correto e se não expirou
-        if (!user || user.otp_token !== otpToken || new Date() > new Date(user.otp_expires_at)) {
+        if (!user || user.otp_token !== otpToken || now > new Date(user.otp_expires_at)) {
             return res.status(401).json({ message: 'Código inválido ou expirado.' });
         }
+
         req.session.user = { id: user.id, nome: user.nome, login: user.login, sobrenome: user.sobre, perfil: user.perfil };
+
+        const redisClient = req.app.get('redisClient');
+        if (!redisClient || !redisClient.isReady) {
+            console.error("[VERIFY] Cliente Redis não está pronto. Não foi possível marcar o 2FA como concluído.");
+        } else {
+            const daily2faKey = `2fa-completed:${user.id}`;
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            const secondsUntilEndOfDay = Math.round((endOfDay.getTime() - now.getTime()) / 1000);
+
+            if (secondsUntilEndOfDay > 0) {
+                redisClient.set(daily2faKey, 'true', 'EX', secondsUntilEndOfDay, (err, reply) => {
+                    if (err) {
+                        console.error(`[VERIFY] ERRO AO SALVAR A CHAVE NO REDIS:`, err);
+                    } else {
+                        console.log(`[VERIFY] Chave ${daily2faKey} salva no Redis com sucesso! Resposta: ${reply}`);
+                    }
+                });
+            }
+        }
+        
         res.status(200).json({ message: 'Login verificado com sucesso!' });
     } catch (error) {
         console.error('Erro na verificação 2FA:', error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
-
 // RECUPERAÇÃO DE SENHA
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
