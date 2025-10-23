@@ -13,5 +13,8 @@
   },
   "scripts": {
     "start": "node server.js"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.16"
   }
 }
