@@ -2546,23 +2546,6 @@ async function carregarInfoCards() {
 });
 
 
-function checkForUpdates() {
-    console.log("Verificando atualizações...");
-    fetch('/api/version', { cache: 'no-cache' })
-        .then(res => res.json())
-        .then(data => {
-            if (data.version !== CLIENT_VERSION) {
-                document.getElementById('update-notification').classList.remove('hidden');
-            }
-        })
-        .catch(err => console.error("Erro ao verificar versão:", err));
-}
-
-
-setInterval(checkForUpdates, 15 * 60 * 1000); 
-document.getElementById('btn-reload-page').addEventListener('click', () => {
-    window.location.reload(true); 
-});
 
     addDeleteButtonListener('ticket-area', 'btn-delete-area-selecionada');
     addDeleteButtonListener('ticket-grupo', 'btn-delete-grupo-selecionado');
@@ -2591,5 +2574,4 @@ btnDeleteStatus?.addEventListener('click', () => {
     carregarInfoCards();
     carregarTickets();
     setupPasteFunctionality();
-    const CLIENT_VERSION = "1.2.0"; 
 });
