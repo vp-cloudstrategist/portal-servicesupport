@@ -1,11 +1,63 @@
 let currentUser = null;
+let paginaAtual = 1;
+    let ticketIdToDelete = null;
+    let pastedFileCreate = null;
+    let pastedFileEdit = null;
+    let alertaIdToDelete = null;
+    let grupoIdToDelete = null;
+    let areaIdToDelete = null;
+    let tipoIdToDelete = null;
+    let prioridadeIdToDelete = null;
+    let statusIdToDelete = null;
+    let currentStatusList = [];
+    let ticketAbertoParaEdicao = null;
+    let userIdToDelete = null;
 
+    let currentAlertsList = [];
+    let currentGruposList = [];
+    let allUsersCache = [];
+    let currentFilters = {};
+    let currentAreasList = [];
+    let currentTiposList = [];
+    let currentPrioridadesList = [];
 function toggleModal(modalId, show) {
-    console.log(`--- DEBUG (toggleModal): Tentando ${show ? 'MOSTRAR' : 'ESCONDER'} o modal #${modalId} ---`);
     const modal = document.getElementById(modalId);
     
         modal.classList.toggle('hidden', !show);
         
+}
+function getFormattedDateTime(dateObj) {
+    if (!dateObj || isNaN(new Date(dateObj).getTime())) {
+        // Se a data for inválida ou nula, retorna strings vazias
+        return { date: '', time: '' };
+    }
+    const validDate = new Date(dateObj);
+    
+    // Formato YYYY-MM-DD
+    const date = validDate.toLocaleDateString('sv-SE'); 
+    
+    // Formato HH:mm
+    const time = validDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    
+    return { date, time };
+}
+function combineDateAndTime(date, timeString, isOptional = false) {
+    // Se a data estiver vazia, o campo é nulo
+    if (!date) {
+        return null;
+    }
+    
+    // Se a hora estiver vazia ou com placeholder
+    if (!timeString || timeString.includes('h') || timeString.length < 5) {
+        // Se for um campo opcional (como Fim do Alarme), retorna nulo
+        if (isOptional) {
+            return null; 
+        }
+        // Se for um campo obrigatório, assume '00:00'
+        timeString = '00:00'; 
+    }
+    
+    return `${date} ${timeString}:00`;
 }
 
 function capitalize(str) {
@@ -32,88 +84,82 @@ function showStatusModal(title, message, isError = false, onConfirm = null) {
         modal.classList.remove('hidden');
     }
 }
+
 function abrirModalNovoTicket() {
     const form = document.getElementById('formAbrirTicket');
     if (form) form.reset();
 
-    const now = new Date();
-    const formattedDateTime = now.toLocaleString('pt-BR', {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit'
-    }).replace(',', '');
+    const { date: dataAtual, time: horaAtual } = getFormattedDateTime(new Date());
 
-    const inicioAlarmeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio"]');
-    const inicioAtendimentoInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento"]');
-    const fimAlarmeInput = document.querySelector('#formAbrirTicket input[name="alarme_fim"]');
+    // Define os valores padrão nos campos de data
+    document.querySelector('#formAbrirTicket input[name="alarme_inicio_date"]').value = dataAtual;
+    document.querySelector('#formAbrirTicket input[name="horario_acionamento_date"]').value = dataAtual;
+    document.querySelector('#formAbrirTicket input[name="alarme_fim_date"]').value = '';
 
+    // Define o valor nos campos de hora (a máscara já existe)
+    const alarmeInicioTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio_time"]');
+    if (alarmeInicioTimeInput.imask) alarmeInicioTimeInput.imask.value = horaAtual;
 
-    inicioAlarmeInput?.imask?.setInputValue(formattedDateTime);
-    inicioAtendimentoInput?.imask?.setInputValue(formattedDateTime);
-    fimAlarmeInput?.imask?.setInputValue('');
+    const horarioAcionamentoTimeInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento_time"]');
+    if (horarioAcionamentoTimeInput.imask) horarioAcionamentoTimeInput.imask.value = horaAtual;
     
+    const alarmeFimTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_fim_time"]');
+    if (alarmeFimTimeInput.imask) alarmeFimTimeInput.imask.value = '';
+
+    // Define o status padrão
+    const statusSelect = document.getElementById('ticket-status');
+    if (statusSelect && currentStatusList.length > 0) {
+        const defaultStatus = currentStatusList.find(status => status.nome === 'Em Atendimento');
+        if (defaultStatus) {
+            statusSelect.value = defaultStatus.id;
+        }
+    }
 
     toggleModal('modalTicket', true);
 }
 
-
 document.addEventListener('DOMContentLoaded', () => {
+    
 
-    let paginaAtual = 1;
-    let ticketIdToDelete = null;
-    let pastedFileCreate = null;
-    let pastedFileEdit = null;
-    let alertaIdToDelete = null;
-    let grupoIdToDelete = null;
-    let areaIdToDelete = null;
-    let tipoIdToDelete = null;
-    let prioridadeIdToDelete = null;
-    let statusIdToDelete = null;
-    let currentStatusList = [];
-    let ticketAbertoParaEdicao = null;
-    let userIdToDelete = null;
-
-    let currentAlertsList = [];
-    let currentGruposList = [];
-    let allUsersCache = [];
-    let currentFilters = {};
-    let currentAreasList = [];
-    let currentTiposList = [];
-    let currentPrioridadesList = [];
-
-    let columnConfig = [
-        { key: 'id', title: 'Ticket#', visible: true },
-        { key: 'area_nome', title: 'Área', visible: true },
-        { key: 'data_criacao', title: 'Criação', visible: false },
-        { key: 'user_nome', title: 'Usuário', visible: true },
-        { key: 'prioridade_nome', title: 'Prioridade', visible: true },
-        { key: 'status', title: 'Status', visible: true },
-        { key: 'descricao', title: 'Descrição', visible: false },
-        { key: 'ultimo_comentario', title: 'Último Comentário', visible: false },
-        { key: 'alerta_nome', title: 'Alerta', visible: false },
-        { key: 'grupo_nome', title: 'Grupo Resp.', visible: false },
-        { key: 'alarme_inicio', title: 'Início Alarme', visible: false },
-        { key: 'alarme_fim', title: 'Fim Alarme', visible: false },
-        { key: 'horario_acionamento', title: 'Atendimento', visible: true },
-        { key: 'actions', title: 'Ações', visible: true }
-    ];
-    const maskOptions = {
-        mask: 'd/`m/`Y `H:`M',
-        pattern: 'd/`m/`Y `H:`M',
+    const timeMaskOptions = {
+        mask: 'HH:mm',
         blocks: {
-            d: { mask: IMask.MaskedRange, from: 1, to: 31, maxLength: 2, placeholderChar: 'd' },
-            m: { mask: IMask.MaskedRange, from: 1, to: 12, maxLength: 2, placeholderChar: 'm' },
-            Y: { mask: IMask.MaskedRange, from: 1970, to: 2099, placeholderChar: 'a' },
-            H: { mask: IMask.MaskedRange, from: 0, to: 23, maxLength: 2, placeholderChar: 'h' },
-            M: { mask: IMask.MaskedRange, from: 0, to: 59, maxLength: 2, placeholderChar: 'm' }
+            HH: { mask: IMask.MaskedRange, from: 0, to: 23, maxLength: 2 },
+            mm: { mask: IMask.MaskedRange, from: 0, to: 59, maxLength: 2 }
         },
         lazy: false
-    };
+    };    
+    const timeInputs = [
+        '#formAbrirTicket input[name="alarme_inicio_time"]',
+        '#formAbrirTicket input[name="horario_acionamento_time"]',
+        '#formAbrirTicket input[name="alarme_fim_time"]',
+        '#edit-alarme-inicio-time',
+        '#edit-horario-acionamento-time',
+        '#edit-alarme-fim-time'
+    ];
 
-    // Aplica máscara apenas nos campos de CRIAR ticket. A de editar será aplicada sob demanda.
-    ['alarme_inicio', 'horario_acionamento', 'alarme_fim'].forEach(name => {
-        const createInput = document.querySelector(`#formAbrirTicket input[name="${name}"]`);
-        if (createInput) IMask(createInput, maskOptions);
+    timeInputs.forEach(selector => {
+        const el = document.querySelector(selector) || document.getElementById(selector);
+        if (el) {
+            IMask(el, timeMaskOptions);
+        }
     });
+
+    let columnConfig = [
+    { key: 'id', title: 'Ticket#', visible: true },
+    { key: 'area_nome', title: 'Área', visible: true },
+    { key: 'data_criacao', title: 'Criação', visible: false },
+    { key: 'user_nome', title: 'Usuário', visible: true },
+    { key: 'prioridade_nome', title: 'Prioridade', visible: true },
+    { key: 'status', title: 'Status', visible: true },
+    { key: 'descricao', title: 'Descrição', visible: false },
+    { key: 'ultimo_comentario', title: 'Último Comentário', visible: false },
+    { key: 'alerta_nome', title: 'Alerta', visible: false },
+    { key: 'grupo_nome', title: 'Grupo Resp.', visible: false },
+    { key: 'alarme_inicio', title: 'Início Alarme', visible: false },
+    { key: 'alarme_fim', title: 'Fim Alarme', visible: false },
+    { key: 'horario_acionamento', title: 'Atendimento', visible: true }
+];
 
    async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
     const container = document.getElementById(containerId);
@@ -235,8 +281,53 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleModal(modalId, true);
 }
 
-   async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
-    // Agora 'idHolder' é um objeto { id: '...', areaSelect: <elemento> }
+async function preencherFormularioNovoTicket(dadosParaPreencher = {}) {
+    const form = document.getElementById('formAbrirTicket');
+    if (form) form.reset();
+
+    const now = new Date();
+    // Se for duplicação, usa a data do ticket. Se for novo, usa a data de agora.
+    const alarmeInicio = getFormattedDateTime(dadosParaPreencher.alarme_inicio ? new Date(dadosParaPreencher.alarme_inicio) : now);
+    const horarioAcionamento = getFormattedDateTime(dadosParaPreencher.horario_acionamento ? new Date(dadosParaPreencher.horario_acionamento) : now);
+    
+    const defaultStatus = currentStatusList.find(s => s.nome === 'Em Atendimento');
+    const statusIdValue = dadosParaPreencher.status_id ? dadosParaPreencher.status_id : (defaultStatus ? defaultStatus.id : '');
+
+    // Preenche as datas
+    document.querySelector('#formAbrirTicket input[name="alarme_inicio_date"]').value = alarmeInicio.date;
+    document.querySelector('#formAbrirTicket input[name="horario_acionamento_date"]').value = horarioAcionamento.date;
+    document.querySelector('#formAbrirTicket input[name="alarme_fim_date"]').value = '';
+
+    // Preenche as horas e aplica a máscara
+    const alarmeInicioTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio_time"]');
+    alarmeInicioTimeInput.value = alarmeInicio.time;
+    IMask(alarmeInicioTimeInput, timeMaskOptions);
+
+    const horarioAcionamentoTimeInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento_time"]');
+    horarioAcionamentoTimeInput.value = horarioAcionamento.time;
+    IMask(horarioAcionamentoTimeInput, timeMaskOptions);
+    
+    IMask(document.querySelector('#formAbrirTicket input[name="alarme_fim_time"]'), timeMaskOptions);
+
+    // Preenche os outros campos
+    document.getElementById('ticket-status').value = statusIdValue;
+    document.getElementById('ticket-descricao').value = dadosParaPreencher.descricao || '';
+    const areaSelect = document.getElementById('ticket-area');
+    areaSelect.value = dadosParaPreencher.area_id || '';
+
+    await handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
+    
+    if (dadosParaPreencher.area_id) {
+        await new Promise(resolve => setTimeout(resolve, 50)); 
+        document.getElementById('ticket-grupo').value = dadosParaPreencher.grupo_id || '';
+        document.getElementById('ticket-tipo').value = dadosParaPreencher.tipo_solicitacao_id || '';
+        document.getElementById('ticket-prioridade').value = dadosParaPreencher.prioridade_id || '';
+        document.getElementById('ticket-alerta').value = dadosParaPreencher.alerta_id || '';
+    }
+
+    toggleModal('modalTicket', true);
+}
+  async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
     if (!idHolder || !idHolder.id) return;
 
     try {
@@ -248,11 +339,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (response.ok) {
             showStatusModal('Sucesso!', result.message, false, async () => {
-                // Lógica de atualização após a exclusão
                 if (itemType === 'area') {
                     await popularDropdownsTicket();
                 } else if (itemType === 'status') {
-                    // Recarrega a lista de status
                     const statusResponse = await fetch('/api/tickets/options/status');
                     const statusItems = await statusResponse.json();
                     currentStatusList = statusItems;
@@ -260,8 +349,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const defaultStatusId = defaultStatus ? defaultStatus.id : null;
                     popularDropdown('ticket-status', statusItems, 'Selecione o Status', defaultStatusId);
                     popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
+                    await carregarInfoCards();
+
                 } else {
-                    // CORREÇÃO: Para outros itens, força a atualização dos dropdowns da área
                     if (idHolder.areaSelect) {
                         idHolder.areaSelect.dispatchEvent(new Event('change'));
                     }
@@ -569,39 +659,46 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         return;
     }
 
-    const formatIsoToBr = (isoString) => {
-        if (!isoString) return '';
-        const date = new Date(isoString);
-        if (isNaN(date.getTime())) return '';
-        
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
+    // Não precisamos mais da função 'formatIsoToBr' aqui.
 
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
-    };
-
-  
     toggleModal('modalEditarTicket', false);
 
- 
+    // 1. Abre o modal de novo ticket (que define os valores padrão para 'agora')
     abrirModalNovoTicket();
 
-
+    // 2. Aguarda um instante para o modal ser renderizado
     await new Promise(resolve => setTimeout(resolve, 100));
     
     console.log("Duplicando dados:", ticketAbertoParaEdicao);
-    const inicioAlarmeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio"]');
-    if (inicioAlarmeInput && inicioAlarmeInput.imask) {
-        inicioAlarmeInput.imask.value = formatIsoToBr(ticketAbertoParaEdicao.alarme_inicio);
+
+    // 3. Sobrescreve os valores padrão com os dados do ticket original
+
+    // --- INÍCIO DA CORREÇÃO ---
+
+    // Pega os dados de data/hora formatados do ticket original
+    const { date: alarmeInicioDate, time: alarmeInicioTime } = getFormattedDateTime(ticketAbertoParaEdicao.alarme_inicio);
+    const { date: acionamentoDate, time: acionamentoTime } = getFormattedDateTime(ticketAbertoParaEdicao.horario_acionamento);
+
+    // Define a DATA de Início do Alarme
+    document.querySelector('#formAbrirTicket input[name="alarme_inicio_date"]').value = alarmeInicioDate;
+    
+    // Define a HORA de Início do Alarme (usando .imask.value)
+    const alarmeInicioTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio_time"]');
+    if (alarmeInicioTimeInput && alarmeInicioTimeInput.imask) {
+        alarmeInicioTimeInput.imask.value = alarmeInicioTime;
+    } else if (alarmeInicioTimeInput) {
+        alarmeInicioTimeInput.value = alarmeInicioTime; 
     }
 
-    const inicioAtendimentoInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento"]');
-    if (inicioAtendimentoInput && inicioAtendimentoInput.imask) {
-        inicioAtendimentoInput.imask.value = formatIsoToBr(ticketAbertoParaEdicao.horario_acionamento);
+    document.querySelector('#formAbrirTicket input[name="horario_acionamento_date"]').value = acionamentoDate;
+
+    const horarioAcionamentoTimeInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento_time"]');
+    if (horarioAcionamentoTimeInput && horarioAcionamentoTimeInput.imask) {
+        horarioAcionamentoTimeInput.imask.value = acionamentoTime;
+    } else if (horarioAcionamentoTimeInput) {
+        horarioAcionamentoTimeInput.value = acionamentoTime; 
     }
+    
     const statusSelect = document.getElementById('ticket-status');
     if (statusSelect) {
         statusSelect.value = ticketAbertoParaEdicao.status_id;
@@ -610,7 +707,6 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     
     const areaSelect = document.getElementById('ticket-area');
     areaSelect.value = ticketAbertoParaEdicao.area_id;
-
     await handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
     
     document.getElementById('ticket-grupo').value = ticketAbertoParaEdicao.grupo_id;
@@ -1298,91 +1394,85 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     }
 
     function loadColumnConfig() {
-        const savedConfig = localStorage.getItem('ticketColumnConfig');
-        if (savedConfig) {
-            try {
-                const parsedConfig = JSON.parse(savedConfig);
-                if (!parsedConfig.find(c => c.key === 'actions')) {
-                    parsedConfig.push({ key: 'actions', title: 'Ações', visible: true });
+    const savedConfig = localStorage.getItem('ticketColumnConfig');
+    if (savedConfig) {
+        try {
+            const parsedConfig = JSON.parse(savedConfig);
+            columnConfig = parsedConfig; 
+        } catch (e) {
+            console.error("Erro ao carregar configuração de colunas, usando padrão.", e);
+            // Se der erro, limpa o config salvo para evitar loops
+            localStorage.removeItem('ticketColumnConfig');
+        }
+    }
+}
+
+   function renderTable(tickets) {
+    if (!ticketsTable) return;
+
+    if ($(ticketsTable).data('colResizable')) {
+        $(ticketsTable).colResizable({ disable: true });
+    }
+
+    const thead = ticketsTable.querySelector('thead tr');
+    const tbody = ticketsTable.querySelector('tbody');
+    if (!thead || !tbody) return;
+
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    const visibleColumns = columnConfig.filter(col => col.visible);
+
+    visibleColumns.forEach(col => {
+        // A coluna 'actions' não é mais renderizada aqui
+        thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
+    });
+
+    if (!tickets || tickets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${visibleColumns.length}" class="text-center p-4">Nenhum ticket encontrado.</td></tr>`;
+    } else {
+        let tableContent = '';
+        tickets.forEach(ticket => {
+            let rowHtml = `<tr class="border-t text-center hover:bg-gray-50 cursor-pointer" data-ticket-id="${ticket.id}">`;
+            
+            visibleColumns.forEach(col => {
+                let cellValue = '';
+                const formatDateTime = (dateString) => {
+                    if (!dateString) return 'N/A';
+                    return new Date(dateString).toLocaleString('pt-BR', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                };
+
+                switch (col.key) {
+                    case 'id':
+                        cellValue = `#INC-${ticket.id}`;
+                        break;
+                    case 'data_criacao':
+                        cellValue = new Date(ticket.data_criacao).toLocaleDateString('pt-BR');
+                        break;
+                    case 'alarme_inicio':
+                    case 'alarme_fim':
+                    case 'horario_acionamento':
+                        cellValue = formatDateTime(ticket[col.key]);
+                        break;
+                    default:
+                        cellValue = ticket[col.key] || 'N/A';
                 }
-                columnConfig = parsedConfig;
-            } catch (e) {
-                console.error("Erro ao carregar configuração de colunas, usando padrão.", e);
-            }
-        }
-    }
-
-    function renderTable(tickets) {
-        if (!ticketsTable) return;
-
-        if ($(ticketsTable).data('colResizable')) {
-            $(ticketsTable).colResizable({ disable: true });
-        }
-
-        const thead = ticketsTable.querySelector('thead tr');
-        const tbody = ticketsTable.querySelector('tbody');
-        if (!thead || !tbody) return;
-
-        thead.innerHTML = '';
-        tbody.innerHTML = '';
-        const visibleColumns = columnConfig.filter(col => col.visible);
-
-        visibleColumns.forEach(col => {
-            if (col.key === 'actions') {
-                thead.innerHTML += `<th class="py-2 px-2 border text-center">${col.title}</th>`;
-            } else {
-                thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
-            }
-        });
-
-        if (!tickets || tickets.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${visibleColumns.length}" class="text-center p-4">Nenhum ticket encontrado.</td></tr>`;
-        } else {
-            let tableContent = '';
-            tickets.forEach(ticket => {
-                let rowHtml = '<tr class="border-t text-center hover:bg-gray-50">';
-                visibleColumns.forEach(col => {
-                    let cellValue = '';
-                    const formatDateTime = (dateString) => {
-                        if (!dateString) return 'N/A';
-                        return new Date(dateString).toLocaleString('pt-BR', {
-                            day: '2-digit', month: '2-digit', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit'
-                        });
-                    };
-
-                    switch (col.key) {
-                        case 'id':
-                            cellValue = `#INC-${ticket.id}`;
-                            break;
-                        case 'data_criacao':
-                            cellValue = new Date(ticket.data_criacao).toLocaleDateString('pt-BR');
-                            break;
-                        case 'alarme_inicio':
-                        case 'alarme_fim':
-                        case 'horario_acionamento':
-                            cellValue = formatDateTime(ticket[col.key]);
-                            break;
-                        case 'actions':
-                            cellValue = `<button class="p-1 btn-edit-ticket" data-id="${ticket.id}"><img src="/images/editar.png" alt="Editar" class="w-5 h-5 mx-auto" /></button>`;
-                            break;
-                        default:
-                            cellValue = ticket[col.key] || 'N/A';
-                    }
-                    rowHtml += `<td class="py-2 px-2 border">${cellValue}</td>`;
-                });
-                rowHtml += '</tr>';
-                tableContent += rowHtml;
+                rowHtml += `<td class="py-2 px-2 border">${cellValue}</td>`;
             });
-            tbody.innerHTML = tableContent;
-        }
-
-        $(ticketsTable).colResizable({
-            liveDrag: true,
-            gripInnerHtml: "<div class='JCLRgrip'></div>",
-            minWidth: 50
+            rowHtml += '</tr>';
+            tableContent += rowHtml;
         });
+        tbody.innerHTML = tableContent;
     }
+
+    $(ticketsTable).colResizable({
+        liveDrag: true,
+        gripInnerHtml: "<div class='JCLRgrip'></div>",
+        minWidth: 50
+    });
+}
 
     function populateCustomizerModal() {
         if (!visibilityList || !orderList) return;
@@ -1655,30 +1745,32 @@ async function carregarInfoCards() {
 }
 
     async function carregarTickets(pagina = 1) {
-        paginaAtual = pagina;
-        const porPagina = document.getElementById('qtdPorPagina')?.value || 20;
-        const criterio = document.getElementById('ordenarPor')?.value || 'id_desc';
+    paginaAtual = pagina;
+    
+    const porPagina = document.getElementById('qtdPorPagina')?.value || 20;
+    
+    const criterio = document.getElementById('ordenarPor')?.value || 'id_desc';
 
-        let url = `/api/tickets?pagina=${paginaAtual}&limite=${porPagina}&ordenar=${criterio}`;
+    let url = `/api/tickets?pagina=${paginaAtual}&limite=${porPagina}&ordenar=${criterio}`;
 
-        const params = new URLSearchParams(currentFilters);
-        const queryString = params.toString();
-        if (queryString) {
-            url += `&${queryString}`;
-        }
-
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Falha ao carregar tickets');
-            const dados = await response.json();
-            renderTable(dados.tickets);
-            atualizarPaginacao(dados.total, dados.pagina, porPagina);
-        } catch (error) {
-            console.error("Erro em carregarTickets:", error);
-            const tbody = document.querySelector('#tickets-table tbody');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center text-red-500 p-4">Erro ao carregar dados.</td></tr>`;
-        }
+    const params = new URLSearchParams(currentFilters);
+    const queryString = params.toString();
+    if (queryString) {
+        url += `&${queryString}`;
     }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Falha ao carregar tickets');
+        const dados = await response.json();
+        renderTable(dados.tickets);
+        atualizarPaginacao(dados.total, dados.pagina, porPagina); 
+    } catch (error) {
+        console.error("Erro em carregarTickets:", error);
+        const tbody = document.querySelector('#tickets-table tbody');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center text-red-500 p-4">Erro ao carregar dados.</td></tr>`;
+    }
+}
 
     function atualizarPaginacao(total, pagina, porPagina) {
         const container = document.getElementById('paginacao');
@@ -1720,21 +1812,21 @@ async function carregarInfoCards() {
 
 
     function criarSeletorItensPorPagina() {
-        const container = document.getElementById('items-por-pagina-container');
-        if (!container) return;
+    const container = document.getElementById('items-por-pagina-container');
+    if (!container) return;
 
-        container.innerHTML = `
-            <label for="qtdPorPagina" class="text-sm font-medium">Itens por pág:</label>
-            <select id="qtdPorPagina" class="border rounded px-2 py-1 bg-white text-sm">
-                <option value="10">10</option>
-                <option value="20" selected>20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        `;
+    container.innerHTML = `
+        <label for="qtdPorPagina" class="text-sm font-medium">Itens por pág:</label>
+        <select id="qtdPorPagina" class="border rounded px-2 py-1 bg-white text-sm">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select>
+    `;
 
-        document.getElementById('qtdPorPagina').addEventListener('change', () => carregarTickets(1));
-    }
+    document.getElementById('qtdPorPagina').addEventListener('change', () => carregarTickets(1));
+}
     const btnAbrirModalExportar = document.getElementById('btn-abrir-modal-exportar');
     const formExportar = document.getElementById('formExportar');
     const yearSelect = document.getElementById('export-year-select');
@@ -1789,62 +1881,57 @@ async function carregarInfoCards() {
         toggleModal('modalExportarRelatorio', false);
     });
 
-   async function abrirModalEditar(ticketId) {
+ async function abrirModalEditar(ticketId) {
     pastedFileEdit = null;
     const preview = document.getElementById('paste-preview-edit');
     if (preview) preview.innerHTML = '';
+    const formEditarTicket = document.getElementById('formEditarTicket');
     formEditarTicket.reset();
 
     try {
         const ticketResponse = await fetch(`/api/tickets/${ticketId}`);
-        if (!ticketResponse.ok) {
-            throw new Error('Ticket não encontrado');
-        }
+        if (!ticketResponse.ok) throw new Error('Ticket não encontrado');
         const ticket = await ticketResponse.json();
         ticketAbertoParaEdicao = ticket;
 
-        const formatIsoToBr = (isoString) => {
-            if (!isoString) return '';
-            const date = new Date(isoString);
-            if (isNaN(date.getTime())) return '';
-            
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
+        // Formata as datas que vêm do banco (esta parte está correta)
+        const alarmeInicio = getFormattedDateTime(ticket.alarme_inicio);
+        const horarioAcionamento = getFormattedDateTime(ticket.horario_acionamento);
+        const alarmeFim = getFormattedDateTime(ticket.alarme_fim);
 
-            return `${day}/${month}/${year} ${hours}:${minutes}`;
-        };
+        // Preenche os campos de data (esta parte está correta)
+        document.getElementById('edit-alarme-inicio-date').value = alarmeInicio.date;
+        document.getElementById('edit-horario-acionamento-date').value = horarioAcionamento.date;
+        document.getElementById('edit-alarme-fim-date').value = alarmeFim.date;
+        
+        // ===== CORREÇÃO AQUI =====
+        // Não criamos uma nova máscara. Acessamos a máscara .imask que já existe
+        // e definimos seu valor.
+        
+        const alarmeInicioTimeInput = document.getElementById('edit-alarme-inicio-time');
+        if (alarmeInicioTimeInput.imask) {
+            alarmeInicioTimeInput.imask.value = alarmeInicio.time;
+        } else {
+            // Fallback caso a máscara não tenha inicializado
+            alarmeInicioTimeInput.value = alarmeInicio.time; 
+        }
 
-        const maskOptions = {
-            mask: 'd/`m/`Y `H:`M',
-            pattern: 'd/`m/`Y `H:`M',
-            blocks: {
-                d: { mask: IMask.MaskedRange, from: 1, to: 31, maxLength: 2, placeholderChar: 'd' },
-                m: { mask: IMask.MaskedRange, from: 1, to: 12, maxLength: 2, placeholderChar: 'm' },
-                Y: { mask: IMask.MaskedRange, from: 1970, to: 2099, placeholderChar: 'a' },
-                H: { mask: IMask.MaskedRange, from: 0, to: 23, maxLength: 2, placeholderChar: 'h' },
-                M: { mask: IMask.MaskedRange, from: 0, to: 59, maxLength: 2, placeholderChar: 'm' }
-            },
-            lazy: false
-        };
+        const horarioAcionamentoTimeInput = document.getElementById('edit-horario-acionamento-time');
+        if (horarioAcionamentoTimeInput.imask) {
+            horarioAcionamentoTimeInput.imask.value = horarioAcionamento.time;
+        } else {
+            horarioAcionamentoTimeInput.value = horarioAcionamento.time;
+        }
+        
+        const alarmeFimTimeInput = document.getElementById('edit-alarme-fim-time');
+        if (alarmeFimTimeInput.imask) {
+            alarmeFimTimeInput.imask.value = alarmeFim.time;
+        } else {
+            alarmeFimTimeInput.value = alarmeFim.time;
+        }
+        // ===== FIM DA CORREÇÃO =====
 
-        const fieldsToSet = [
-            { id: 'edit-alarme-inicio', value: ticket.alarme_inicio },
-            { id: 'edit-horario-acionamento', value: ticket.horario_acionamento },
-            { id: 'edit-alarme-fim', value: ticket.alarme_fim }
-        ];
-
-        fieldsToSet.forEach(field => {
-            const inputElement = document.getElementById(field.id);
-            if (inputElement) {
-                const mask = IMask(inputElement, maskOptions);
-                mask.value = formatIsoToBr(field.value);
-            }
-        });
-
-   
+        // Preenche o resto do formulário...
         document.getElementById('edit-ticket-id').value = ticket.id;
         document.getElementById('edit-ticket-descricao').value = ticket.descricao;
         
@@ -1852,8 +1939,6 @@ async function carregarInfoCards() {
         if (statusItem) {
             document.getElementById('edit-ticket-status').value = statusItem.id;
         }
-
-   
 
         const linkContainer = document.getElementById('current-attachment-container');
         const linkSpan = document.getElementById('current-attachment-link');
@@ -1882,13 +1967,13 @@ async function carregarInfoCards() {
         
         const deleteButton = document.getElementById('btn-delete-ticket');
         if (deleteButton) {
-            deleteButton.classList.toggle('hidden', !(currentUser && currentUser.perfil === 'admin'));
+            deleteButton.classList.toggle('hidden', !(currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support')));
         }
 
         const commentsResponse = await fetch(`/api/tickets/${ticketId}/comments`);
         if (commentsResponse.ok) {
             const comments = await commentsResponse.json();
-            renderComments(comments);
+            renderComments(comments); 
         }
 
         toggleModal('modalEditarTicket', true);
@@ -2245,100 +2330,110 @@ async function carregarInfoCards() {
         return new Date(dateParts[2], dateParts[1] - 1, dateParts[0], timeParts[0], timeParts[1]);
     }
 
-    formAbrirTicket?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const formData = new FormData(formAbrirTicket);
-
-        const alarmeInicioVal = formData.get('alarme_inicio');
-        const horarioAcionamentoVal = formData.get('horario_acionamento');
-
-        if (!alarmeInicioVal || alarmeInicioVal.includes('d') || !horarioAcionamentoVal || horarioAcionamentoVal.includes('d')) {
-            return showStatusModal('Campo Obrigatório', 'Os campos "Início do Alarme" e "Início do Atendimento" devem ser preenchidos.', true);
-        }
-    
-        const inicioAtendimentoVal = formData.get('horario_acionamento');
-        const fimAlarmeVal = formData.get('alarme_fim');
-
-        if (inicioAtendimentoVal && fimAlarmeVal) {
-            const inicioDate = parseBrDate(inicioAtendimentoVal);
-            const fimDate = parseBrDate(fimAlarmeVal);
-            if (fimDate && inicioDate && fimDate < inicioDate) {
-                return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
-            }
-        }
-
-        formData.set('alarme_inicio', convertBrDateToIso(formData.get('alarme_inicio')));
-        formData.set('horario_acionamento', convertBrDateToIso(formData.get('horario_acionamento')));
-        formData.set('alarme_fim', convertBrDateToIso(formData.get('alarme_fim')));
-
-        const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
-        if (pastedFileCreate && (!fileInput.files || fileInput.files.length === 0)) {
-            formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
-        }
-
-        try {
-            const response = await fetch('/api/tickets', {
-                method: 'POST',
-                body: formData
-            });
-            const result = await response.json();
-            
-            if (response.ok) {
-                toggleModal('modalTicket', false);
-                showStatusModal('Sucesso!', result.message, false);
-                formAbrirTicket.reset();
-                carregarTickets();
-                carregarInfoCards();
-            } else {
-                showStatusModal('Erro!', result.message, true);
-            }
-        } catch (error) {
-            showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
-        } finally {
-            pastedFileCreate = null;
-            const preview = document.getElementById('paste-preview-create');
-            if (preview) preview.innerHTML = '';
-        }
-    });
-
-
-    formEditarTicket?.addEventListener('submit', async (event) => {
+ formAbrirTicket?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const ticketId = document.getElementById('edit-ticket-id').value;
-    const formData = new FormData(formEditarTicket);
+    const formData = new FormData(formAbrirTicket);
 
-    // ===== CORREÇÃO NA LEITURA DOS VALORES DE DATA =====
-    // Buscamos os elementos dos inputs de data
-    const alarmeInicioInput = document.getElementById('edit-alarme-inicio');
-    const horarioAcionamentoInput = document.getElementById('edit-horario-acionamento');
-    const alarmeFimInput = document.getElementById('edit-alarme-fim');
+    const alarmeInicioDate = formData.get('alarme_inicio_date');
+    const alarmeInicioTime = formData.get('alarme_inicio_time');
+    const horarioAcionamentoDate = formData.get('horario_acionamento_date');
+    const horarioAcionamentoTime = formData.get('horario_acionamento_time');
 
-    // Lemos o valor diretamente da instância do IMask para garantir a captura correta
-    const alarmeInicioVal = alarmeInicioInput.imask ? alarmeInicioInput.imask.value : alarmeInicioInput.value;
-    const horarioAcionamentoVal = horarioAcionamentoInput.imask ? horarioAcionamentoInput.imask.value : horarioAcionamentoInput.value;
-    const alarmeFimVal = alarmeFimInput.imask ? alarmeFimInput.imask.value : alarmeFimInput.value;
-    
-    // Agora fazemos a validação de datas
-    if (horarioAcionamentoVal && alarmeFimVal) {
-        const inicioDate = parseBrDate(horarioAcionamentoVal);
-        const fimDate = parseBrDate(alarmeFimVal);
+    // Validação de campos obrigatórios
+    if (!alarmeInicioDate || !alarmeInicioTime || alarmeInicioTime.includes('h') || 
+        !horarioAcionamentoDate || !horarioAcionamentoTime || horarioAcionamentoTime.includes('h')) {
+        return showStatusModal('Campos Obrigatórios', 'As datas e horas para "Início do Alarme" e "Início do Atendimento" são obrigatórias.', true);
+    }
+
+    // Combina os campos
+    const alarmeInicio = combineDateAndTime(alarmeInicioDate, alarmeInicioTime, false);
+    const horarioAcionamento = combineDateAndTime(horarioAcionamentoDate, horarioAcionamentoTime, false);
+    // CORREÇÃO: Passa 'true' para o Fim do Alarme, indicando que ele é opcional
+    const alarmeFim = combineDateAndTime(formData.get('alarme_fim_date'), formData.get('alarme_fim_time'), true);
+
+    // Validação de lógica de datas
+    if (horarioAcionamento && alarmeFim) {
+        const inicioDate = new Date(horarioAcionamento.replace(' ', 'T'));
+        const fimDate = new Date(alarmeFim.replace(' ', 'T'));
         if (fimDate && inicioDate && fimDate < inicioDate) {
             return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
         }
     }
 
-    // Adiciona o comentário ao FormData, se houver
+    formData.set('alarme_inicio', alarmeInicio);
+    formData.set('horario_acionamento', horarioAcionamento);
+    formData.set('alarme_fim', alarmeFim);
+
+    // Limpa os campos extras
+    ['alarme_inicio_date', 'alarme_inicio_time', 'horario_acionamento_date', 'horario_acionamento_time', 'alarme_fim_date', 'alarme_fim_time']
+     .forEach(key => formData.delete(key));
+
+    const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
+    if (pastedFileCreate && (!fileInput.files || fileInput.files.length === 0)) {
+        formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
+    }
+
+    try {
+        const response = await fetch('/api/tickets', { method: 'POST', body: formData });
+        const result = await response.json();
+        
+        if (response.ok) {
+            toggleModal('modalTicket', false);
+            showStatusModal('Sucesso!', result.message, false, () => {
+                carregarTickets(paginaAtual);
+                carregarInfoCards();
+            });
+            formAbrirTicket.reset();
+        } else {
+            showStatusModal('Erro!', result.message, true);
+        }
+    } catch (error) {
+        showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
+    } finally {
+        pastedFileCreate = null;
+        const preview = document.getElementById('paste-preview-create');
+        if (preview) preview.innerHTML = '';
+    }
+});
+ formEditarTicket?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const ticketId = document.getElementById('edit-ticket-id').value;
+    const formData = new FormData(formEditarTicket);
+
+    const alarmeInicioDate = formData.get('alarme_inicio_date');
+    const alarmeInicioTime = formData.get('alarme_inicio_time');
+    const horarioAcionamentoDate = formData.get('horario_acionamento_date');
+    const horarioAcionamentoTime = formData.get('horario_acionamento_time');
+
+    if (!alarmeInicioDate || !alarmeInicioTime || alarmeInicioTime.includes('h') || 
+        !horarioAcionamentoDate || !horarioAcionamentoTime || horarioAcionamentoTime.includes('h')) {
+        return showStatusModal('Campos Obrigatórios', 'As datas e horas para "Início do Alarme" e "Início do Atendimento" são obrigatórias.', true);
+    }
+
+    const alarmeInicio = combineDateAndTime(alarmeInicioDate, alarmeInicioTime, false);
+    const horarioAcionamento = combineDateAndTime(horarioAcionamentoDate, horarioAcionamentoTime, false);
+    // CORREÇÃO: Passa 'true' para o Fim do Alarme, indicando que ele é opcional
+    const alarmeFim = combineDateAndTime(formData.get('alarme_fim_date'), formData.get('alarme_fim_time'), true);
+
+    if (horarioAcionamento && alarmeFim) {
+        const inicioDate = new Date(horarioAcionamento.replace(' ', 'T'));
+        const fimDate = new Date(alarmeFim.replace(' ', 'T'));
+        if (fimDate && inicioDate && fimDate < inicioDate) {
+            return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
+        }
+    }
+
+    formData.set('alarme_inicio', alarmeInicio);
+    formData.set('horario_acionamento', horarioAcionamento);
+    formData.set('alarme_fim', alarmeFim);
+
+    ['alarme_inicio_date', 'alarme_inicio_time', 'horario_acionamento_date', 'horario_acionamento_time', 'alarme_fim_date', 'alarme_fim_time']
+     .forEach(key => formData.delete(key));
+
     const newCommentTextValue = document.getElementById('new-comment-text').value.trim();
     if (newCommentTextValue) {
         formData.append('new_comment_text', newCommentTextValue);
     }
-    
-    // Inserimos as datas formatadas corretamente no FormData que será enviado
-    formData.set('alarme_inicio', convertBrDateToIso(alarmeInicioVal));
-    formData.set('horario_acionamento', convertBrDateToIso(horarioAcionamentoVal));
-    formData.set('alarme_fim', convertBrDateToIso(alarmeFimVal));
-    // ===== FIM DA CORREÇÃO =====
-
     const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
     if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
         formData.set('anexo', pastedFileEdit, pastedFileEdit.name);
@@ -2346,12 +2441,8 @@ async function carregarInfoCards() {
     }
 
     try {
-        const response = await fetch(`/api/tickets/${ticketId}`, {
-            method: 'PUT',
-            body: formData
-        });
+        const response = await fetch(`/api/tickets/${ticketId}`, { method: 'PUT', body: formData });
         const result = await response.json();
-
         if (response.ok) {
             toggleModal('modalEditarTicket', false);
             showStatusModal('Sucesso!', result.message, false, () => {
@@ -2370,13 +2461,17 @@ async function carregarInfoCards() {
         document.getElementById('new-comment-text').value = '';
     }
 });
-
-    tabelaTicketsBody?.addEventListener('click', (event) => {
-        const editButton = event.target.closest('.btn-edit-ticket');
-        if (editButton) {
-            abrirModalEditar(editButton.dataset.id);
-        }
-    });
+   tabelaTicketsBody?.addEventListener('click', (event) => {
+    
+    if (event.target.classList.contains('JCLRgrip')) {
+        return; 
+    }
+    const clickedRow = event.target.closest('tr[data-ticket-id]');
+    
+    if (clickedRow) {
+        abrirModalEditar(clickedRow.dataset.ticketId);
+    }
+});
     // ALTERAÇÃO 2: Adicionando um console.log para diagnosticar o botão de deletar
     document.getElementById('btn-delete-ticket')?.addEventListener('click', () => {
         console.log("Botão Deletar Ticket clicado!"); // <-- LINHA DE TESTE
@@ -2424,26 +2519,18 @@ async function carregarInfoCards() {
 
     selectElement.addEventListener('change', (event) => {
         console.clear();
-        console.log(`--- DEBUG: Dropdown #${selectId} foi alterado! ---`);
         
-        // 1. VAMOS VERIFICAR O OBJETO DE USUÁRIO ATUAL
-        console.log("1. Verificando permissões com o objeto 'currentUser':", currentUser);
-
-        // 2. VERIFICANDO A LÓGICA DE PERMISSÃO
         const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
-        console.log(`2. O usuário é admin ou support (canManage)? ${canManage}`);
+      
 
         const valorSelecionado = event.target.value;
         const btnDelete = document.getElementById(buttonId);
 
         if (btnDelete) {
             const deveEsconder = !valorSelecionado || !canManage;
-            console.log(`3. Botão deve ficar escondido? ${deveEsconder} (porque valorSelecionado=${!!valorSelecionado} e canManage=${canManage})`);
             btnDelete.classList.toggle('hidden', deveEsconder);
-        } else {
-            console.error(`ERRO: O botão de exclusão #${buttonId} não foi encontrado!`);
-        }
-        console.log(`--- FIM DO DEBUG ---`);
+        } 
+      
     });
 }
     document.getElementById('btn-remove-anexo')?.addEventListener('click', () => {
@@ -2457,7 +2544,7 @@ async function carregarInfoCards() {
         fileInput.value = '';
     }
 });
-const CLIENT_VERSION = "1.0.0"; 
+
 
 function checkForUpdates() {
     console.log("Verificando atualizações...");
@@ -2504,4 +2591,5 @@ btnDeleteStatus?.addEventListener('click', () => {
     carregarInfoCards();
     carregarTickets();
     setupPasteFunctionality();
+    const CLIENT_VERSION = "1.2.0"; 
 });

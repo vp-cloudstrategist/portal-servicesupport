@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard - Nexxt Cloud</title>
+    <link rel="icon" type="image/png" href="/images/LogoCloudQuadradoAzul.png">
      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -331,19 +332,31 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Início do Alarme</label>
-                        <input type="text" name="alarme_inicio" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Início do Atendimento</label>
-                        <input type="text" name="horario_acionamento" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Fim do Alarme</label>
-                        <input type="text" name="alarme_fim" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                    </div>
-                </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Início do Alarme (Data)</label>
+        <input type="date" name="alarme_inicio_date" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Início do Alarme (Hora)</label>
+        <input type="text" name="alarme_inicio_time" placeholder="hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Início do Atendimento (Data)</label>
+        <input type="date" name="horario_acionamento_date" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Início do Atendimento (Hora)</label>
+        <input type="text" name="horario_acionamento_time" placeholder="hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Fim do Alarme (Data)</label>
+        <input type="date" name="alarme_fim_date" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Fim do Alarme (Hora)</label>
+        <input type="text" name="alarme_fim_time" placeholder="hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+</div>
                 
                 <div>
                     <label for="ticket-anexos" class="block text-sm font-semibold text-gray-700">Anexos</label>
@@ -752,19 +765,31 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Início do Alarme</label>
-                        <input type="text" id="edit-alarme-inicio" name="alarme_inicio" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Início do Atendimento</label>
-                        <input type="text" id="edit-horario-acionamento" name="horario_acionamento" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Fim do Alarme</label>
-                        <input type="text" id="edit-alarme-fim" name="alarme_fim" placeholder="dd/mm/aaaa hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                    </div>
-                </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Início do Alarme (Data)</label>
+        <input type="date" id="edit-alarme-inicio-date" name="alarme_inicio_date" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Início do Alarme (Hora)</label>
+        <input type="text" id="edit-alarme-inicio-time" name="alarme_inicio_time" placeholder="hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Início do Atendimento (Data)</label>
+        <input type="date" id="edit-horario-acionamento-date" name="horario_acionamento_date" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Início do Atendimento (Hora)</label>
+        <input type="text" id="edit-horario-acionamento-time" name="horario_acionamento_time" placeholder="hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Fim do Alarme (Data)</label>
+        <input type="date" id="edit-alarme-fim-date" name="alarme_fim_date" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">Fim do Alarme (Hora)</label>
+        <input type="text" id="edit-alarme-fim-time" name="alarme_fim_time" placeholder="hh:mm" class="w-full mt-1 border rounded p-2 bg-gray-50">
+    </div>
+</div>
 
                 <div>
                     <label for="edit-ticket-descricao" class="block text-sm font-semibold text-gray-700">Descrição</label>
