@@ -309,6 +309,7 @@
                     <label for="ticket-alerta" class="block text-sm font-semibold text-gray-700">Alerta</label>
                     <select id="ticket-alerta" name="alerta_id" required class="w-full mt-1 border rounded p-2 bg-gray-50"></select>
                     <div class="mt-2 flex justify-end items-center gap-4">
+                        <button type="button" id="btn-edit-alerta-selecionado" class="text-xs text-blue-600 hover:underline font-semibold hidden">Editar alerta</button>
                         <button type="button" id="btn-delete-alerta-selecionado" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir alerta</button>
                         <button type="button" id="btn-show-add-alerta" class="text-xs text-blue-600 hover:underline font-semibold hidden">+ Adicionar alerta</button>
                     </div>
@@ -370,6 +371,27 @@
             </div>
         </div>
 
+    </div>
+</div>
+<div id="modalEditarAlerta" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[150] hidden p-4">
+    <div class="bg-white w-full max-w-lg rounded-xl shadow-lg relative flex flex-col">
+        <div class="flex-shrink-0 p-6 pb-4 border-b">
+            <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalEditarAlerta', false)">&times;</button>
+            <h2 class="text-2xl font-bold text-center text-[#02092B]">Editar Alerta</h2>
+        </div>
+        <form id="formEditarAlerta" class="p-6 space-y-4">
+            <input type="hidden" id="edit-alerta-id" name="id">
+            <div>
+                <label id="edit-alerta-label" for="input-edit-alerta" class="block text-sm font-semibold text-gray-700 mb-1">Nome do Alerta</label>
+                <input type="text" id="input-edit-alerta" name="nome" required class="w-full border rounded px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            </div>
+        </form>
+        <div class="flex-shrink-0 p-6 pt-4 border-t">
+            <div class="flex justify-end gap-4">
+                 <button type="button" onclick="toggleModal('modalEditarAlerta', false)" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" form="formEditarAlerta" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold">Salvar Alterações</button>
+            </div>
+        </div>
     </div>
 </div>
 

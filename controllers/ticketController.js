@@ -770,3 +770,31 @@ exports.deleteStatus = async (req, res) => {
         res.status(500).json({ message: 'Erro interno no servidor.' });
     }
 };
+exports.updateAlerta = async (req, res) => {
+    const { id } = req.params;
+    const { nome } = req.body;
+    const nomeCapitalized = capitalize(nome);
+
+    if (!nome) {
+        return res.status(400).json({ message: 'O nome do alerta é obrigatório.' });
+    }
+
+    try {
+        const [result] = await pool.query('UPDATE ticket_alertas SET nome = ? WHERE id = ?', [nomeCapitalized, id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Alerta não encontrado.' });
+        }
+
+        res.status(200).json({
+            message: 'Alerta atualizado com sucesso!',
+            itemAtualizado: { id: id, nome: nomeCapitalized }
+        });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'Um alerta com este nome já existe.' });
+        }
+        console.error("Erro ao atualizar alerta:", error);
+        res.status(500).json({ message: 'Erro no servidor ao atualizar alerta.' });
+    }
+};

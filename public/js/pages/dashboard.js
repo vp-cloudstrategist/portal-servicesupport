@@ -12,6 +12,7 @@ let paginaAtual = 1;
     let currentStatusList = [];
     let ticketAbertoParaEdicao = null;
     let userIdToDelete = null;
+    let alertaIdToEdit = null;
 
     let currentAlertsList = [];
     let currentGruposList = [];
@@ -482,6 +483,70 @@ document.getElementById('btn-confirm-delete-user')?.addEventListener('click', as
         showStatusModal('Erro de Conexão', 'Não foi possível deletar o usuário.', true);
     } finally {
         userIdToDelete = null;
+    }
+});
+const btnEditAlerta = document.getElementById('btn-edit-alerta-selecionado');
+const formEditarAlerta = document.getElementById('formEditarAlerta');
+const inputEditAlerta = document.getElementById('input-edit-alerta');
+const labelEditAlerta = document.getElementById('edit-alerta-label');
+
+// Listener para o botão "Editar alerta"
+btnEditAlerta?.addEventListener('click', () => {
+    const alertaSelect = document.getElementById('ticket-alerta');
+    const selectedId = alertaSelect.value;
+    
+    if (!selectedId) {
+        showStatusModal('Atenção!', 'Por favor, selecione um alerta da lista para editar.', true);
+        return;
+    }
+    
+    const selectedText = alertaSelect.options[alertaSelect.selectedIndex].text;
+    
+    alertaIdToEdit = selectedId;
+    inputEditAlerta.value = selectedText;
+    labelEditAlerta.textContent = `Editando Alerta: "${selectedText}"`;
+    toggleModal('modalEditarAlerta', true);
+});
+
+// Listener para o formulário do modal de edição
+formEditarAlerta?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!alertaIdToEdit) return;
+
+    const novoNome = capitalize(inputEditAlerta.value.trim());
+    if (!novoNome) {
+        return showStatusModal('Erro!', 'O nome do alerta não pode ficar vazio.', true);
+    }
+
+    try {
+        const response = await fetch(`/api/tickets/options/alertas/${alertaIdToEdit}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: novoNome })
+        });
+        const result = await response.json();
+        
+        if (!response.ok) throw new Error(result.message);
+
+        toggleModal('modalEditarAlerta', false);
+
+        
+        const areaSelect = document.getElementById('ticket-area');
+        const areaSelectEdit = document.getElementById('edit-ticket-area');
+
+        await Promise.all([
+             handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta'),
+             handleAreaChange(areaSelectEdit, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta')
+        ]);
+        
+        showStatusModal('Sucesso!', result.message, false, () => {
+            document.getElementById('ticket-alerta').value = alertaIdToEdit;
+        });
+        
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true);
+    } finally {
+        alertaIdToEdit = null;
     }
 });
 
@@ -1401,13 +1466,12 @@ btnSaveNewStatus?.addEventListener('click', async () => {
             columnConfig = parsedConfig; 
         } catch (e) {
             console.error("Erro ao carregar configuração de colunas, usando padrão.", e);
-            // Se der erro, limpa o config salvo para evitar loops
             localStorage.removeItem('ticketColumnConfig');
         }
     }
 }
 
-   function renderTable(tickets) {
+  function renderTable(tickets) {
     if (!ticketsTable) return;
 
     if ($(ticketsTable).data('colResizable')) {
@@ -1423,7 +1487,6 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     const visibleColumns = columnConfig.filter(col => col.visible);
 
     visibleColumns.forEach(col => {
-        // A coluna 'actions' não é mais renderizada aqui
         thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
     });
 
@@ -1449,8 +1512,9 @@ btnSaveNewStatus?.addEventListener('click', async () => {
                         cellValue = `#INC-${ticket.id}`;
                         break;
                     case 'data_criacao':
-                        cellValue = new Date(ticket.data_criacao).toLocaleDateString('pt-BR');
+                        cellValue = formatDateTime(ticket.data_criacao);
                         break;
+                        
                     case 'alarme_inicio':
                     case 'alarme_fim':
                     case 'horario_acionamento':
@@ -2509,28 +2573,34 @@ async function carregarInfoCards() {
             ticketIdToDelete = null;
         }
     });
-    function addDeleteButtonListener(selectId, buttonId) {
+    function addOptionButtonListeners(selectId, btnDeleteId, btnEditId = null) {
     const selectElement = document.getElementById(selectId);
     if (!selectElement) {
-        // Este console.error ajuda a encontrar erros de digitação nos IDs
         console.error(`[ERRO de Configuração] O dropdown #${selectId} não foi encontrado.`);
         return;
     }
 
     selectElement.addEventListener('change', (event) => {
-        console.clear();
-        
         const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
-      
-
         const valorSelecionado = event.target.value;
-        const btnDelete = document.getElementById(buttonId);
-
+        
+        // Lógica do botão Deletar
+        const btnDelete = document.getElementById(btnDeleteId);
         if (btnDelete) {
-            const deveEsconder = !valorSelecionado || !canManage;
-            btnDelete.classList.toggle('hidden', deveEsconder);
-        } 
-      
+            btnDelete.classList.toggle('hidden', !valorSelecionado || !canManage);
+        } else {
+            console.error(`[ERRO] O botão de exclusão #${btnDeleteId} não foi encontrado!`);
+        }
+        
+        // Lógica do botão Editar
+        if (btnEditId) {
+            const btnEdit = document.getElementById(btnEditId);
+            if (btnEdit) {
+                btnEdit.classList.toggle('hidden', !valorSelecionado || !canManage);
+            } else {
+                console.error(`[ERRO] O botão de edição #${btnEditId} não foi encontrado!`);
+            }
+        }
     });
 }
     document.getElementById('btn-remove-anexo')?.addEventListener('click', () => {
@@ -2547,19 +2617,19 @@ async function carregarInfoCards() {
 
 
 
-    addDeleteButtonListener('ticket-area', 'btn-delete-area-selecionada');
-    addDeleteButtonListener('ticket-grupo', 'btn-delete-grupo-selecionado');
-    addDeleteButtonListener('ticket-tipo', 'btn-delete-tipo-selecionado');
-    addDeleteButtonListener('ticket-prioridade', 'btn-delete-prioridade-selecionada');
-    addDeleteButtonListener('ticket-alerta', 'btn-delete-alerta-selecionado');
+   addOptionButtonListeners('ticket-area', 'btn-delete-area-selecionada');
+   addOptionButtonListeners('ticket-grupo', 'btn-delete-grupo-selecionado');
+    addOptionButtonListeners('ticket-tipo', 'btn-delete-tipo-selecionado');
+    addOptionButtonListeners('ticket-prioridade', 'btn-delete-prioridade-selecionada');
+    addOptionButtonListeners('ticket-alerta', 'btn-delete-alerta-selecionado', 'btn-edit-alerta-selecionado');
 
 
-    addDeleteButtonListener('edit-ticket-area', 'btn-delete-area-selecionada-edit');
-    addDeleteButtonListener('edit-ticket-grupo', 'btn-delete-grupo-selecionado-edit');
-    addDeleteButtonListener('edit-ticket-tipo', 'btn-delete-tipo-selecionado-edit');
-    addDeleteButtonListener('edit-ticket-prioridade', 'btn-delete-prioridade-selecionado-edit');
-    addDeleteButtonListener('edit-ticket-alerta', 'btn-delete-alerta-selecionado-edit');
-    addDeleteButtonListener('ticket-status', 'btn-delete-status-selecionado');
+   addOptionButtonListeners('edit-ticket-area', 'btn-delete-area-selecionada-edit');
+   addOptionButtonListeners('edit-ticket-grupo', 'btn-delete-grupo-selecionado-edit');
+    addOptionButtonListeners('edit-ticket-tipo', 'btn-delete-tipo-selecionado-edit');
+   addOptionButtonListeners('edit-ticket-prioridade', 'btn-delete-prioridade-selecionado-edit');
+   addOptionButtonListeners('edit-ticket-alerta', 'btn-delete-alerta-selecionado-edit');
+    addOptionButtonListeners('ticket-status', 'btn-delete-status-selecionado');
 btnDeleteStatus?.addEventListener('click', () => {
     handleDeleteOption('status', 'ticket-status', (val) => statusIdToDelete = val, 'modalConfirmarDeleteStatus');
 });
