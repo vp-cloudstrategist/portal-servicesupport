@@ -121,7 +121,19 @@ function abrirModalNovoTicket() {
 
 document.addEventListener('DOMContentLoaded', () => {
     
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+const sidebarToggleIcon = document.getElementById('sidebar-toggle-icon');
 
+sidebarToggle?.addEventListener('click', () => {
+    sidebar.classList.toggle('sidebar-collapsed');
+    sidebar.classList.toggle('w-64');
+    sidebar.classList.toggle('w-20'); 
+
+ 
+    sidebarToggleIcon.classList.toggle('fa-chevron-left');
+    sidebarToggleIcon.classList.toggle('fa-chevron-right');
+});
     const timeMaskOptions = {
         mask: 'HH:mm',
         blocks: {
@@ -1748,43 +1760,37 @@ async function carregarInfoCards() {
     try {
         const response = await fetch('/api/tickets/cards-info');
         if (!response.ok) throw new Error('Falha ao carregar cards');
-        const data = await response.json();
+        const data = await response.json(); // Ex: { total: 15, counts: [...] }
 
         const cardContainer = document.getElementById('card-container');
         if (!cardContainer) return;
 
+        // Limpa o container (remove os botões estáticos do HTML)
         cardContainer.innerHTML = ''; 
 
+        // 1. Cria o card "Todos Tickets" dinamicamente
         let todosCardHtml = `
-            <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" data-status-name="all">
-                <div class="flex justify-between items-start">
-                    <img src="/images/total.png" alt="Ícone Todos Tickets" class="w-15 h-12" />
-                    <p class="text-3xl font-black text-black">${data.total || 0}</p>
-                </div>
-                <div>
-                    <p class="text-lg font-bold text-[#0A0E2B] leading-tight">Todos<br>Tickets</p>
-                </div>
-            </div>
+            <button class="status-card flex items-center gap-2 p-2 rounded-md hover:bg-blue-800 space-x-2 flex-shrink-0 cursor-pointer ring-4 ring-blue-500" data-status-name="all">
+                <i data-lucide="menu" class="w-5 h-5"></i>
+                <span class="font-medium">Todos Tickets</span>
+                <span class="font-bold text-lg">${data.total || 0}</span>
+            </button>
         `;
         cardContainer.innerHTML += todosCardHtml;
 
+        // 2. Cria um card dinâmico para cada status
         data.counts.forEach(item => {
-            
-            const iconSrc = '/images/aberto.png'; 
-            
             const cardHtml = `
-                <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" data-status-name="${item.nome}">
-                    <div class="flex justify-between items-start">
-                        <img src="${iconSrc}" alt="Ícone ${item.nome}" class="w-15 h-12" />
-                        <p class="text-3xl font-black text-black">${item.count || 0}</p>
-                    </div>
-                    <div>
-                        <p class="text-lg font-bold text-[#0A0E2B] leading-tight">${item.nome}</p>
-                    </div>
-                </div>
+                <button class="status-card flex items-center gap-2 p-2 rounded-md hover:bg-blue-800 space-x-2 flex-shrink-0 cursor-pointer" data-status-name="${item.nome}">
+                    <i data-lucide="ticket" class="w-5 h-5"></i>
+                    <span class="font-medium">${item.nome}</span>
+                    <span class="font-bold text-lg">${item.count || 0}</span>
+                </button>
             `;
             cardContainer.innerHTML += cardHtml;
         });
+
+        // 3. Adiciona a lógica de clique (AGORA VAI FUNCIONAR)
         const allCards = document.querySelectorAll('.status-card');
         allCards.forEach(card => {
             card.addEventListener('click', () => {
@@ -1798,13 +1804,16 @@ async function carregarInfoCards() {
                 } else {
                     currentFilters.status = statusName;
                 }
-
-                carregarTickets(1);
+                carregarTickets(1); // Recarrega a tabela com o filtro
             });
         });
 
+        // 4. Renderiza os ícones da Lucide DEPOIS de criá-los
+        lucide.createIcons();
+
     } catch (error) {
         console.error("Erro ao carregar info dos cards:", error);
+        if (cardContainer) cardContainer.innerHTML = '<p class="text-sm text-red-300">Erro ao carregar status.</p>';
     }
 }
 
@@ -1873,7 +1882,41 @@ async function carregarInfoCards() {
         btnNext.onclick = () => carregarTickets(pagina + 1);
         container.appendChild(btnNext);
     }
+async function abrirModalMinhaConta() {
+    toggleModal('modalMinhaConta', true);
+    const areaContainer = document.getElementById('minha-conta-area-container');
+    areaContainer.innerHTML = 'Carregando...';
 
+    try {
+        const response = await fetch('/api/users/me');
+        if (!response.ok) throw new Error('Não foi possível carregar seus dados.');
+        const user = await response.json();
+
+        // (Aqui vai a lógica para preencher o formulário)
+        formMinhaConta.elements['nome'].value = user.nome || '';
+        formMinhaConta.elements['sobrenome'].value = user.sobrenome || '';
+        formMinhaConta.elements['login'].value = user.login || '';
+        formMinhaConta.elements['telefone'].value = user.telefone || '';
+
+        if (user.perfil === 'admin') {
+            areaContainer.innerHTML = `<label class="block text-sm font-semibold text-gray-700 mb-2">Áreas</label><div class="p-2 border rounded-md max-h-32 overflow-y-auto bg-gray-50"></div>`;
+            const allAreas = await getAreasList();
+            createAreaCheckboxes(areaContainer.querySelector('.p-2'), allAreas, user.area_ids);
+        } else {
+            areaContainer.innerHTML = `<label class="block text-sm font-semibold text-gray-700">Áreas</label><input type="text" value="${user.areas_nome || 'Nenhuma'}" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed">`;
+        }
+
+        formMinhaConta.elements['novaSenha'].value = '';
+        formMinhaConta.elements['confirmarSenha'].value = '';
+        document.getElementById('password-rules-minha-conta').innerHTML = '';
+
+    } catch (error) {
+        showStatusModal('Erro!', error.message, true, () => {
+            toggleModal('modalMinhaConta', false);
+        });
+    }
+}
+document.getElementById('user-info-button')?.addEventListener('click', abrirModalMinhaConta);
 
     function criarSeletorItensPorPagina() {
     const container = document.getElementById('items-por-pagina-container');
