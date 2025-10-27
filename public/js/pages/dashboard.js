@@ -1018,50 +1018,50 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     }
 
 
-    formFiltros?.addEventListener('change', (e) => {
-        if (e.target.name === 'date_range') {
-            customDateInputs.classList.toggle('hidden', e.target.value !== 'custom');
-        }
+   formFiltros?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(formFiltros);
+    currentFilters = {}; 
+
+    currentFilters.areas = formData.getAll('areas').join(',');
+    currentFilters.status = formData.getAll('status').join(',');
+    currentFilters.prioridades_nomes = formData.getAll('prioridades_nomes').join(',');
+    currentFilters.usuarios = formData.getAll('usuarios').join(',');
+
+    const dateRange = formData.get('date_range');
+    if (dateRange === '7days') {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 7);
+        currentFilters.startDate = startDate.toISOString().split('T')[0];
+        currentFilters.endDate = endDate.toISOString().split('T')[0];
+    } else if (dateRange === 'custom') {
+        currentFilters.startDate = formData.get('startDate');
+        currentFilters.endDate = formData.get('endDate');
+    }
+
+    Object.keys(currentFilters).forEach(key => {
+        if (!currentFilters[key]) delete currentFilters[key];
     });
+
+    carregarTickets(1);
+    carregarInfoCards(); 
+    
+    toggleModal('modalFiltros', false);
+});
 
     btnLimparFiltros?.addEventListener('click', () => {
-        formFiltros.reset();
-        customDateInputs.classList.add('hidden');
-        currentFilters = {};
-        carregarTickets(1);
-        toggleModal('modalFiltros', false);
-    });
+    formFiltros.reset();
+    customDateInputs.classList.add('hidden');
+    currentFilters = {};
+    
+   
+    carregarTickets(1);
+    carregarInfoCards(); 
+    
+    toggleModal('modalFiltros', false);
+});
 
-    formFiltros?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const formData = new FormData(formFiltros);
-        const filters = {};
-
-        filters.areas = formData.getAll('areas').join(',');
-        filters.status = formData.getAll('status').join(',');
-        filters.prioridades_nomes = formData.getAll('prioridades_nomes').join(',');
-        filters.usuarios = formData.getAll('usuarios').join(',');
-
-        const dateRange = formData.get('date_range');
-        if (dateRange === '7days') {
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - 7);
-            filters.startDate = startDate.toISOString().split('T')[0];
-            filters.endDate = endDate.toISOString().split('T')[0];
-        } else if (dateRange === 'custom') {
-            filters.startDate = formData.get('startDate');
-            filters.endDate = formData.get('endDate');
-        }
-
-        Object.keys(filters).forEach(key => {
-            if (!filters[key]) delete filters[key];
-        });
-
-        currentFilters = filters;
-        carregarTickets(1);
-        toggleModal('modalFiltros', false);
-    });
 
     function createAreaCheckboxes(container, areaList, selectedAreaIds = []) {
         container.innerHTML = '';
@@ -1741,14 +1741,11 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         
         currentStatusList = statusItems;
         
-        // Encontra o ID do status "Em Atendimento" para usar como padrão
         const defaultStatus = statusItems.find(s => s.nome === 'Em Atendimento');
         const defaultStatusId = defaultStatus ? defaultStatus.id : null;
         
-        // Popula o dropdown de NOVO TICKET, passando o ID padrão
         popularDropdown('ticket-status', statusItems, 'Selecione o Status', defaultStatusId);
         
-        // Popula o dropdown de EDITAR TICKET, sem valor padrão
         popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
     } catch (error) {
         console.error('Erro ao popular os seletores de Status:', error);
@@ -1757,20 +1754,25 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     }
 }
 async function carregarInfoCards() {
+
+    const cardContainer = document.getElementById('card-container');
+    if (!cardContainer) return;
+
     try {
-        const response = await fetch('/api/tickets/cards-info');
+        const params = new URLSearchParams(currentFilters);
+        const queryString = params.toString();
+        
+        const response = await fetch(`/api/tickets/cards-info?${queryString}`);
         if (!response.ok) throw new Error('Falha ao carregar cards');
-        const data = await response.json(); // Ex: { total: 15, counts: [...] }
+        const data = await response.json(); 
 
-        const cardContainer = document.getElementById('card-container');
-        if (!cardContainer) return;
-
-        // Limpa o container (remove os botões estáticos do HTML)
         cardContainer.innerHTML = ''; 
 
-        // 1. Cria o card "Todos Tickets" dinamicamente
+        const activeStatus = currentFilters.status || 'all';
+
+        const totalRingClass = activeStatus === 'all' ? 'ring-4 ring-blue-500' : '';
         let todosCardHtml = `
-            <button class="status-card flex items-center gap-2 p-2 rounded-md hover:bg-blue-800 space-x-2 flex-shrink-0 cursor-pointer ring-4 ring-blue-500" data-status-name="all">
+            <button class="status-card flex items-center gap-2 p-2 rounded-md hover:bg-blue-800 space-x-2 flex-shrink-0 cursor-pointer ${totalRingClass}" data-status-name="all">
                 <i data-lucide="menu" class="w-5 h-5"></i>
                 <span class="font-medium">Todos Tickets</span>
                 <span class="font-bold text-lg">${data.total || 0}</span>
@@ -1778,10 +1780,10 @@ async function carregarInfoCards() {
         `;
         cardContainer.innerHTML += todosCardHtml;
 
-        // 2. Cria um card dinâmico para cada status
         data.counts.forEach(item => {
+            const itemRingClass = activeStatus === item.nome ? 'ring-4 ring-blue-500' : '';
             const cardHtml = `
-                <button class="status-card flex items-center gap-2 p-2 rounded-md hover:bg-blue-800 space-x-2 flex-shrink-0 cursor-pointer" data-status-name="${item.nome}">
+                <button class="status-card flex items-center gap-2 p-2 rounded-md hover:bg-blue-800 space-x-2 flex-shrink-0 cursor-pointer ${itemRingClass}" data-status-name="${item.nome}">
                     <i data-lucide="ticket" class="w-5 h-5"></i>
                     <span class="font-medium">${item.nome}</span>
                     <span class="font-bold text-lg">${item.count || 0}</span>
@@ -1790,13 +1792,11 @@ async function carregarInfoCards() {
             cardContainer.innerHTML += cardHtml;
         });
 
-        // 3. Adiciona a lógica de clique (AGORA VAI FUNCIONAR)
+        lucide.createIcons();
+
         const allCards = document.querySelectorAll('.status-card');
         allCards.forEach(card => {
             card.addEventListener('click', () => {
-                allCards.forEach(c => c.classList.remove('ring-4', 'ring-blue-500'));
-                card.classList.add('ring-4', 'ring-blue-500');
-
                 const statusName = card.dataset.statusName;
                 
                 if (statusName === 'all') {
@@ -1804,19 +1804,17 @@ async function carregarInfoCards() {
                 } else {
                     currentFilters.status = statusName;
                 }
-                carregarTickets(1); // Recarrega a tabela com o filtro
+                
+                carregarTickets(1); 
+                carregarInfoCards(); 
             });
         });
-
-        // 4. Renderiza os ícones da Lucide DEPOIS de criá-los
-        lucide.createIcons();
 
     } catch (error) {
         console.error("Erro ao carregar info dos cards:", error);
         if (cardContainer) cardContainer.innerHTML = '<p class="text-sm text-red-300">Erro ao carregar status.</p>';
     }
 }
-
     async function carregarTickets(pagina = 1) {
     paginaAtual = pagina;
     
