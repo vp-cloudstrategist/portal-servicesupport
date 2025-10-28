@@ -60,16 +60,20 @@ exports.getAllTickets = async (req, res) => {
 
     try {
         // 1. Constrói os filtros
-        const { whereClause, queryParams } = await buildTicketFilters(req.query, loggedInUser);
+        const { joins: filterJoins, whereClause, queryParams } = await buildTicketFilters(req.query, loggedInUser);
         
-        // 2. Definimos a lista COMPLETA de joins que esta query sempre precisa
+        // 2. Define a lista COMPLETA de joins que esta query sempre precisa
+        // Usamos um Set para evitar duplicatas caso o filtro já tenha adicionado
+        const requiredJoins = new Set(filterJoins ? filterJoins.split('\n') : []);
+        requiredJoins.add('LEFT JOIN ticket_status s ON t.status_id = s.id');
+        requiredJoins.add('LEFT JOIN ticket_grupos g ON t.grupo_id = g.id');
+        requiredJoins.add('LEFT JOIN ticket_areas a ON g.area_id = a.id');
+        requiredJoins.add('LEFT JOIN ticket_alertas al ON t.alerta_id = al.id');
+        requiredJoins.add('LEFT JOIN user u ON t.user_id = u.id');
+        requiredJoins.add('LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id');
+        
         const allJoins = `
-            LEFT JOIN ticket_status s ON t.status_id = s.id
-            LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
-            LEFT JOIN ticket_areas a ON g.area_id = a.id
-            LEFT JOIN ticket_alertas al ON t.alerta_id = al.id
-            LEFT JOIN user u ON t.user_id = u.id
-            LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id
+            ${Array.from(requiredJoins).join(' ')}
             LEFT JOIN (
                 SELECT 
                     ticket_id, 
@@ -79,15 +83,14 @@ exports.getAllTickets = async (req, res) => {
             ) AS lc ON t.id = lc.ticket_id AND lc.rn = 1
         `;
 
-        // 3. Query de Contagem
-        const countFilters = await buildTicketFilters(req.query, loggedInUser);
+        // 3. Query de Contagem (usa apenas os joins do filtro)
         const countSql = `SELECT COUNT(DISTINCT t.id) as total 
                           FROM tickets t
-                          ${countFilters.joins} 
+                          ${filterJoins} 
                           ${whereClause}`;
         const [[{ total }]] = await pool.query(countSql, queryParams);
 
-        // 4. Query de Tickets
+        // 4. Query de Tickets (usando a lista completa de joins)
         const ticketsSql = `
             SELECT 
                 t.id, t.data_criacao, t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
@@ -98,7 +101,7 @@ exports.getAllTickets = async (req, res) => {
             FROM tickets t
             ${allJoins}
             ${whereClause}
-            -- ===== LINHA CORRIGIDA (GROUP BY t.id foi removido) =====
+            GROUP BY t.id, s.nome, a.nome, al.nome, g.nome, u.nome, p.nome, lc.comment_text
             ${orderClause} 
             LIMIT ? OFFSET ?`;
 
@@ -117,23 +120,30 @@ exports.getCardInfo = async (req, res) => {
     try {
         const { joins, whereClause, queryParams } = await buildTicketFilters(req.query, req.session.user);
 
-        const totalSql = `SELECT COUNT(DISTINCT t.id) as total FROM tickets t ${joins} ${whereClause}`;
+        const totalSql = `SELECT COUNT(DISTINCT t.id) as total 
+                          FROM tickets t 
+                          ${joins} 
+                          ${whereClause}`;
         const [[{ total }]] = await pool.query(totalSql, queryParams);
+
         const statusCountsSql = `
             SELECT 
                 s.nome, 
-                COUNT(DISTINCT t.id) as count
+                COUNT(t_filtered.id) as count
             FROM ticket_status s
-            LEFT JOIN tickets t ON s.id = t.status_id
-            ${joins} 
-            ${whereClause}
+            LEFT JOIN (
+                SELECT t.id, t.status_id 
+                FROM tickets t
+                ${joins} 
+                ${whereClause}
+                GROUP BY t.id, t.status_id
+            ) AS t_filtered ON s.id = t_filtered.status_id
             GROUP BY s.id, s.nome
             ORDER BY s.id
         `;
         
         const [counts] = await pool.query(statusCountsSql, queryParams);
 
-        // 4. Retorna o resultado
         res.status(200).json({
             total: total,
             counts: counts
@@ -147,7 +157,6 @@ exports.getCardInfo = async (req, res) => {
 exports.getTicketById = async (req, res) => {
     try {
         const { id } = req.params;
-        // ===== CONSULTA MODIFICADA para incluir o nome do status =====
         const sql = `
             SELECT 
                 t.*, 
@@ -185,13 +194,8 @@ exports.updateTicket = async (req, res) => {
             return res.status(404).json({ message: 'Ticket não encontrado.' });
         }
         const oldData = existingTicketRows[0];
-
-        // --- LÓGICA DE ATUALIZAÇÃO CORRIGIDA ---
-
-        // 1. Começamos com os dados antigos como base
         const finalData = { ...oldData };
 
-        // 2. Verificamos o status de forma inteligente
         let newStatusId = newData.status_id || newData.status; // Aceita 'status_id' ou 'status'
         
         // Se o status veio como nome (ex: "Resolvido"), buscamos o ID correspondente

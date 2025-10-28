@@ -1754,25 +1754,24 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     }
 }
 async function carregarInfoCards() {
-
-    const cardContainer = document.getElementById('card-container');
-    if (!cardContainer) return;
-
     try {
-        const params = new URLSearchParams(currentFilters);
-        const queryString = params.toString();
-        
-        const response = await fetch(`/api/tickets/cards-info?${queryString}`);
+        const response = await fetch('/api/tickets/cards-info');
         if (!response.ok) throw new Error('Falha ao carregar cards');
         const data = await response.json(); 
 
-        cardContainer.innerHTML = ''; 
+        const cardContainer = document.getElementById('card-container');
+        if (!cardContainer) return;
+
+        cardContainer.innerHTML = '';
 
         const activeStatus = currentFilters.status || 'all';
+        
+        const selectedClass = 'bg-blue-600';
+        const defaultClass = 'hover:bg-blue-800'; 
 
-        const totalRingClass = activeStatus === 'all' ? 'ring-4 ring-blue-500' : '';
+        const totalSelected = (activeStatus === 'all') ? selectedClass : defaultClass;
         let todosCardHtml = `
-            <button class="status-card flex items-center gap-2 p-2 rounded-md hover:bg-blue-800 space-x-2 flex-shrink-0 cursor-pointer ${totalRingClass}" data-status-name="all">
+            <button class="status-card flex items-center gap-2 p-2 rounded-md space-x-2 flex-shrink-0 cursor-pointer transition-colors ${totalSelected}" data-status-name="all">
                 <i data-lucide="menu" class="w-5 h-5"></i>
                 <span class="font-medium">Todos Tickets</span>
                 <span class="font-bold text-lg">${data.total || 0}</span>
@@ -1781,9 +1780,10 @@ async function carregarInfoCards() {
         cardContainer.innerHTML += todosCardHtml;
 
         data.counts.forEach(item => {
-            const itemRingClass = activeStatus === item.nome ? 'ring-4 ring-blue-500' : '';
+            const itemSelected = (activeStatus === item.nome) ? selectedClass : defaultClass;
+            
             const cardHtml = `
-                <button class="status-card flex items-center gap-2 p-2 rounded-md hover:bg-blue-800 space-x-2 flex-shrink-0 cursor-pointer ${itemRingClass}" data-status-name="${item.nome}">
+                <button class="status-card flex items-center gap-2 p-2 rounded-md space-x-2 flex-shrink-0 cursor-pointer transition-colors ${itemSelected}" data-status-name="${item.nome}">
                     <i data-lucide="ticket" class="w-5 h-5"></i>
                     <span class="font-medium">${item.nome}</span>
                     <span class="font-bold text-lg">${item.count || 0}</span>
@@ -1797,14 +1797,20 @@ async function carregarInfoCards() {
         const allCards = document.querySelectorAll('.status-card');
         allCards.forEach(card => {
             card.addEventListener('click', () => {
-                const statusName = card.dataset.statusName;
+                allCards.forEach(c => {
+                    c.classList.remove(selectedClass);
+                    c.classList.add(defaultClass);
+                });
                 
+                card.classList.add(selectedClass);
+                card.classList.remove(defaultClass);
+
+                const statusName = card.dataset.statusName;
                 if (statusName === 'all') {
                     delete currentFilters.status;
                 } else {
                     currentFilters.status = statusName;
                 }
-                
                 carregarTickets(1); 
                 carregarInfoCards(); 
             });
