@@ -106,22 +106,23 @@
         </div>
     </aside>
 
-  <main class="flex-1 transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden">
+ <main class="flex-1 p-6 overflow-auto transition-all duration-300 ease-in-out">
 
-    <div class="flex items-center justify-between mb-4 flex-shrink-0 bg-[#02092B] text-white p-3 shadow-md">
-        
-        <div id="card-container" class="flex items-center overflow-x-auto space-x-2 whitespace-nowrap">
+    <div class="flex items-center justify-end mb-8">
+        <div class="flex items-center space-x-2 relative group">
+            <span class="text-gray-800 font-medium" id="nome-usuario">Carregando...</span>
+            <img src="/images/LogoCloudQuadradoAzul.png" alt="Logo" class="w-8 h-8 mr-2" />
+            <div class="absolute right-0 top-full mt-2 w-48 bg-white border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-center">
+                <a href="#" id="btn-minha-conta" class="block px-4 py-2 text-gray-700 hover:bg-gray-100">Minha Conta</a>
+                <a href="#" id="logout-menu-button" class="block px-4 py-2 text-red-600 hover:bg-red-100">Sair</a>
             </div>
-        
-        <button id="user-info-button" class="flex-shrink-0 flex items-center space-x-2 p-2 rounded-lg hover:bg-blue-900 transition-colors">
-            <span class="text-white font-medium" id="nome-usuario">Carregando...</span>
-            <img src="/images/LogoCloudQuadradoAzul.png" alt="Logo" class="w-8 h-8" />
-        </button>
-
+        </div>
     </div>
 
-    </div>
-   <div class="flex-1 overflow-auto p-6">
+    <div id="card-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+        </div>
+    
+    <div>
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
                 <h2 class="text-2xl font-bold text-[#0A0E2B] leading-tight">Tickets</h2>
