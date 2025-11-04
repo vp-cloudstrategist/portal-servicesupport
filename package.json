@@ -11,10 +11,13 @@
     "nodemailer": "^7.0.5",
     "redis": "^4.7.1"
   },
-  "scripts": {
-    "start": "node server.js"
+ "scripts": {
+    "start": "node server.js",
+    "build:css": "npx @tailwindcss/cli -c ./tailwind.config.js -i ./src/input.css -o ./public/css/tailwind.css --minify",
+    "watch:css": "npx @tailwindcss/cli -c ./tailwind.config.js -i ./src/input.css -o ./public/css/tailwind.css --watch"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.16",
     "tailwindcss": "^4.1.16"
   }
 }

@@ -149,7 +149,7 @@ exports.getAllUsers = async (req, res) => {
     try {
         let query;
         let params = [];
-        if (loggedInUser.perfil === 'admin') {
+        if (loggedInUser.perfil === 'admin' || loggedInUser.perfil === 'suporte') {
             query = 'SELECT id, nome, sobre, login, perfil, statu FROM user ORDER BY nome ASC';
         } else if (loggedInUser.perfil === 'gerente') {
             query = `

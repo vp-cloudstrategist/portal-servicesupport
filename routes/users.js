@@ -10,7 +10,7 @@ router.put('/me', requireLogin, userController.updateCurrentUser);
 
 // Rotas de administração de usuários
 router.post('/', requireLogin, userController.createUser);
-router.get('/', requireLogin, userController.getAllUsers); 
+router.get('/', requireLogin, userController.getAllUsers);
 router.get('/:id', requireLogin, userController.getUserById);
 router.put('/:id', requireLogin, userController.updateUserById);
 router.delete('/:id', requireLogin, userController.deleteUser);

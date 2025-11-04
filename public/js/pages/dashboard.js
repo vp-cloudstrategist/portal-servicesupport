@@ -736,30 +736,22 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         return;
     }
 
-    // Não precisamos mais da função 'formatIsoToBr' aqui.
 
     toggleModal('modalEditarTicket', false);
 
-    // 1. Abre o modal de novo ticket (que define os valores padrão para 'agora')
+ 
     abrirModalNovoTicket();
 
-    // 2. Aguarda um instante para o modal ser renderizado
+  
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    console.log("Duplicando dados:", ticketAbertoParaEdicao);
-
-    // 3. Sobrescreve os valores padrão com os dados do ticket original
-
-    // --- INÍCIO DA CORREÇÃO ---
-
-    // Pega os dados de data/hora formatados do ticket original
     const { date: alarmeInicioDate, time: alarmeInicioTime } = getFormattedDateTime(ticketAbertoParaEdicao.alarme_inicio);
     const { date: acionamentoDate, time: acionamentoTime } = getFormattedDateTime(ticketAbertoParaEdicao.horario_acionamento);
 
-    // Define a DATA de Início do Alarme
+
     document.querySelector('#formAbrirTicket input[name="alarme_inicio_date"]').value = alarmeInicioDate;
     
-    // Define a HORA de Início do Alarme (usando .imask.value)
+
     const alarmeInicioTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio_time"]');
     if (alarmeInicioTimeInput && alarmeInicioTimeInput.imask) {
         alarmeInicioTimeInput.imask.value = alarmeInicioTime;
@@ -998,8 +990,6 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
     await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
     await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
-    
-    await popularFiltroCheckboxes('filtro-status-container', '/api/tickets/options/status', 'status');
 });
 
     // ALTERAÇÃO: Melhoria na função renderCheckboxes para corrigir layout
@@ -1641,7 +1631,7 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         const grupoSelect = document.getElementById(grupoSelectId);
         const alertaSelect = document.getElementById(alertaSelectId);
 
-        const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
+        const canManage = currentUser && (currentUser.perfil === 'admin');
 
         [btnShowAddArea, btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.add('hidden'));
         [addAreaContainer, addGrupoContainer, addTipoContainer, addPrioridadeContainer, addAlertaContainer].forEach(cont => cont?.classList.add('hidden'));
@@ -2562,9 +2552,7 @@ async function carregarInfoCards() {
         abrirModalEditar(clickedRow.dataset.ticketId);
     }
 });
-    // ALTERAÇÃO 2: Adicionando um console.log para diagnosticar o botão de deletar
     document.getElementById('btn-delete-ticket')?.addEventListener('click', () => {
-        console.log("Botão Deletar Ticket clicado!"); // <-- LINHA DE TESTE
         ticketIdToDelete = document.getElementById('edit-ticket-id').value;
         toggleModal('modalConfirmarDelete', true);
     });
@@ -2607,7 +2595,7 @@ async function carregarInfoCards() {
     }
 
     selectElement.addEventListener('change', (event) => {
-        const canManage = currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support');
+        const canManage = currentUser && (currentUser.perfil === 'admin');
         const valorSelecionado = event.target.value;
         
         // Lógica do botão Deletar
