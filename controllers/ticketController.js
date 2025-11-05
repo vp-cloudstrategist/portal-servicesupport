@@ -8,37 +8,46 @@ const capitalize = (str) => {
 };
 
 exports.createTicket = async (req, res) => {
-    let { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento, status_id } = req.body; // MODIFICADO
-    const user_id = req.session.user.id;
-    const anexo_path = req.file ? req.file.path : null;
+    let { alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, horario_acionamento, status_id } = req.body; 
+    const user_id = req.session.user.id;
+    const anexo_path = req.file ? req.file.path : null;
 
-    if (!grupo_id || !alerta_id || !tipo_solicitacao_id || !prioridade_id || !alarme_inicio || alarme_inicio === 'null' || !horario_acionamento || horario_acionamento === 'null' || !status_id) { // MODIFICADO
-        return res.status(400).json({ message: 'Todos os campos obrigatórios devem ser preenchidos.' });
-    }
+    if (!grupo_id || !alerta_id || !tipo_solicitacao_id || !prioridade_id || !alarme_inicio || alarme_inicio === 'null' || !horario_acionamento || horario_acionamento === 'null' || !status_id) { 
+        return res.status(400).json({ message: 'Todos os campos obrigatórios devem ser preenchidos.' });
+    }
 
-    if (!alarme_fim || alarme_fim === 'null') {
-        alarme_fim = null;
-    }
+    try {
+ 
+        if (!alarme_fim || alarme_fim === 'null') {
+     
+            const [statusRows] = await pool.query('SELECT nome FROM ticket_status WHERE id = ?', [status_id]);
+            const statusName = statusRows.length > 0 ? statusRows[0].nome : '';
 
-    try {
-        const sql = `
-            INSERT INTO tickets (
-                user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, 
-                alarme_inicio, alarme_fim, anexo_path, horario_acionamento, status_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `; // MODIFICADO
-        const values = [
-            user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao || null,
-            alarme_inicio, alarme_fim, anexo_path, horario_acionamento,
-            status_id // MODIFICADO
-        ];
+            if (statusName === 'Resolvido' || statusName === 'Normalizado') {
+              
+                alarme_fim = new Date();
+            } else {
+            
+                alarme_fim = null;
+            }
+        }
+       const sql = `INSERT INTO tickets (user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao, alarme_inicio, alarme_fim, anexo_path, horario_acionamento, status_id) 
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const values = [
+            user_id, alerta_id, grupo_id, tipo_solicitacao_id, prioridade_id, descricao || null,
+            alarme_inicio, 
+            alarme_fim, 
+            anexo_path, 
+            horario_acionamento,
+            status_id
+        ];
+        const [result] = await pool.query(sql, values);
+        res.status(201).json({ message: `Ticket #${result.insertId} criado com sucesso!` });
 
-        const [result] = await pool.query(sql, values);
-        res.status(201).json({ message: `Ticket #${result.insertId} criado com sucesso!` });
-    } catch (error) {
-        console.error("Erro ao criar ticket:", error);
-        res.status(500).json({ message: 'Erro interno ao criar o ticket.' });
-    }
+    } catch (error) {
+        console.error("Erro ao criar ticket:", error);
+        res.status(500).json({ message: 'Erro interno ao criar o ticket.' });
+    }
 };
 
 exports.getAllTickets = async (req, res) => {
@@ -196,9 +205,8 @@ exports.updateTicket = async (req, res) => {
         const oldData = existingTicketRows[0];
         const finalData = { ...oldData };
 
-        let newStatusId = newData.status_id || newData.status; // Aceita 'status_id' ou 'status'
+        let newStatusId = newData.status_id || newData.status; 
         
-        // Se o status veio como nome (ex: "Resolvido"), buscamos o ID correspondente
         if (newStatusId && isNaN(parseInt(newStatusId))) {
             const [statusRows] = await connection.query('SELECT id FROM ticket_status WHERE nome = ?', [newStatusId]);
             if (statusRows.length > 0) {
@@ -206,29 +214,23 @@ exports.updateTicket = async (req, res) => {
             }
         }
         
-        // Atualiza o status_id em finalData se um novo ID válido foi encontrado
         if (newStatusId) {
             finalData.status_id = parseInt(newStatusId);
         }
 
-        // 3. Atualizamos outros campos apenas se um novo valor foi enviado
         const fieldsToUpdate = ['alerta_id', 'grupo_id', 'tipo_solicitacao_id', 'prioridade_id', 'alarme_inicio', 'alarme_fim', 'horario_acionamento'];
         fieldsToUpdate.forEach(field => {
-            // Só atualiza se o campo existir no 'newData' e não for indefinido
             if (newData[field] !== undefined) {
-                // Converte strings 'null' ou vazias para o valor NULL do SQL
                 finalData[field] = (newData[field] === 'null' || newData[field] === '') ? null : newData[field];
             }
         });
 
-        // 4. Lógica para preencher 'alarme_fim' automaticamente
         const [statusRows] = await connection.query('SELECT nome FROM ticket_status WHERE id = ?', [finalData.status_id]);
         const statusName = statusRows.length > 0 ? statusRows[0].nome : '';
         if ((statusName === 'Resolvido' || statusName === 'Normalizado') && !finalData.alarme_fim) {
             finalData.alarme_fim = new Date();
         }
 
-        // Lógica de anexo (mantida como estava)
         let newAnexoPath = oldData.anexo_path;
         if (req.file) {
             newAnexoPath = req.file.path;
@@ -238,7 +240,6 @@ exports.updateTicket = async (req, res) => {
             if (oldData.anexo_path && fs.existsSync(oldData.anexo_path)) fs.unlinkSync(oldData.anexo_path);
         }
         
-        // --- FIM DA LÓGICA CORRIGIDA ---
 
         const sql = `
             UPDATE tickets SET 
@@ -321,14 +322,15 @@ exports.getGruposByArea = async (req, res) => {
     }
 };
 exports.getAlertasByArea = async (req, res) => {
-    try {
-        const { areaId } = req.params;
-        const [rows] = await pool.query('SELECT id, nome FROM ticket_alertas WHERE area_id = ? ORDER BY nome ASC', [areaId]);
-        res.status(200).json(rows);
-    } catch (error) {
-        console.error("Erro ao buscar alertas por área:", error);
-        res.status(500).json({ message: 'Erro interno.' });
-    }
+    try {
+        const { areaId } = req.params;
+        const sql = `SELECT id, nome FROM ticket_alertas WHERE area_id = ? AND ativo = 1 ORDER BY nome ASC`;
+        const [rows] = await pool.query(sql, [areaId]);
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error("Erro ao buscar alertas por área:", error);
+        res.status(500).json({ message: 'Erro interno ao buscar alertas.' });
+    }
 };
 exports.getTiposByArea = async (req, res) => {
     try {
@@ -621,7 +623,6 @@ exports.exportTickets = async (req, res) => {
 
         const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-        // ===== CONSULTA CORRIGIDA (adicionado JOIN com ticket_status) =====
         const ticketsSql = `
             SELECT 
                 CONCAT('#INC-', t.id) as Ticket,
