@@ -67,22 +67,43 @@ exports.getAllTickets = async (req, res) => {
     };
     const orderClause = orderMap[ordenar || 'id_desc'] || 'ORDER BY t.id DESC';
 
+    // 1. Definição central dos joins
+    const joinMap = {
+        'status': 'LEFT JOIN ticket_status s ON t.status_id = s.id',
+        'grupos': 'LEFT JOIN ticket_grupos g ON t.grupo_id = g.id',
+        'areas': 'LEFT JOIN ticket_areas a ON g.area_id = a.id',
+        'alertas': 'LEFT JOIN ticket_alertas al ON t.alerta_id = al.id',
+        'users': 'LEFT JOIN user u ON t.user_id = u.id',
+        'prioridades': 'LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id'
+    };
+
     try {
-        // 1. Constrói os filtros
-        const { joins: filterJoins, whereClause, queryParams } = await buildTicketFilters(req.query, loggedInUser);
+        // 2. Constrói os filtros
+        const { 
+            joins: filterJoinsSql,      // String SQL de Joins SÓ dos filtros (para o Count)
+            joinKeys: filterJoinKeys, // Set() de chaves SÓ dos filtros (para desduplicar)
+            whereClause, 
+            queryParams 
+        } = await buildTicketFilters(req.query, loggedInUser);
         
-        // 2. Define a lista COMPLETA de joins que esta query sempre precisa
-        // Usamos um Set para evitar duplicatas caso o filtro já tenha adicionado
-        const requiredJoins = new Set(filterJoins ? filterJoins.split('\n') : []);
-        requiredJoins.add('LEFT JOIN ticket_status s ON t.status_id = s.id');
-        requiredJoins.add('LEFT JOIN ticket_grupos g ON t.grupo_id = g.id');
-        requiredJoins.add('LEFT JOIN ticket_areas a ON g.area_id = a.id');
-        requiredJoins.add('LEFT JOIN ticket_alertas al ON t.alerta_id = al.id');
-        requiredJoins.add('LEFT JOIN user u ON t.user_id = u.id');
-        requiredJoins.add('LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id');
+        // 3. Define a lista COMPLETA de chaves de joins
+        const allJoinKeys = new Set(filterJoinKeys);
         
+        // Adiciona as chaves que esta query *sempre* precisa
+        // O Set() garante que não haverá duplicatas
+        allJoinKeys.add('status');
+        allJoinKeys.add('grupos');
+        allJoinKeys.add('areas');
+        allJoinKeys.add('alertas');
+        allJoinKeys.add('users');
+        allJoinKeys.add('prioridades');
+        
+        // Constrói a string final de joins com base no Set de chaves único
+        const finalJoinsSql = Array.from(allJoinKeys).map(key => joinMap[key]).join(' ');
+
+        // Esta é a string final de joins para a query principal
         const allJoins = `
-            ${Array.from(requiredJoins).join(' ')}
+            ${finalJoinsSql}
             LEFT JOIN (
                 SELECT 
                     ticket_id, 
@@ -92,14 +113,14 @@ exports.getAllTickets = async (req, res) => {
             ) AS lc ON t.id = lc.ticket_id AND lc.rn = 1
         `;
 
-        // 3. Query de Contagem (usa apenas os joins do filtro)
+        // 4. Query de Contagem (usa apenas os joins do filtro)
         const countSql = `SELECT COUNT(DISTINCT t.id) as total 
-                          FROM tickets t
-                          ${filterJoins} 
-                          ${whereClause}`;
+                            FROM tickets t
+                            ${filterJoinsSql} 
+                            ${whereClause}`;
         const [[{ total }]] = await pool.query(countSql, queryParams);
 
-        // 4. Query de Tickets (usando a lista completa de joins)
+        // 5. Query de Tickets (usando a lista completa de joins)
         const ticketsSql = `
             SELECT 
                 t.id, t.data_criacao, t.alarme_inicio, t.alarme_fim, t.horario_acionamento, 
@@ -763,7 +784,8 @@ const buildTicketFilters = async (query, user) => {
         prioridades: 'LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id'
     };
     
-    let requiredJoins = new Set(); 
+    let requiredJoins = new Set(); // Este é o Set de CHAVES (ex: 'status', 'grupos')
+    
     if (loggedInUser.perfil !== 'admin') {
         requiredJoins.add('grupos');
         const [userAreas] = await pool.query('SELECT area_id FROM user_areas WHERE user_id = ?', [loggedInUser.id]);
@@ -822,5 +844,11 @@ const buildTicketFilters = async (query, user) => {
     const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
     const finalJoins = Array.from(requiredJoins).map(key => joins[key]).join(' ');
 
-    return { joins: finalJoins, whereClause: finalWhereClause, queryParams: queryParams };
+   
+    return { 
+        joins: finalJoins, 
+        joinKeys: requiredJoins, 
+        whereClause: finalWhereClause, 
+        queryParams: queryParams 
+    };
 };

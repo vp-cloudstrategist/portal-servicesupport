@@ -146,38 +146,35 @@ exports.deleteUser = async (req, res) => {
     }
 };
 exports.getAllUsers = async (req, res) => {
-    const loggedInUser = req.session.user;
-    const userProfile = loggedInUser.perfil ? loggedInUser.perfil.toLowerCase() : '';
+    const loggedInUser = req.session.user;
+    try {
+        let query;
+        let params = [];
 
-    try {
-        let query;
-        let params = [];
-        if (userProfile === 'admin' || userProfile === 'support') {
-            query = 'SELECT id, nome, sobre, login, perfil, statu FROM user ORDER BY nome ASC';
-    
-        } else if (userProfile === 'gerente') {
-            query = `
-                SELECT DISTINCT u.id, u.nome, u.sobre, u.login, u.perfil, u.statu
-                FROM user u
-                INNER JOIN user_areas ua ON u.id = ua.user_id
-                WHERE ua.area_id IN (SELECT area_id FROM user_areas WHERE user_id = ?)
-                ORDER BY u.nome ASC
-            `;
-            params.push(loggedInUser.id);
-    
-        } else {
-            return res.status(403).json({ message: 'Você não tem permissão para listar usuários.' });
-        }
-        
-        const [users] = await pool.query(query, params);
-        res.status(200).json(users);
 
-    } catch (error) {
-        console.error('Erro ao listar usuários:', error);
-        res.status(500).json({ message: 'Erro interno no servidor.' });
-    }
+        if (loggedInUser.perfil === 'admin' || loggedInUser.perfil === 'support') {
+            query = 'SELECT id, nome, sobre, login, perfil, statu FROM user ORDER BY nome ASC';
+        } else if (loggedInUser.perfil === 'gerente') {
+            query = `
+                SELECT DISTINCT u.id, u.nome, u.sobre, u.login, u.perfil, u.statu
+                FROM user u
+                INNER JOIN user_areas ua ON u.id = ua.user_id
+                WHERE ua.area_id IN (SELECT area_id FROM user_areas WHERE user_id = ?)
+                ORDER BY u.nome ASC
+            `;
+            params.push(loggedInUser.id);
+        } else {
+            return res.status(403).json({ message: 'Você não tem permissão para listar usuários.' });
+        }
+        
+        const [users] = await pool.query(query, params);
+        res.status(200).json(users);
+
+    } catch (error) {
+        console.error('Erro ao listar usuários:', error);
+        res.status(500).json({ message: 'Erro interno no servidor.' });
+    }
 };
-
 exports.getUserById = async (req, res) => {
     const loggedInUser = req.session.user;
     const { id: targetUserId } = req.params;
