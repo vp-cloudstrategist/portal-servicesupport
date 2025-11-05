@@ -62,26 +62,27 @@ exports.createUser = async (req, res) => {
         }
         await connection.commit();
 
-        const emailHtml = `
-            <div style="font-family: Arial, sans-serif; text-align:center; max-width:600px; margin:auto; border:1px solid #ddd;">
-                <div style="background-color:#f8f8f8; padding:20px;">
-                    <img src="https://support.nexxtcloud.app/app/Nexxt-Cloud-Logo-1.png" alt="Nexxt Cloud" style="width:150px;">
-                </div>
-                <div style="padding:30px; line-height:1.5;">
-                    <h2 style="color:#0c1231;">Bem-vindo ao Portal de Suporte</h2>
-                    <p>Olá <strong>${nomeCapitalized}</strong>,</p>
-                    <p>Uma conta foi criada para você em nosso portal. Use as seguintes credenciais para seu primeiro acesso:</p>
-                    <p style="margin-top:20px;"><strong>Login:</strong> ${login}</p>
-                    <p><strong>Senha Temporária:</strong> <span style="font-weight:bold; font-size:18px; color: #d9534f;">${senhaTemporaria}</span></p>
-                    <div style="margin:30px 0;">
-                        <a href="https://service.nexxtcloud.app/login" style="background-color:#2979FF; color:white; padding:12px 25px; text-decoration:none; border-radius:5px; font-weight:bold; font-size:16px;">
-                            Acessar o Portal
-                        </a>
-                    </div>
-                    <p style="margin-top:20px;">Por segurança, você será solicitado a criar uma nova senha pessoal após o login.</p>
-                </div>
-            </div>
-        `;
+       const emailHtml = `
+      <div style="font-family: Arial, sans-serif; font-size:14px; color:#333; max-width:600px; margin:auto; border:1px solid #ddd; border-radius:8px;">
+        <div style="background-color:#f8f8f8; padding:20px; text-align:center;">
+          <img src="https://support.nexxtcloud.app/images/Nexxt-Cloud-Logo-1.png" alt="Nexxt Cloud" width="200">
+        </div>
+        <div style="padding:30px; text-align:center; line-height:1.5;">
+          <h2 style="color:#0c1231;">Seu Código de Verificação</h2>
+          <p>Olá <strong>${user.nome}</strong>,</p>
+          <p>Use o código abaixo para completar seu login no Portal Nexxt Cloud Support.</p>
+          <div style="margin:30px 0;">
+            <p style="background-color:#e9ecef; font-size:24px; font-weight:bold; padding:10px 20px; border-radius:6px; display:inline-block; letter-spacing: 5px;">
+              ${otpToken}
+            </p>
+          </div>
+          <p style="font-size:12px; color:#777;">Este código é válido por 10 minutos.</p>
+        </div>
+        <div style="background-color:#f8f8f8; padding:20px; text-align:center; font-size:12px; color:#555;">
+          Nexxt Cloud © 2025 • Todos os direitos reservados
+        </div>
+      </div>
+    `;
         const transporter = nodemailer.createTransport({
             host: process.env.EMAIL_HOST,
             port: process.env.EMAIL_PORT,
