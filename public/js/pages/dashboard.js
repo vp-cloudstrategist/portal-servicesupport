@@ -1908,11 +1908,27 @@ async function carregarInfoCards() {
     document.getElementById('qtdPorPagina').addEventListener('change', () => carregarTickets(1));
 }
     const btnAbrirModalExportar = document.getElementById('btn-abrir-modal-exportar');
-    const formExportar = document.getElementById('formExportar');
     const yearSelect = document.getElementById('export-year-select');
-    const monthsContainer = document.getElementById('export-months-container');
+    const areasContainer = document.getElementById('export-areas-container');
 
-    btnAbrirModalExportar?.addEventListener('click', () => {
+    // Lógica de Checkbox "Todos" (Agora fora do listener, pois o HTML é estático)
+    const allMonthsCheckbox = document.getElementById('check-all-months');
+    const individualMonthCheckboxes = document.querySelectorAll('.month-checkbox');
+
+    if (allMonthsCheckbox) {
+        allMonthsCheckbox.addEventListener('change', () => {
+            individualMonthCheckboxes.forEach(cb => cb.checked = allMonthsCheckbox.checked);
+        });
+        // Opcional: Desmarcar "Todos" se um individual for desmarcado
+        individualMonthCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                allMonthsCheckbox.checked = [...individualMonthCheckboxes].every(c => c.checked);
+            });
+        });
+    }
+
+    btnAbrirModalExportar?.addEventListener('click', async () => {
+        // 1. Gera apenas os Anos (isso continua dinâmico)
         const currentYear = new Date().getFullYear();
         yearSelect.innerHTML = '';
         for (let i = 0; i < 5; i++) {
@@ -1920,25 +1936,53 @@ async function carregarInfoCards() {
             yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
         }
 
-        const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        monthsContainer.innerHTML = `
-            <div class="col-span-3 flex items-center mb-2">
-                <input type="checkbox" id="check-all-months" class="form-checkbox h-4 w-4">
-                <label for="check-all-months" class="ml-2 font-bold text-sm">Todos os Meses</label>
-            </div>
-            ${meses.map((mes, index) => `
-                <div class="flex items-center">
-                    <input type="checkbox" id="month-${index + 1}" name="months" value="${index + 1}" class="form-checkbox h-4 w-4 month-checkbox">
-                    <label for="month-${index + 1}" class="ml-2 text-sm">${mes}</label>
-                </div>
-            `).join('')}
-        `;
+        // 2. Carrega as Áreas (continua dinâmico pois vem do banco)
+        areasContainer.innerHTML = '<div class="p-4 text-center text-gray-500 text-sm">Carregando áreas...</div>';
 
-        const allMonthsCheckbox = document.getElementById('check-all-months');
-        const individualMonthCheckboxes = monthsContainer.querySelectorAll('.month-checkbox');
-        allMonthsCheckbox.addEventListener('change', () => {
-            individualMonthCheckboxes.forEach(cb => cb.checked = allMonthsCheckbox.checked);
-        });
+        try {
+            const response = await fetch('/api/tickets/options/areas');
+            const areas = await response.json();
+
+            if (areas && areas.length > 0) {
+                areasContainer.className = "mt-4"; // Margem superior para separar dos meses
+                areasContainer.innerHTML = `
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Filtrar por Área</label>
+                    <div class="p-4 border rounded-md bg-gray-50 max-h-60 overflow-y-auto">
+                        <div class="flex items-center mb-3 pb-2 border-b border-gray-200">
+                            <input type="checkbox" id="check-all-areas" class="form-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500" checked>
+                            <label for="check-all-areas" class="ml-2 font-bold text-sm text-gray-700 cursor-pointer select-none">Todas as Áreas</label>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                            ${areas.map(area => `
+                                <div class="flex items-center truncate" title="${area.nome}">
+                                    <input type="checkbox" name="export_areas" value="${area.id}" class="form-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 area-export-checkbox cursor-pointer" checked>
+                                    <label class="ml-2 text-sm text-gray-700 cursor-pointer select-none truncate">${area.nome}</label>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+
+                // Lógica "Todos" para Áreas
+                const allAreasCheckbox = document.getElementById('check-all-areas');
+                const individualAreaCheckboxes = areasContainer.querySelectorAll('.area-export-checkbox');
+                
+                allAreasCheckbox.addEventListener('change', () => {
+                    individualAreaCheckboxes.forEach(cb => cb.checked = allAreasCheckbox.checked);
+                });
+                
+                individualAreaCheckboxes.forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        allAreasCheckbox.checked = [...individualAreaCheckboxes].every(c => c.checked);
+                    });
+                });
+            } else {
+                areasContainer.innerHTML = '<p class="text-sm text-gray-500 mt-2">Nenhuma área encontrada.</p>';
+            }
+        } catch (error) {
+            console.error(error);
+            areasContainer.innerHTML = '<p class="text-sm text-red-500 mt-2">Erro ao carregar áreas.</p>';
+        }
 
         toggleModal('modalExportarRelatorio', true);
     });
@@ -1949,12 +1993,23 @@ async function carregarInfoCards() {
         const format = formData.get('format');
         const year = formData.get('year');
         const months = formData.getAll('months');
+        const areas = formData.getAll('export_areas');
 
         if (!year) {
             return showStatusModal('Erro', 'Por favor, selecione um ano.', true);
         }
 
-        const queryString = `?format=${format}&year=${year}${months.length > 0 ? '&months=' + months.join(',') : ''}`;
+    
+        let queryString = `?format=${format}&year=${year}`;
+        
+        if (months.length > 0) {
+            queryString += '&months=' + months.join(',');
+        }
+        
+       
+        if (areas.length > 0) {
+            queryString += '&areas=' + areas.join(',');
+        }
 
         window.location.href = `/api/tickets/export${queryString}`;
 

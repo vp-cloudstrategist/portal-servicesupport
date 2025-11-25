@@ -169,7 +169,7 @@
         </div>
     </div>
         <div id="modalExportarRelatorio" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden p-4">
-            <div class="bg-white w-full max-w-lg rounded-xl shadow-lg relative flex flex-col">
+           <div class="bg-white w-full max-w-2xl rounded-xl shadow-lg relative flex flex-col">
                 <div class="p-6 border-b">
                     <button class="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-3xl" onclick="toggleModal('modalExportarRelatorio', false)">&times;</button>
                     <h2 class="text-2xl font-bold text-center text-[#02092B]">Exportar Relatório de Tickets</h2>
@@ -178,9 +178,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700">Formato</label>
                         <select name="format" class="w-full mt-1 border rounded p-2 bg-gray-50">
-                            <option value="csv">CSV (compatível com Excel)</option>
-                            <option value="pdf" disabled>PDF (em breve)</option>
-                            <option value="xlsx" disabled>Excel (em breve)</option>
+                            <option value="csv">xlsx</option>
                         </select>
                     </div>
                     <div>
@@ -189,10 +187,33 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Meses</label>
-                        <div id="export-months-container" class="p-3 border rounded-md max-h-40 overflow-y-auto bg-gray-50 grid grid-cols-3 gap-2">
-                        </div>
-                    </div>
+    <label class="block text-sm font-semibold text-gray-700 mb-2">Meses</label>
+    
+    <div class="p-4 border rounded-md bg-gray-50">
+        
+        <div class="flex items-center mb-3 pb-2 border-b border-gray-200">
+            <input type="checkbox" id="check-all-months" class="form-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+            <label for="check-all-months" class="ml-2 font-bold text-sm text-gray-700 cursor-pointer select-none">Selecionar Todos</label>
+        </div>
+
+        <div class="grid grid-cols-3 sm:grid-cols-4 gap-y-3 gap-x-2">
+            <div class="flex items-center"><input type="checkbox" name="months" value="1" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Janeiro</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="2" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Fevereiro</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="3" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Março</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="4" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Abril</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="5" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Maio</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="6" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Junho</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="7" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Julho</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="8" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Agosto</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="9" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Setembro</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="10" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Outubro</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="11" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Novembro</label></div>
+            <div class="flex items-center"><input type="checkbox" name="months" value="12" class="month-checkbox form-checkbox h-4 w-4 text-blue-600 rounded"><label class="ml-2 text-sm text-gray-600">Dezembro</label></div>
+        </div>
+    </div>
+    
+    <div id="export-areas-container"></div>
+</div>
                 </form>
                 <div class="flex-shrink-0 p-6 pt-4 border-t">
                     <div class="flex justify-end gap-4">

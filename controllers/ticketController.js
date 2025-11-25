@@ -1,6 +1,7 @@
 const pool = require('../config/db.js');
 const fs = require('fs');
 const { Parser } = require('json2csv');
+const ExcelJS = require('exceljs');
 
 const capitalize = (str) => {
     if (!str || typeof str !== 'string') return '';
@@ -609,11 +610,11 @@ exports.createComment = async (req, res) => {
     }
 };
 exports.exportTickets = async (req, res) => {
-    const { format, year, months } = req.query;
+    const { year, months, areas } = req.query;
     const loggedInUser = req.session.user;
 
-    if (!format || !year) {
-        return res.status(400).json({ message: 'Formato e ano são obrigatórios.' });
+    if (!year) {
+        return res.status(400).json({ message: 'O ano é obrigatório.' });
     }
 
     try {
@@ -642,22 +643,29 @@ exports.exportTickets = async (req, res) => {
             }
         }
 
-        const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+        if (areas) {
+            const areaArray = areas.split(',').map(Number);
+            if (areaArray.length > 0) {
+                whereClauses.push(`g.area_id IN (${areaArray.map(() => '?').join(',')})`);
+                queryParams.push(...areaArray);
+            }
+        }
 
+        const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
         const ticketsSql = `
             SELECT 
                 CONCAT('#INC-', t.id) as Ticket,
                 a.nome as Area,
-                t.data_criacao as "Data de Criação",
-                u.nome as Usuário,
+                t.data_criacao,
+                u.nome as Usuario,
                 p.nome as Prioridade,
                 s.nome as Status, 
                 al.nome as Alerta,
-                g.nome as "Grupo Responsável",
-                t.alarme_inicio as "Início Alarme",
-                t.alarme_fim as "Fim Alarme",
-                t.horario_acionamento as Atendimento,
-                t.descricao as Descrição
+                g.nome as Grupo,
+                t.alarme_inicio,
+                t.alarme_fim,
+                t.horario_acionamento,
+                t.descricao as Descricao
             FROM tickets t
             LEFT JOIN ticket_status s ON t.status_id = s.id
             LEFT JOIN ticket_grupos g ON t.grupo_id = g.id
@@ -672,21 +680,74 @@ exports.exportTickets = async (req, res) => {
         const [tickets] = await pool.query(ticketsSql, queryParams);
 
         if (tickets.length === 0) {
-            return res.status(404).send('Nenhum ticket encontrado para os filtros selecionados.');
+            return res.status(404).send('Nenhum ticket encontrado.');
         }
 
-        switch (format) {
-            case 'csv':
-                const json2csvParser = new Parser();
-                const csv = json2csvParser.parse(tickets);
-                res.header('Content-Type', 'text/csv');
-                res.attachment(`relatorio_tickets_${year}.csv`);
-                return res.send(csv);
+    
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Relatório');
+
+   
+        worksheet.columns = [
+            { header: 'Ticket', key: 'Ticket', width: 15 },
+            { header: 'Data Criação', key: 'DataCriacao', width: 15 },
+            { header: 'Hora Criação', key: 'HoraCriacao', width: 12 },
+            { header: 'Área', key: 'Area', width: 20 },
+            { header: 'Usuário', key: 'Usuario', width: 15 },
+            { header: 'Prioridade', key: 'Prioridade', width: 15 },
+            { header: 'Status', key: 'Status', width: 15 },
+            { header: 'Alerta', key: 'Alerta', width: 30 },
+            { header: 'Início Alarme', key: 'InicioAlarme', width: 20 }, 
+            { header: 'Fim Alarme', key: 'FimAlarme', width: 20 },      
+            { header: 'Atendimento', key: 'Atendimento', width: 20 },    
+            { header: 'Grupo Resp.', key: 'Grupo', width: 20 },
+            { header: 'Descrição', key: 'Descricao', width: 50 }
+        ];
+
+
+        worksheet.getRow(1).font = { bold: true };
+
+        const formatFullDateTime = (dateVal) => {
+            if (!dateVal) return '';
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return '';
             
-            // ... outros casos
-            default:
-                return res.status(400).send('Formato inválido.');
-        }
+            return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        };
+
+        tickets.forEach(t => {
+            let dataCriacao = '', horaCriacao = '';
+
+            if (t.data_criacao) {
+                const dataObj = new Date(t.data_criacao);
+                dataCriacao = dataObj.toLocaleDateString('pt-BR');
+                horaCriacao = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            const descricaoLimpa = t.Descricao ? t.Descricao.replace(/(\r\n|\n|\r)/gm, " ") : "";
+
+            worksheet.addRow({
+                Ticket: t.Ticket,
+                DataCriacao: dataCriacao,
+                HoraCriacao: horaCriacao,
+                Area: t.Area,
+                Usuario: t.Usuario,
+                Prioridade: t.Prioridade,
+                Status: t.Status,
+                Alerta: t.Alerta,
+                InicioAlarme: formatFullDateTime(t.alarme_inicio), 
+                FimAlarme: formatFullDateTime(t.alarme_fim),       
+                Atendimento: formatFullDateTime(t.horario_acionamento),
+                Grupo: t.Grupo,
+                Descricao: descricaoLimpa
+            });
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=relatorio_tickets_${year}.xlsx`);
+
+        await workbook.xlsx.write(res);
+        res.end();
 
     } catch (error) {
         console.error("Erro ao exportar tickets:", error);
@@ -784,7 +845,7 @@ const buildTicketFilters = async (query, user) => {
         prioridades: 'LEFT JOIN ticket_prioridades p ON t.prioridade_id = p.id'
     };
     
-    let requiredJoins = new Set(); // Este é o Set de CHAVES (ex: 'status', 'grupos')
+    let requiredJoins = new Set(); 
     
     if (loggedInUser.perfil !== 'admin') {
         requiredJoins.add('grupos');
