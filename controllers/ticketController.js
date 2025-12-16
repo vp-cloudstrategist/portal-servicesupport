@@ -307,7 +307,6 @@ exports.deleteTicket = async (req, res) => {
 
         if (anexoPath && fs.existsSync(anexoPath)) {
             fs.unlinkSync(anexoPath);
-            console.log(`Arquivo deletado: ${anexoPath}`);
         }
 
         res.status(200).json({ message: `Ticket #${id} deletado com sucesso!` });

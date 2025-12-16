@@ -40,7 +40,6 @@ exports.login = async (req, res) => {
             });
 
             if (alreadyVerifiedToday === 'true') {
-                console.log(`Usuário ${user.login} já verificado hoje. Pulando 2FA.`);
                 req.session.user = { id: user.id, nome: user.nome, login: user.login, sobrenome: user.sobre, perfil: user.perfil };
                 return res.status(200).json({ message: 'Login bem-sucedido!' });
             }
@@ -131,7 +130,6 @@ exports.verify2FA = async (req, res) => {
                     if (err) {
                         console.error(`[VERIFY] ERRO AO SALVAR A CHAVE NO REDIS:`, err);
                     } else {
-                        console.log(`[VERIFY] Chave ${daily2faKey} salva no Redis com sucesso! Resposta: ${reply}`);
                     }
                 });
             }

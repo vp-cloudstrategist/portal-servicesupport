@@ -2504,10 +2504,9 @@ async function carregarInfoCards() {
      .forEach(key => formData.delete(key));
 
     const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
-    if (pastedFileCreate && (!fileInput.files || fileInput.files.length === 0)) {
-        formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
-    }
-
+    if (pastedFileCreate && (!fileInput || !fileInput.files || fileInput.files.length === 0)) {
+    formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
+}
     try {
         const response = await fetch('/api/tickets', { method: 'POST', body: formData });
         const result = await response.json();
