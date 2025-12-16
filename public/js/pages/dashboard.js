@@ -2029,26 +2029,22 @@ async function carregarInfoCards() {
         const ticket = await ticketResponse.json();
         ticketAbertoParaEdicao = ticket;
 
-        // Formata as datas que vêm do banco (esta parte está correta)
+        // Formata as datas que vêm do banco
         const alarmeInicio = getFormattedDateTime(ticket.alarme_inicio);
         const horarioAcionamento = getFormattedDateTime(ticket.horario_acionamento);
         const alarmeFim = getFormattedDateTime(ticket.alarme_fim);
 
-        // Preenche os campos de data (esta parte está correta)
+        // Preenche os campos de data
         document.getElementById('edit-alarme-inicio-date').value = alarmeInicio.date;
         document.getElementById('edit-horario-acionamento-date').value = horarioAcionamento.date;
         document.getElementById('edit-alarme-fim-date').value = alarmeFim.date;
-        
-        // ===== CORREÇÃO AQUI =====
-        // Não criamos uma nova máscara. Acessamos a máscara .imask que já existe
-        // e definimos seu valor.
-        
+
+        // Preenche os campos de hora (gerenciando o IMask)
         const alarmeInicioTimeInput = document.getElementById('edit-alarme-inicio-time');
         if (alarmeInicioTimeInput.imask) {
             alarmeInicioTimeInput.imask.value = alarmeInicio.time;
         } else {
-            // Fallback caso a máscara não tenha inicializado
-            alarmeInicioTimeInput.value = alarmeInicio.time; 
+            alarmeInicioTimeInput.value = alarmeInicio.time;
         }
 
         const horarioAcionamentoTimeInput = document.getElementById('edit-horario-acionamento-time');
@@ -2057,58 +2053,80 @@ async function carregarInfoCards() {
         } else {
             horarioAcionamentoTimeInput.value = horarioAcionamento.time;
         }
-        
+
         const alarmeFimTimeInput = document.getElementById('edit-alarme-fim-time');
         if (alarmeFimTimeInput.imask) {
             alarmeFimTimeInput.imask.value = alarmeFim.time;
         } else {
             alarmeFimTimeInput.value = alarmeFim.time;
         }
-        // ===== FIM DA CORREÇÃO =====
 
-        // Preenche o resto do formulário...
+        // Preenche dados básicos
         document.getElementById('edit-ticket-id').value = ticket.id;
         document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-        
+
         const statusItem = currentStatusList.find(s => s.nome === ticket.status);
         if (statusItem) {
             document.getElementById('edit-ticket-status').value = statusItem.id;
         }
 
+        // --- LÓGICA DE ANEXO CORRIGIDA PARA LINUX/VM ---
         const linkContainer = document.getElementById('current-attachment-container');
         const linkSpan = document.getElementById('current-attachment-link');
         const removeAnexoInput = document.getElementById('edit-remove-anexo');
+
         if (linkContainer && linkSpan && removeAnexoInput) {
             removeAnexoInput.value = '0';
             linkContainer.classList.add('hidden');
+
             if (ticket.anexo_path) {
-                const webPath = ticket.anexo_path.replace('public\\', '').replace(/\\/g, '/');
-                linkSpan.innerHTML = `Anexo atual: <a href="/${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
+                // 1. Normaliza barras (converte \ do Windows para /)
+                let webPath = ticket.anexo_path.replace(/\\/g, '/');
+
+                // 2. Remove barra inicial se existir, para padronizar a verificação
+                if (webPath.startsWith('/')) {
+                    webPath = webPath.substring(1);
+                }
+
+                // 3. Garante que começa com 'public/' (necessário pois configuramos app.use('/public'))
+                if (!webPath.startsWith('public/')) {
+                    webPath = 'public/' + webPath;
+                }
+
+                // 4. Adiciona a barra absoluta no início
+                webPath = '/' + webPath;
+
+                linkSpan.innerHTML = `Anexo atual: <a href="${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
                 linkContainer.classList.remove('hidden');
             }
         }
+        // ------------------------------------------------
 
+        // Lógica de Área e Dropdowns em Cascata
         const areaSelect = document.getElementById('edit-ticket-area');
         areaSelect.value = ticket.area_id;
 
         await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
-        
+
+        // Pequeno delay para garantir que o DOM atualizou
         await new Promise(resolve => setTimeout(resolve, 150));
 
         document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
         document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id;
         document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
         document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
-        
+
+        // Permissões do botão deletar
         const deleteButton = document.getElementById('btn-delete-ticket');
         if (deleteButton) {
             deleteButton.classList.toggle('hidden', !(currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support')));
         }
 
+        // Carregar Comentários
         const commentsResponse = await fetch(`/api/tickets/${ticketId}/comments`);
         if (commentsResponse.ok) {
             const comments = await commentsResponse.json();
-            renderComments(comments); 
+            renderComments(comments);
         }
 
         toggleModal('modalEditarTicket', true);
