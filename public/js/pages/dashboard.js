@@ -1,31 +1,33 @@
 let currentUser = null;
 let paginaAtual = 1;
-    let ticketIdToDelete = null;
-    let pastedFileCreate = null;
-    let pastedFileEdit = null;
-    let alertaIdToDelete = null;
-    let grupoIdToDelete = null;
-    let areaIdToDelete = null;
-    let tipoIdToDelete = null;
-    let prioridadeIdToDelete = null;
-    let statusIdToDelete = null;
-    let currentStatusList = [];
-    let ticketAbertoParaEdicao = null;
-    let userIdToDelete = null;
-    let alertaIdToEdit = null;
+let ticketIdToDelete = null;
+let pastedFileCreate = null;
+let pastedFileEdit = null;
+let alertaIdToDelete = null;
+let grupoIdToDelete = null;
+let areaIdToDelete = null;
+let tipoIdToDelete = null;
+let prioridadeIdToDelete = null;
+let statusIdToDelete = null;
+let currentStatusList = [];
+let ticketAbertoParaEdicao = null;
+let userIdToDelete = null;
+let alertaIdToEdit = null;
 
-    let currentAlertsList = [];
-    let currentGruposList = [];
-    let allUsersCache = [];
-    let currentFilters = {};
-    let currentAreasList = [];
-    let currentTiposList = [];
-    let currentPrioridadesList = [];
+let currentAlertsList = [];
+let currentGruposList = [];
+let allUsersCache = [];
+let currentFilters = {};
+let currentAreasList = [];
+let currentTiposList = [];
+let currentPrioridadesList = [];
+let engineersListCache = [];
+
 function toggleModal(modalId, show) {
     const modal = document.getElementById(modalId);
-    
-        modal.classList.toggle('hidden', !show);
-        
+
+    modal.classList.toggle('hidden', !show);
+
 }
 function getFormattedDateTime(dateObj) {
     if (!dateObj || isNaN(new Date(dateObj).getTime())) {
@@ -33,13 +35,13 @@ function getFormattedDateTime(dateObj) {
         return { date: '', time: '' };
     }
     const validDate = new Date(dateObj);
-    
+
     // Formato YYYY-MM-DD
-    const date = validDate.toLocaleDateString('sv-SE'); 
-    
+    const date = validDate.toLocaleDateString('sv-SE');
+
     // Formato HH:mm
     const time = validDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    
+
     return { date, time };
 }
 function combineDateAndTime(date, timeString, isOptional = false) {
@@ -47,17 +49,17 @@ function combineDateAndTime(date, timeString, isOptional = false) {
     if (!date) {
         return null;
     }
-    
+
     // Se a hora estiver vazia ou com placeholder
     if (!timeString || timeString.includes('h') || timeString.length < 5) {
         // Se for um campo opcional (como Fim do Alarme), retorna nulo
         if (isOptional) {
-            return null; 
+            return null;
         }
         // Se for um campo obrigatório, assume '00:00'
-        timeString = '00:00'; 
+        timeString = '00:00';
     }
-    
+
     return `${date} ${timeString}:00`;
 }
 
@@ -103,7 +105,7 @@ function abrirModalNovoTicket() {
 
     const horarioAcionamentoTimeInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento_time"]');
     if (horarioAcionamentoTimeInput.imask) horarioAcionamentoTimeInput.imask.value = horaAtual;
-    
+
     const alarmeFimTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_fim_time"]');
     if (alarmeFimTimeInput.imask) alarmeFimTimeInput.imask.value = '';
 
@@ -120,20 +122,20 @@ function abrirModalNovoTicket() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    
-const sidebar = document.getElementById('sidebar');
-const sidebarToggle = document.getElementById('sidebar-toggle');
-const sidebarToggleIcon = document.getElementById('sidebar-toggle-icon');
 
-sidebarToggle?.addEventListener('click', () => {
-    sidebar.classList.toggle('sidebar-collapsed');
-    sidebar.classList.toggle('w-64');
-    sidebar.classList.toggle('w-20'); 
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarToggleIcon = document.getElementById('sidebar-toggle-icon');
 
- 
-    sidebarToggleIcon.classList.toggle('fa-chevron-left');
-    sidebarToggleIcon.classList.toggle('fa-chevron-right');
-});
+    sidebarToggle?.addEventListener('click', () => {
+        sidebar.classList.toggle('sidebar-collapsed');
+        sidebar.classList.toggle('w-64');
+        sidebar.classList.toggle('w-20');
+
+
+        sidebarToggleIcon.classList.toggle('fa-chevron-left');
+        sidebarToggleIcon.classList.toggle('fa-chevron-right');
+    });
     const timeMaskOptions = {
         mask: 'HH:mm',
         blocks: {
@@ -141,7 +143,7 @@ sidebarToggle?.addEventListener('click', () => {
             mm: { mask: IMask.MaskedRange, from: 0, to: 59, maxLength: 2 }
         },
         lazy: false
-    };    
+    };
     const timeInputs = [
         '#formAbrirTicket input[name="alarme_inicio_time"]',
         '#formAbrirTicket input[name="horario_acionamento_time"]',
@@ -159,42 +161,42 @@ sidebarToggle?.addEventListener('click', () => {
     });
 
     let columnConfig = [
-    { key: 'id', title: 'Ticket#', visible: true },
-    { key: 'area_nome', title: 'Área', visible: true },
-    { key: 'data_criacao', title: 'Criação', visible: false },
-    { key: 'user_nome', title: 'Usuário', visible: true },
-    { key: 'prioridade_nome', title: 'Prioridade', visible: true },
-    { key: 'status', title: 'Status', visible: true },
-    { key: 'descricao', title: 'Descrição', visible: false },
-    { key: 'ultimo_comentario', title: 'Último Comentário', visible: false },
-    { key: 'alerta_nome', title: 'Alerta', visible: false },
-    { key: 'grupo_nome', title: 'Grupo Resp.', visible: false },
-    { key: 'alarme_inicio', title: 'Início Alarme', visible: false },
-    { key: 'alarme_fim', title: 'Fim Alarme', visible: false },
-    { key: 'horario_acionamento', title: 'Atendimento', visible: true }
-];
+        { key: 'id', title: 'Ticket#', visible: true },
+        { key: 'area_nome', title: 'Área', visible: true },
+        { key: 'data_criacao', title: 'Criação', visible: false },
+        { key: 'user_nome', title: 'Usuário', visible: true },
+        { key: 'prioridade_nome', title: 'Prioridade', visible: true },
+        { key: 'status', title: 'Status', visible: true },
+        { key: 'descricao', title: 'Descrição', visible: false },
+        { key: 'ultimo_comentario', title: 'Último Comentário', visible: false },
+        { key: 'alerta_nome', title: 'Alerta', visible: false },
+        { key: 'grupo_nome', title: 'Grupo Resp.', visible: false },
+        { key: 'alarme_inicio', title: 'Início Alarme', visible: false },
+        { key: 'alarme_fim', title: 'Fim Alarme', visible: false },
+        { key: 'horario_acionamento', title: 'Atendimento', visible: true }
+    ];
 
-   async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.innerHTML = 'Carregando...';
-    try {
-        const response = await fetch(url, { cache: 'no-cache' });
-        
-        if (!response.ok) throw new Error('Falha ao carregar dados');
-        let items = await response.json();
+    async function popularFiltroCheckboxes(containerId, url, name, keyField = 'id', valueField = 'nome') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = 'Carregando...';
+        try {
+            const response = await fetch(url, { cache: 'no-cache' });
 
-        if (name === 'prioridades') {
-            const nomesUnicos = [...new Set(items.map(item => item.nome.split(' ')[0].split('(')[0].trim()))];
-            const itensAgrupados = nomesUnicos.map(nomeUnico => ({ id: nomeUnico, nome: nomeUnico }));
-            renderCheckboxes(containerId, itensAgrupados, 'prioridades_nomes');
-        } else {
-            renderCheckboxes(containerId, items, name, keyField, valueField);
+            if (!response.ok) throw new Error('Falha ao carregar dados');
+            let items = await response.json();
+
+            if (name === 'prioridades') {
+                const nomesUnicos = [...new Set(items.map(item => item.nome.split(' ')[0].split('(')[0].trim()))];
+                const itensAgrupados = nomesUnicos.map(nomeUnico => ({ id: nomeUnico, nome: nomeUnico }));
+                renderCheckboxes(containerId, itensAgrupados, 'prioridades_nomes');
+            } else {
+                renderCheckboxes(containerId, items, name, keyField, valueField);
+            }
+        } catch (error) {
+            container.innerHTML = 'Erro ao carregar opções.';
         }
-    } catch (error) {
-        container.innerHTML = 'Erro ao carregar opções.';
     }
-}
 
     function renderCheckboxes(containerId, items, name, keyField = 'id', valueField = 'nome') {
         const container = document.getElementById(containerId);
@@ -279,107 +281,107 @@ sidebarToggle?.addEventListener('click', () => {
     const btnSaveNewPrioridade = document.getElementById('btn-save-new-prioridade');
     const prioridadeSuggestionsList = document.getElementById('prioridade-suggestions-list');
 
-   function handleDeleteOption(itemType, selectId, idVariableSetter, modalId) {
-    const selectElement = document.getElementById(selectId);
-    const areaSelectElement = document.getElementById('ticket-area'); 
-    const selectedId = selectElement ? selectElement.value : null;
+    function handleDeleteOption(itemType, selectId, idVariableSetter, modalId) {
+        const selectElement = document.getElementById(selectId);
+        const areaSelectElement = document.getElementById('ticket-area');
+        const selectedId = selectElement ? selectElement.value : null;
 
-    if (!selectedId) {
-        showStatusModal('Atenção!', `Por favor, selecione um(a) ${itemType} da lista para excluir.`, true);
-        return;
-    }
-
-
-    idVariableSetter({ id: selectedId, areaSelect: areaSelectElement });
-    toggleModal(modalId, true);
-}
-
-async function preencherFormularioNovoTicket(dadosParaPreencher = {}) {
-    const form = document.getElementById('formAbrirTicket');
-    if (form) form.reset();
-
-    const now = new Date();
-    // Se for duplicação, usa a data do ticket. Se for novo, usa a data de agora.
-    const alarmeInicio = getFormattedDateTime(dadosParaPreencher.alarme_inicio ? new Date(dadosParaPreencher.alarme_inicio) : now);
-    const horarioAcionamento = getFormattedDateTime(dadosParaPreencher.horario_acionamento ? new Date(dadosParaPreencher.horario_acionamento) : now);
-    
-    const defaultStatus = currentStatusList.find(s => s.nome === 'Em Atendimento');
-    const statusIdValue = dadosParaPreencher.status_id ? dadosParaPreencher.status_id : (defaultStatus ? defaultStatus.id : '');
-
-    // Preenche as datas
-    document.querySelector('#formAbrirTicket input[name="alarme_inicio_date"]').value = alarmeInicio.date;
-    document.querySelector('#formAbrirTicket input[name="horario_acionamento_date"]').value = horarioAcionamento.date;
-    document.querySelector('#formAbrirTicket input[name="alarme_fim_date"]').value = '';
-
-    // Preenche as horas e aplica a máscara
-    const alarmeInicioTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio_time"]');
-    alarmeInicioTimeInput.value = alarmeInicio.time;
-    IMask(alarmeInicioTimeInput, timeMaskOptions);
-
-    const horarioAcionamentoTimeInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento_time"]');
-    horarioAcionamentoTimeInput.value = horarioAcionamento.time;
-    IMask(horarioAcionamentoTimeInput, timeMaskOptions);
-    
-    IMask(document.querySelector('#formAbrirTicket input[name="alarme_fim_time"]'), timeMaskOptions);
-
-    // Preenche os outros campos
-    document.getElementById('ticket-status').value = statusIdValue;
-    document.getElementById('ticket-descricao').value = dadosParaPreencher.descricao || '';
-    const areaSelect = document.getElementById('ticket-area');
-    areaSelect.value = dadosParaPreencher.area_id || '';
-
-    await handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
-    
-    if (dadosParaPreencher.area_id) {
-        await new Promise(resolve => setTimeout(resolve, 50)); 
-        document.getElementById('ticket-grupo').value = dadosParaPreencher.grupo_id || '';
-        document.getElementById('ticket-tipo').value = dadosParaPreencher.tipo_solicitacao_id || '';
-        document.getElementById('ticket-prioridade').value = dadosParaPreencher.prioridade_id || '';
-        document.getElementById('ticket-alerta').value = dadosParaPreencher.alerta_id || '';
-    }
-
-    toggleModal('modalTicket', true);
-}
-  async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
-    if (!idHolder || !idHolder.id) return;
-
-    try {
-        const response = await fetch(`${endpoint}/${idHolder.id}`, {
-            method: 'DELETE'
-        });
-        const result = await response.json();
-        toggleModal(modalId, false);
-
-        if (response.ok) {
-            showStatusModal('Sucesso!', result.message, false, async () => {
-                if (itemType === 'area') {
-                    await popularDropdownsTicket();
-                } else if (itemType === 'status') {
-                    const statusResponse = await fetch('/api/tickets/options/status');
-                    const statusItems = await statusResponse.json();
-                    currentStatusList = statusItems;
-                    const defaultStatus = statusItems.find(s => s.nome === 'Em Atendimento');
-                    const defaultStatusId = defaultStatus ? defaultStatus.id : null;
-                    popularDropdown('ticket-status', statusItems, 'Selecione o Status', defaultStatusId);
-                    popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
-                    await carregarInfoCards();
-
-                } else {
-                    if (idHolder.areaSelect) {
-                        idHolder.areaSelect.dispatchEvent(new Event('change'));
-                    }
-                }
-            });
-        } else {
-            showStatusModal('Erro!', result.message, true);
+        if (!selectedId) {
+            showStatusModal('Atenção!', `Por favor, selecione um(a) ${itemType} da lista para excluir.`, true);
+            return;
         }
-    } catch (error) {
-        toggleModal(modalId, false);
-        showStatusModal('Erro de Conexão', `Não foi possível deletar o(a) ${itemType}.`, true);
-    } finally {
-        idResetter();
+
+
+        idVariableSetter({ id: selectedId, areaSelect: areaSelectElement });
+        toggleModal(modalId, true);
     }
-}
+
+    async function preencherFormularioNovoTicket(dadosParaPreencher = {}) {
+        const form = document.getElementById('formAbrirTicket');
+        if (form) form.reset();
+
+        const now = new Date();
+        // Se for duplicação, usa a data do ticket. Se for novo, usa a data de agora.
+        const alarmeInicio = getFormattedDateTime(dadosParaPreencher.alarme_inicio ? new Date(dadosParaPreencher.alarme_inicio) : now);
+        const horarioAcionamento = getFormattedDateTime(dadosParaPreencher.horario_acionamento ? new Date(dadosParaPreencher.horario_acionamento) : now);
+
+        const defaultStatus = currentStatusList.find(s => s.nome === 'Em Atendimento');
+        const statusIdValue = dadosParaPreencher.status_id ? dadosParaPreencher.status_id : (defaultStatus ? defaultStatus.id : '');
+
+        // Preenche as datas
+        document.querySelector('#formAbrirTicket input[name="alarme_inicio_date"]').value = alarmeInicio.date;
+        document.querySelector('#formAbrirTicket input[name="horario_acionamento_date"]').value = horarioAcionamento.date;
+        document.querySelector('#formAbrirTicket input[name="alarme_fim_date"]').value = '';
+
+        // Preenche as horas e aplica a máscara
+        const alarmeInicioTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio_time"]');
+        alarmeInicioTimeInput.value = alarmeInicio.time;
+        IMask(alarmeInicioTimeInput, timeMaskOptions);
+
+        const horarioAcionamentoTimeInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento_time"]');
+        horarioAcionamentoTimeInput.value = horarioAcionamento.time;
+        IMask(horarioAcionamentoTimeInput, timeMaskOptions);
+
+        IMask(document.querySelector('#formAbrirTicket input[name="alarme_fim_time"]'), timeMaskOptions);
+
+        // Preenche os outros campos
+        document.getElementById('ticket-status').value = statusIdValue;
+        document.getElementById('ticket-descricao').value = dadosParaPreencher.descricao || '';
+        const areaSelect = document.getElementById('ticket-area');
+        areaSelect.value = dadosParaPreencher.area_id || '';
+
+        await handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
+
+        if (dadosParaPreencher.area_id) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            document.getElementById('ticket-grupo').value = dadosParaPreencher.grupo_id || '';
+            document.getElementById('ticket-tipo').value = dadosParaPreencher.tipo_solicitacao_id || '';
+            document.getElementById('ticket-prioridade').value = dadosParaPreencher.prioridade_id || '';
+            document.getElementById('ticket-alerta').value = dadosParaPreencher.alerta_id || '';
+        }
+
+        toggleModal('modalTicket', true);
+    }
+    async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
+        if (!idHolder || !idHolder.id) return;
+
+        try {
+            const response = await fetch(`${endpoint}/${idHolder.id}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            toggleModal(modalId, false);
+
+            if (response.ok) {
+                showStatusModal('Sucesso!', result.message, false, async () => {
+                    if (itemType === 'area') {
+                        await popularDropdownsTicket();
+                    } else if (itemType === 'status') {
+                        const statusResponse = await fetch('/api/tickets/options/status');
+                        const statusItems = await statusResponse.json();
+                        currentStatusList = statusItems;
+                        const defaultStatus = statusItems.find(s => s.nome === 'Em Atendimento');
+                        const defaultStatusId = defaultStatus ? defaultStatus.id : null;
+                        popularDropdown('ticket-status', statusItems, 'Selecione o Status', defaultStatusId);
+                        popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
+                        await carregarInfoCards();
+
+                    } else {
+                        if (idHolder.areaSelect) {
+                            idHolder.areaSelect.dispatchEvent(new Event('change'));
+                        }
+                    }
+                });
+            } else {
+                showStatusModal('Erro!', result.message, true);
+            }
+        } catch (error) {
+            toggleModal(modalId, false);
+            showStatusModal('Erro de Conexão', `Não foi possível deletar o(a) ${itemType}.`, true);
+        } finally {
+            idResetter();
+        }
+    }
     const btnDeleteAlerta = document.getElementById('btn-delete-alerta-selecionado');
 
     btnDeleteArea?.addEventListener('click', () => {
@@ -403,29 +405,29 @@ async function preencherFormularioNovoTicket(dadosParaPreencher = {}) {
     });
 
 
-   document.getElementById('btn-confirm-delete-area')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('area', areaIdToDelete, '/api/tickets/options/areas', 'modalConfirmarDeleteArea', () => areaIdToDelete = null);
-});
+    document.getElementById('btn-confirm-delete-area')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('area', areaIdToDelete, '/api/tickets/options/areas', 'modalConfirmarDeleteArea', () => areaIdToDelete = null);
+    });
 
-document.getElementById('btn-confirm-delete-grupo')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('grupo', grupoIdToDelete, '/api/tickets/options/grupos', 'modalConfirmarDeleteGrupo', () => grupoIdToDelete = null);
-});
+    document.getElementById('btn-confirm-delete-grupo')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('grupo', grupoIdToDelete, '/api/tickets/options/grupos', 'modalConfirmarDeleteGrupo', () => grupoIdToDelete = null);
+    });
 
-document.getElementById('btn-confirm-delete-tipo')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('tipo', tipoIdToDelete, '/api/tickets/options/tipos', 'modalConfirmarDeleteTipo', () => tipoIdToDelete = null);
-});
+    document.getElementById('btn-confirm-delete-tipo')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('tipo', tipoIdToDelete, '/api/tickets/options/tipos', 'modalConfirmarDeleteTipo', () => tipoIdToDelete = null);
+    });
 
-document.getElementById('btn-confirm-delete-prioridade')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('prioridade', prioridadeIdToDelete, '/api/tickets/options/prioridades', 'modalConfirmarDeletePrioridade', () => prioridadeIdToDelete = null);
-});
+    document.getElementById('btn-confirm-delete-prioridade')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('prioridade', prioridadeIdToDelete, '/api/tickets/options/prioridades', 'modalConfirmarDeletePrioridade', () => prioridadeIdToDelete = null);
+    });
 
-document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('alerta', alertaIdToDelete, '/api/tickets/options/alertas', 'modalConfirmarDeleteAlerta', () => alertaIdToDelete = null);
-});
+    document.getElementById('btn-confirm-delete-alerta')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('alerta', alertaIdToDelete, '/api/tickets/options/alertas', 'modalConfirmarDeleteAlerta', () => alertaIdToDelete = null);
+    });
 
-document.getElementById('btn-confirm-delete-status')?.addEventListener('click', () => {
-    handleConfirmDeleteOption('status', statusIdToDelete, '/api/tickets/options/status', 'modalConfirmarDeleteStatus', () => statusIdToDelete = null);
-});
+    document.getElementById('btn-confirm-delete-status')?.addEventListener('click', () => {
+        handleConfirmDeleteOption('status', statusIdToDelete, '/api/tickets/options/status', 'modalConfirmarDeleteStatus', () => statusIdToDelete = null);
+    });
 
     document.getElementById('btn-cancel-delete-area')?.addEventListener('click', () => {
         areaIdToDelete = null;
@@ -447,178 +449,178 @@ document.getElementById('btn-confirm-delete-status')?.addEventListener('click', 
         toggleModal('modalConfirmarDeletePrioridade', false);
     });
     document.getElementById('btn-cancel-delete-status')?.addEventListener('click', () => {
-    statusIdToDelete = null; 
-    toggleModal('modalConfirmarDeleteStatus', false); 
-});
+        statusIdToDelete = null;
+        toggleModal('modalConfirmarDeleteStatus', false);
+    });
     document.getElementById('btn-cancel-delete-alerta')?.addEventListener('click', () => {
         alertaIdToDelete = null;
         toggleModal('modalConfirmarDeleteAlerta', false);
     });
 
     document.getElementById('btn-deletar-usuario')?.addEventListener('click', () => {
-    const userId = document.querySelector('#formEditarUsuarioAdmin input[name="id"]')?.value;
-    if (userId) {
-        userIdToDelete = userId;
-        toggleModal('modalConfirmarDeleteUsuario', true);
-    } else {
-        showStatusModal('Erro!', 'Não foi possível identificar o usuário a ser deletado.', true);
-    }
-});
-
-document.getElementById('btn-cancel-delete-user')?.addEventListener('click', () => {
-    userIdToDelete = null;
-    toggleModal('modalConfirmarDeleteUsuario', false);
-});
-
-document.getElementById('btn-confirm-delete-user')?.addEventListener('click', async () => {
-    if (!userIdToDelete) return;
-
-    try {
-        const response = await fetch(`/api/users/${userIdToDelete}`, {
-            method: 'DELETE'
-        });
-        const result = await response.json();
-
-        toggleModal('modalConfirmarDeleteUsuario', false);
-
-        if (response.ok) {
-            showStatusModal('Sucesso!', result.message, false, () => {
-                // Fecha os modais e atualiza a lista de usuários
-                toggleModal('modalEditarUsuarioAdmin', false);
-                btnAbrirModalListaUsuarios.click();
-            });
+        const userId = document.querySelector('#formEditarUsuarioAdmin input[name="id"]')?.value;
+        if (userId) {
+            userIdToDelete = userId;
+            toggleModal('modalConfirmarDeleteUsuario', true);
         } else {
-            showStatusModal('Erro!', result.message, true);
+            showStatusModal('Erro!', 'Não foi possível identificar o usuário a ser deletado.', true);
         }
-    } catch (error) {
-        toggleModal('modalConfirmarDeleteUsuario', false);
-        showStatusModal('Erro de Conexão', 'Não foi possível deletar o usuário.', true);
-    } finally {
+    });
+
+    document.getElementById('btn-cancel-delete-user')?.addEventListener('click', () => {
         userIdToDelete = null;
-    }
-});
-const btnEditAlerta = document.getElementById('btn-edit-alerta-selecionado');
-const formEditarAlerta = document.getElementById('formEditarAlerta');
-const inputEditAlerta = document.getElementById('input-edit-alerta');
-const labelEditAlerta = document.getElementById('edit-alerta-label');
+        toggleModal('modalConfirmarDeleteUsuario', false);
+    });
 
-// Listener para o botão "Editar alerta"
-btnEditAlerta?.addEventListener('click', () => {
-    const alertaSelect = document.getElementById('ticket-alerta');
-    const selectedId = alertaSelect.value;
-    
-    if (!selectedId) {
-        showStatusModal('Atenção!', 'Por favor, selecione um alerta da lista para editar.', true);
-        return;
-    }
-    
-    const selectedText = alertaSelect.options[alertaSelect.selectedIndex].text;
-    
-    alertaIdToEdit = selectedId;
-    inputEditAlerta.value = selectedText;
-    labelEditAlerta.textContent = `Editando Alerta: "${selectedText}"`;
-    toggleModal('modalEditarAlerta', true);
-});
+    document.getElementById('btn-confirm-delete-user')?.addEventListener('click', async () => {
+        if (!userIdToDelete) return;
 
-// Listener para o formulário do modal de edição
-formEditarAlerta?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!alertaIdToEdit) return;
+        try {
+            const response = await fetch(`/api/users/${userIdToDelete}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
 
-    const novoNome = capitalize(inputEditAlerta.value.trim());
-    if (!novoNome) {
-        return showStatusModal('Erro!', 'O nome do alerta não pode ficar vazio.', true);
-    }
+            toggleModal('modalConfirmarDeleteUsuario', false);
 
-    try {
-        const response = await fetch(`/api/tickets/options/alertas/${alertaIdToEdit}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome: novoNome })
-        });
-        const result = await response.json();
-        
-        if (!response.ok) throw new Error(result.message);
+            if (response.ok) {
+                showStatusModal('Sucesso!', result.message, false, () => {
+                    // Fecha os modais e atualiza a lista de usuários
+                    toggleModal('modalEditarUsuarioAdmin', false);
+                    btnAbrirModalListaUsuarios.click();
+                });
+            } else {
+                showStatusModal('Erro!', result.message, true);
+            }
+        } catch (error) {
+            toggleModal('modalConfirmarDeleteUsuario', false);
+            showStatusModal('Erro de Conexão', 'Não foi possível deletar o usuário.', true);
+        } finally {
+            userIdToDelete = null;
+        }
+    });
+    const btnEditAlerta = document.getElementById('btn-edit-alerta-selecionado');
+    const formEditarAlerta = document.getElementById('formEditarAlerta');
+    const inputEditAlerta = document.getElementById('input-edit-alerta');
+    const labelEditAlerta = document.getElementById('edit-alerta-label');
 
-        toggleModal('modalEditarAlerta', false);
+    // Listener para o botão "Editar alerta"
+    btnEditAlerta?.addEventListener('click', () => {
+        const alertaSelect = document.getElementById('ticket-alerta');
+        const selectedId = alertaSelect.value;
 
-        
-        const areaSelect = document.getElementById('ticket-area');
-        const areaSelectEdit = document.getElementById('edit-ticket-area');
+        if (!selectedId) {
+            showStatusModal('Atenção!', 'Por favor, selecione um alerta da lista para editar.', true);
+            return;
+        }
 
-        await Promise.all([
-             handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta'),
-             handleAreaChange(areaSelectEdit, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta')
-        ]);
-        
-        showStatusModal('Sucesso!', result.message, false, () => {
-            document.getElementById('ticket-alerta').value = alertaIdToEdit;
-        });
-        
-    } catch (error) {
-        showStatusModal('Erro!', error.message, true);
-    } finally {
-        alertaIdToEdit = null;
-    }
-});
+        const selectedText = alertaSelect.options[alertaSelect.selectedIndex].text;
+
+        alertaIdToEdit = selectedId;
+        inputEditAlerta.value = selectedText;
+        labelEditAlerta.textContent = `Editando Alerta: "${selectedText}"`;
+        toggleModal('modalEditarAlerta', true);
+    });
+
+    // Listener para o formulário do modal de edição
+    formEditarAlerta?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!alertaIdToEdit) return;
+
+        const novoNome = capitalize(inputEditAlerta.value.trim());
+        if (!novoNome) {
+            return showStatusModal('Erro!', 'O nome do alerta não pode ficar vazio.', true);
+        }
+
+        try {
+            const response = await fetch(`/api/tickets/options/alertas/${alertaIdToEdit}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome: novoNome })
+            });
+            const result = await response.json();
+
+            if (!response.ok) throw new Error(result.message);
+
+            toggleModal('modalEditarAlerta', false);
+
+
+            const areaSelect = document.getElementById('ticket-area');
+            const areaSelectEdit = document.getElementById('edit-ticket-area');
+
+            await Promise.all([
+                handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta'),
+                handleAreaChange(areaSelectEdit, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta')
+            ]);
+
+            showStatusModal('Sucesso!', result.message, false, () => {
+                document.getElementById('ticket-alerta').value = alertaIdToEdit;
+            });
+
+        } catch (error) {
+            showStatusModal('Erro!', error.message, true);
+        } finally {
+            alertaIdToEdit = null;
+        }
+    });
 
     const resetAddStatusForm = () => {
-    if (addStatusContainer) addStatusContainer.classList.add('hidden');
-    if (btnShowAddStatus) btnShowAddStatus.classList.remove('hidden');
-    const statusSelect = document.getElementById('ticket-status');
-    // Mostra o botão de deletar se um status estiver selecionado
-    if (btnDeleteStatus && statusSelect?.value) {
-        btnDeleteStatus.classList.remove('hidden');
-    }
-    if (inputNewStatus) inputNewStatus.value = '';
-    if (btnSaveNewStatus) btnSaveNewStatus.disabled = false;
-};
-
-btnShowAddStatus?.addEventListener('click', () => {
-    addStatusContainer.classList.remove('hidden');
-    btnShowAddStatus.classList.add('hidden');
-    if (btnDeleteStatus) btnDeleteStatus.classList.add('hidden');
-    inputNewStatus.focus();
-    setupAutocomplete('input-new-status', 'status-suggestions-list', currentStatusList); 
-});
-
-btnCancelAddStatus?.addEventListener('click', resetAddStatusForm);
-
-btnSaveNewStatus?.addEventListener('click', async () => {
-    const nomeNovoStatus = capitalize(inputNewStatus.value.trim());
-    if (!nomeNovoStatus) {
-        return showStatusModal('Erro!', 'O nome do novo status é obrigatório.', true);
-    }
-
-    btnSaveNewStatus.disabled = true;
-    btnSaveNewStatus.textContent = 'Salvando...';
-    try {
-        const response = await fetch('/api/tickets/options/status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome: nomeNovoStatus })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message);
-
-        const { novoItem } = result;
+        if (addStatusContainer) addStatusContainer.classList.add('hidden');
+        if (btnShowAddStatus) btnShowAddStatus.classList.remove('hidden');
         const statusSelect = document.getElementById('ticket-status');
-        const newOption = new Option(novoItem.nome, novoItem.id, true, true);
-        statusSelect.add(newOption);
-        currentStatusList.push(novoItem);
+        // Mostra o botão de deletar se um status estiver selecionado
+        if (btnDeleteStatus && statusSelect?.value) {
+            btnDeleteStatus.classList.remove('hidden');
+        }
+        if (inputNewStatus) inputNewStatus.value = '';
+        if (btnSaveNewStatus) btnSaveNewStatus.disabled = false;
+    };
 
-        resetAddStatusForm();
-        statusSelect.dispatchEvent(new Event('change'));
-        await carregarInfoCards();
+    btnShowAddStatus?.addEventListener('click', () => {
+        addStatusContainer.classList.remove('hidden');
+        btnShowAddStatus.classList.add('hidden');
+        if (btnDeleteStatus) btnDeleteStatus.classList.add('hidden');
+        inputNewStatus.focus();
+        setupAutocomplete('input-new-status', 'status-suggestions-list', currentStatusList);
+    });
+
+    btnCancelAddStatus?.addEventListener('click', resetAddStatusForm);
+
+    btnSaveNewStatus?.addEventListener('click', async () => {
+        const nomeNovoStatus = capitalize(inputNewStatus.value.trim());
+        if (!nomeNovoStatus) {
+            return showStatusModal('Erro!', 'O nome do novo status é obrigatório.', true);
+        }
+
+        btnSaveNewStatus.disabled = true;
+        btnSaveNewStatus.textContent = 'Salvando...';
+        try {
+            const response = await fetch('/api/tickets/options/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome: nomeNovoStatus })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+
+            const { novoItem } = result;
+            const statusSelect = document.getElementById('ticket-status');
+            const newOption = new Option(novoItem.nome, novoItem.id, true, true);
+            statusSelect.add(newOption);
+            currentStatusList.push(novoItem);
+
+            resetAddStatusForm();
+            statusSelect.dispatchEvent(new Event('change'));
+            await carregarInfoCards();
 
 
-    } catch (error) {
-        showStatusModal('Erro!', error.message, true);
-    } finally {
-        btnSaveNewStatus.disabled = false;
-        btnSaveNewStatus.textContent = 'Salvar';
-    }
-});
+        } catch (error) {
+            showStatusModal('Erro!', error.message, true);
+        } finally {
+            btnSaveNewStatus.disabled = false;
+            btnSaveNewStatus.textContent = 'Salvar';
+        }
+    });
 
     const resetAddPrioridadeForm = () => {
         if (addPrioridadeContainer) addPrioridadeContainer.classList.add('hidden');
@@ -731,58 +733,58 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         }
     });
     document.getElementById('btn-duplicar-ticket')?.addEventListener('click', async () => {
-    if (!ticketAbertoParaEdicao) {
-        showStatusModal('Erro!', 'Não foi possível encontrar os dados do ticket para duplicar.', true);
-        return;
-    }
+        if (!ticketAbertoParaEdicao) {
+            showStatusModal('Erro!', 'Não foi possível encontrar os dados do ticket para duplicar.', true);
+            return;
+        }
 
 
-    toggleModal('modalEditarTicket', false);
-
- 
-    abrirModalNovoTicket();
-
-  
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const { date: alarmeInicioDate, time: alarmeInicioTime } = getFormattedDateTime(ticketAbertoParaEdicao.alarme_inicio);
-    const { date: acionamentoDate, time: acionamentoTime } = getFormattedDateTime(ticketAbertoParaEdicao.horario_acionamento);
+        toggleModal('modalEditarTicket', false);
 
 
-    document.querySelector('#formAbrirTicket input[name="alarme_inicio_date"]').value = alarmeInicioDate;
-    
+        abrirModalNovoTicket();
 
-    const alarmeInicioTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio_time"]');
-    if (alarmeInicioTimeInput && alarmeInicioTimeInput.imask) {
-        alarmeInicioTimeInput.imask.value = alarmeInicioTime;
-    } else if (alarmeInicioTimeInput) {
-        alarmeInicioTimeInput.value = alarmeInicioTime; 
-    }
 
-    document.querySelector('#formAbrirTicket input[name="horario_acionamento_date"]').value = acionamentoDate;
+        await new Promise(resolve => setTimeout(resolve, 100));
 
-    const horarioAcionamentoTimeInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento_time"]');
-    if (horarioAcionamentoTimeInput && horarioAcionamentoTimeInput.imask) {
-        horarioAcionamentoTimeInput.imask.value = acionamentoTime;
-    } else if (horarioAcionamentoTimeInput) {
-        horarioAcionamentoTimeInput.value = acionamentoTime; 
-    }
-    
-    const statusSelect = document.getElementById('ticket-status');
-    if (statusSelect) {
-        statusSelect.value = ticketAbertoParaEdicao.status_id;
-    }
-    document.getElementById('ticket-descricao').value = ticketAbertoParaEdicao.descricao;
-    
-    const areaSelect = document.getElementById('ticket-area');
-    areaSelect.value = ticketAbertoParaEdicao.area_id;
-    await handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
-    
-    document.getElementById('ticket-grupo').value = ticketAbertoParaEdicao.grupo_id;
-    document.getElementById('ticket-tipo').value = ticketAbertoParaEdicao.tipo_solicitacao_id;
-    document.getElementById('ticket-prioridade').value = ticketAbertoParaEdicao.prioridade_id;
-    document.getElementById('ticket-alerta').value = ticketAbertoParaEdicao.alerta_id;
-});
+        const { date: alarmeInicioDate, time: alarmeInicioTime } = getFormattedDateTime(ticketAbertoParaEdicao.alarme_inicio);
+        const { date: acionamentoDate, time: acionamentoTime } = getFormattedDateTime(ticketAbertoParaEdicao.horario_acionamento);
+
+
+        document.querySelector('#formAbrirTicket input[name="alarme_inicio_date"]').value = alarmeInicioDate;
+
+
+        const alarmeInicioTimeInput = document.querySelector('#formAbrirTicket input[name="alarme_inicio_time"]');
+        if (alarmeInicioTimeInput && alarmeInicioTimeInput.imask) {
+            alarmeInicioTimeInput.imask.value = alarmeInicioTime;
+        } else if (alarmeInicioTimeInput) {
+            alarmeInicioTimeInput.value = alarmeInicioTime;
+        }
+
+        document.querySelector('#formAbrirTicket input[name="horario_acionamento_date"]').value = acionamentoDate;
+
+        const horarioAcionamentoTimeInput = document.querySelector('#formAbrirTicket input[name="horario_acionamento_time"]');
+        if (horarioAcionamentoTimeInput && horarioAcionamentoTimeInput.imask) {
+            horarioAcionamentoTimeInput.imask.value = acionamentoTime;
+        } else if (horarioAcionamentoTimeInput) {
+            horarioAcionamentoTimeInput.value = acionamentoTime;
+        }
+
+        const statusSelect = document.getElementById('ticket-status');
+        if (statusSelect) {
+            statusSelect.value = ticketAbertoParaEdicao.status_id;
+        }
+        document.getElementById('ticket-descricao').value = ticketAbertoParaEdicao.descricao;
+
+        const areaSelect = document.getElementById('ticket-area');
+        areaSelect.value = ticketAbertoParaEdicao.area_id;
+        await handleAreaChange(areaSelect, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
+
+        document.getElementById('ticket-grupo').value = ticketAbertoParaEdicao.grupo_id;
+        document.getElementById('ticket-tipo').value = ticketAbertoParaEdicao.tipo_solicitacao_id;
+        document.getElementById('ticket-prioridade').value = ticketAbertoParaEdicao.prioridade_id;
+        document.getElementById('ticket-alerta').value = ticketAbertoParaEdicao.alerta_id;
+    });
 
 
     const resetAddAreaForm = () => {
@@ -906,24 +908,24 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         if (editInput) IMask(editInput, maskOptions);
     });
     function convertBrDateToIso(brDate) {
-    if (!brDate || brDate.includes('d') || brDate.includes('m') || brDate.includes('a')) return null;
+        if (!brDate || brDate.includes('d') || brDate.includes('m') || brDate.includes('a')) return null;
 
-    const parts = brDate.split(' ');
-    if (parts.length < 2) return null;
+        const parts = brDate.split(' ');
+        if (parts.length < 2) return null;
 
-    const dateParts = parts[0].split('/');
-    const timeParts = parts[1].split(':');
-    if (dateParts.length < 3 || timeParts.length < 2) return null;
+        const dateParts = parts[0].split('/');
+        const timeParts = parts[1].split(':');
+        if (dateParts.length < 3 || timeParts.length < 2) return null;
 
-    const year = dateParts[2];
-    const month = dateParts[1];
-    const day = dateParts[0];
-    const hours = timeParts[0];
-    const minutes = timeParts[1];
+        const year = dateParts[2];
+        const month = dateParts[1];
+        const day = dateParts[0];
+        const hours = timeParts[0];
+        const minutes = timeParts[1];
 
-    // Monta a string no formato YYYY-MM-DD HH:MM:SS sem conversão de fuso horário
-    return `${year}-${month}-${day} ${hours}:${minutes}:00`;
-}
+        // Monta a string no formato YYYY-MM-DD HH:MM:SS sem conversão de fuso horário
+        return `${year}-${month}-${day} ${hours}:${minutes}:00`;
+    }
 
     btnGerenciarUsuarios?.addEventListener('click', () => toggleModal('modalGerenciarUsuarios', true));
 
@@ -984,13 +986,13 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         }).join('');
     }
     btnAbrirFiltros?.addEventListener('click', async () => {
-    toggleModal('modalFiltros', true);
+        toggleModal('modalFiltros', true);
 
 
-    await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
-    await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
-    await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
-});
+        await popularFiltroCheckboxes('filtro-areas-container', '/api/tickets/options/areas', 'areas');
+        await popularFiltroCheckboxes('filtro-prioridades-container', '/api/tickets/options/prioridades', 'prioridades');
+        await popularFiltroCheckboxes('filtro-usuarios-container', '/api/users', 'usuarios', 'id', 'nome');
+    });
 
     // ALTERAÇÃO: Melhoria na função renderCheckboxes para corrigir layout
     function renderCheckboxes(containerId, items, name, keyField = 'id', valueField = 'nome') {
@@ -1008,49 +1010,49 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     }
 
 
-   formFiltros?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(formFiltros);
-    currentFilters = {}; 
+    formFiltros?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(formFiltros);
+        currentFilters = {};
 
-    currentFilters.areas = formData.getAll('areas').join(',');
-    currentFilters.status = formData.getAll('status').join(',');
-    currentFilters.prioridades_nomes = formData.getAll('prioridades_nomes').join(',');
-    currentFilters.usuarios = formData.getAll('usuarios').join(',');
+        currentFilters.areas = formData.getAll('areas').join(',');
+        currentFilters.status = formData.getAll('status').join(',');
+        currentFilters.prioridades_nomes = formData.getAll('prioridades_nomes').join(',');
+        currentFilters.usuarios = formData.getAll('usuarios').join(',');
 
-    const dateRange = formData.get('date_range');
-    if (dateRange === '7days') {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - 7);
-        currentFilters.startDate = startDate.toISOString().split('T')[0];
-        currentFilters.endDate = endDate.toISOString().split('T')[0];
-    } else if (dateRange === 'custom') {
-        currentFilters.startDate = formData.get('startDate');
-        currentFilters.endDate = formData.get('endDate');
-    }
+        const dateRange = formData.get('date_range');
+        if (dateRange === '7days') {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 7);
+            currentFilters.startDate = startDate.toISOString().split('T')[0];
+            currentFilters.endDate = endDate.toISOString().split('T')[0];
+        } else if (dateRange === 'custom') {
+            currentFilters.startDate = formData.get('startDate');
+            currentFilters.endDate = formData.get('endDate');
+        }
 
-    Object.keys(currentFilters).forEach(key => {
-        if (!currentFilters[key]) delete currentFilters[key];
+        Object.keys(currentFilters).forEach(key => {
+            if (!currentFilters[key]) delete currentFilters[key];
+        });
+
+        carregarTickets(1);
+        carregarInfoCards();
+
+        toggleModal('modalFiltros', false);
     });
 
-    carregarTickets(1);
-    carregarInfoCards(); 
-    
-    toggleModal('modalFiltros', false);
-});
-
     btnLimparFiltros?.addEventListener('click', () => {
-    formFiltros.reset();
-    customDateInputs.classList.add('hidden');
-    currentFilters = {};
-    
-   
-    carregarTickets(1);
-    carregarInfoCards(); 
-    
-    toggleModal('modalFiltros', false);
-});
+        formFiltros.reset();
+        customDateInputs.classList.add('hidden');
+        currentFilters = {};
+
+
+        carregarTickets(1);
+        carregarInfoCards();
+
+        toggleModal('modalFiltros', false);
+    });
 
 
     function createAreaCheckboxes(container, areaList, selectedAreaIds = []) {
@@ -1201,7 +1203,8 @@ btnSaveNewStatus?.addEventListener('click', async () => {
             createAreaCheckboxes(areaContainer, allAreas, user.area_ids);
             formEditarUsuarioAdmin.elements['novaSenha'].value = '';
             formEditarUsuarioAdmin.elements['confirmarSenha'].value = '';
-            document.getElementById('password-rules-admin').innerHTML = '';
+            const rulesContainer = document.getElementById('password-rules-admin');
+        if(rulesContainer) rulesContainer.innerHTML = '';
         } catch (error) {
             console.error(error);
             showStatusModal('Erro', 'Não foi possível carregar os dados deste usuário.', true, () => toggleModal('modalEditarUsuarioAdmin', false));
@@ -1223,7 +1226,7 @@ btnSaveNewStatus?.addEventListener('click', async () => {
             }
         });
     }
-    
+
     formEditarUsuarioAdmin?.elements['novaSenha'].addEventListener('input', (e) => {
         const rules = checkPasswordStrength(e.target.value);
         displayPasswordRules('password-rules-admin', rules);
@@ -1232,17 +1235,22 @@ btnSaveNewStatus?.addEventListener('click', async () => {
 
     formEditarUsuarioAdmin?.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
         const formData = new FormData(formEditarUsuarioAdmin);
         const data = Object.fromEntries(formData.entries());
+        
         data.area_ids = formData.getAll('area_ids').map(Number);
-        if (data.novaSenha) {
-            const rules = checkPasswordStrength(data.novaSenha);
-            if (Object.values(rules).some(rule => !rule)) {
-                return showStatusModal('Erro de Validação', 'A nova senha não atende a todos os critérios de segurança.', true);
-            }
+        
+        if (data.novaSenha && data.novaSenha.trim() !== "") {
             if (data.novaSenha !== data.confirmarSenha) {
                 return showStatusModal('Erro de Validação', 'As senhas não coincidem.', true);
             }
+            if (data.novaSenha.length < 6) {
+                return showStatusModal('Erro de Validação', 'A senha deve ter no mínimo 6 caracteres.', true);
+            }
+        } else {
+            delete data.novaSenha;
+            delete data.confirmarSenha;
         }
 
         try {
@@ -1257,7 +1265,8 @@ btnSaveNewStatus?.addEventListener('click', async () => {
 
             showStatusModal('Sucesso!', result.message, false, () => {
                 toggleModal('modalEditarUsuarioAdmin', false);
-                btnAbrirModalListaUsuarios.click();
+                const btnLista = document.getElementById('btn-abrir-modal-lista-usuarios');
+                if(btnLista) btnLista.click(); 
             });
 
         } catch (error) {
@@ -1359,29 +1368,29 @@ btnSaveNewStatus?.addEventListener('click', async () => {
 
 
     if (statusSelectEdit) {
-    statusSelectEdit.addEventListener('change', (event) => {
-        const selectedStatusId = event.target.value;
-        const fimAlarmeInput = document.getElementById('edit-alarme-fim');
-        
-        const selectedStatus = currentStatusList.find(s => s.id == selectedStatusId);
+        statusSelectEdit.addEventListener('change', (event) => {
+            const selectedStatusId = event.target.value;
+            const fimAlarmeInput = document.getElementById('edit-alarme-fim');
 
-        if (selectedStatus && (selectedStatus.nome === 'Resolvido' || selectedStatus.nome === 'Normalizado')) {
-            if (fimAlarmeInput && (!fimAlarmeInput.value || fimAlarmeInput.value.includes('d'))) {
-                const now = new Date();
-                const formattedDateTime = now.toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
-                
-                
-                const iMask = fimAlarmeInput.imask; 
-                
-                if (iMask) {
-                    iMask.value = formattedDateTime;
-                } else {
-                    fimAlarmeInput.value = formattedDateTime;
+            const selectedStatus = currentStatusList.find(s => s.id == selectedStatusId);
+
+            if (selectedStatus && (selectedStatus.nome === 'Resolvido' || selectedStatus.nome === 'Normalizado')) {
+                if (fimAlarmeInput && (!fimAlarmeInput.value || fimAlarmeInput.value.includes('d'))) {
+                    const now = new Date();
+                    const formattedDateTime = now.toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+
+
+                    const iMask = fimAlarmeInput.imask;
+
+                    if (iMask) {
+                        iMask.value = formattedDateTime;
+                    } else {
+                        fimAlarmeInput.value = formattedDateTime;
+                    }
                 }
             }
-        }
-    });
-}
+        });
+    }
 
     function handlePaste(event, targetTextarea, previewElement, fileStoreCallback) {
         event.preventDefault();
@@ -1461,84 +1470,84 @@ btnSaveNewStatus?.addEventListener('click', async () => {
     }
 
     function loadColumnConfig() {
-    const savedConfig = localStorage.getItem('ticketColumnConfig');
-    if (savedConfig) {
-        try {
-            const parsedConfig = JSON.parse(savedConfig);
-            columnConfig = parsedConfig; 
-        } catch (e) {
-            console.error("Erro ao carregar configuração de colunas, usando padrão.", e);
-            localStorage.removeItem('ticketColumnConfig');
+        const savedConfig = localStorage.getItem('ticketColumnConfig');
+        if (savedConfig) {
+            try {
+                const parsedConfig = JSON.parse(savedConfig);
+                columnConfig = parsedConfig;
+            } catch (e) {
+                console.error("Erro ao carregar configuração de colunas, usando padrão.", e);
+                localStorage.removeItem('ticketColumnConfig');
+            }
         }
     }
-}
 
-  function renderTable(tickets) {
-    if (!ticketsTable) return;
+    function renderTable(tickets) {
+        if (!ticketsTable) return;
 
-    if ($(ticketsTable).data('colResizable')) {
-        $(ticketsTable).colResizable({ disable: true });
-    }
+        if ($(ticketsTable).data('colResizable')) {
+            $(ticketsTable).colResizable({ disable: true });
+        }
 
-    const thead = ticketsTable.querySelector('thead tr');
-    const tbody = ticketsTable.querySelector('tbody');
-    if (!thead || !tbody) return;
+        const thead = ticketsTable.querySelector('thead tr');
+        const tbody = ticketsTable.querySelector('tbody');
+        if (!thead || !tbody) return;
 
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-    const visibleColumns = columnConfig.filter(col => col.visible);
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+        const visibleColumns = columnConfig.filter(col => col.visible);
 
-    visibleColumns.forEach(col => {
-        thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
-    });
-
-    if (!tickets || tickets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${visibleColumns.length}" class="text-center p-4">Nenhum ticket encontrado.</td></tr>`;
-    } else {
-        let tableContent = '';
-        tickets.forEach(ticket => {
-            let rowHtml = `<tr class="border-t text-center hover:bg-gray-50 cursor-pointer" data-ticket-id="${ticket.id}">`;
-            
-            visibleColumns.forEach(col => {
-                let cellValue = '';
-                const formatDateTime = (dateString) => {
-                    if (!dateString) return 'N/A';
-                    return new Date(dateString).toLocaleString('pt-BR', {
-                        day: '2-digit', month: '2-digit', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit'
-                    });
-                };
-
-                switch (col.key) {
-                    case 'id':
-                        cellValue = `#INC-${ticket.id}`;
-                        break;
-                    case 'data_criacao':
-                        cellValue = formatDateTime(ticket.data_criacao);
-                        break;
-                        
-                    case 'alarme_inicio':
-                    case 'alarme_fim':
-                    case 'horario_acionamento':
-                        cellValue = formatDateTime(ticket[col.key]);
-                        break;
-                    default:
-                        cellValue = ticket[col.key] || 'N/A';
-                }
-                rowHtml += `<td class="py-2 px-2 border">${cellValue}</td>`;
-            });
-            rowHtml += '</tr>';
-            tableContent += rowHtml;
+        visibleColumns.forEach(col => {
+            thead.innerHTML += `<th class="py-2 px-2 border">${col.title}</th>`;
         });
-        tbody.innerHTML = tableContent;
-    }
 
-    $(ticketsTable).colResizable({
-        liveDrag: true,
-        gripInnerHtml: "<div class='JCLRgrip'></div>",
-        minWidth: 50
-    });
-}
+        if (!tickets || tickets.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${visibleColumns.length}" class="text-center p-4">Nenhum ticket encontrado.</td></tr>`;
+        } else {
+            let tableContent = '';
+            tickets.forEach(ticket => {
+                let rowHtml = `<tr class="border-t text-center hover:bg-gray-50 cursor-pointer" data-ticket-id="${ticket.id}">`;
+
+                visibleColumns.forEach(col => {
+                    let cellValue = '';
+                    const formatDateTime = (dateString) => {
+                        if (!dateString) return 'N/A';
+                        return new Date(dateString).toLocaleString('pt-BR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                        });
+                    };
+
+                    switch (col.key) {
+                        case 'id':
+                            cellValue = `#INC-${ticket.id}`;
+                            break;
+                        case 'data_criacao':
+                            cellValue = formatDateTime(ticket.data_criacao);
+                            break;
+
+                        case 'alarme_inicio':
+                        case 'alarme_fim':
+                        case 'horario_acionamento':
+                            cellValue = formatDateTime(ticket[col.key]);
+                            break;
+                        default:
+                            cellValue = ticket[col.key] || 'N/A';
+                    }
+                    rowHtml += `<td class="py-2 px-2 border">${cellValue}</td>`;
+                });
+                rowHtml += '</tr>';
+                tableContent += rowHtml;
+            });
+            tbody.innerHTML = tableContent;
+        }
+
+        $(ticketsTable).colResizable({
+            liveDrag: true,
+            gripInnerHtml: "<div class='JCLRgrip'></div>",
+            minWidth: 50
+        });
+    }
 
     function populateCustomizerModal() {
         if (!visibilityList || !orderList) return;
@@ -1599,30 +1608,30 @@ btnSaveNewStatus?.addEventListener('click', async () => {
 
 
     function popularDropdown(selectId, data, placeholder, defaultValueId = null) {
-    const select = document.getElementById(selectId);
-    if (!select) return;
+        const select = document.getElementById(selectId);
+        if (!select) return;
 
-    select.innerHTML = `<option value="">-- ${placeholder} --</option>`;
+        select.innerHTML = `<option value="">-- ${placeholder} --</option>`;
 
-    if (Array.isArray(data)) {
-        data.forEach(item => {
-            const option = document.createElement('option');
-            option.value = item.id;
-            option.textContent = item.nome;
-            select.appendChild(option);
-        });
+        if (Array.isArray(data)) {
+            data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.nome;
+                select.appendChild(option);
+            });
+        }
+
+        // Define o valor padrão SE ele foi fornecido
+        if (defaultValueId) {
+            select.value = defaultValueId;
+        }
+        // Se não houver valor padrão, seleciona a única opção se houver apenas uma
+        else if (Array.isArray(data) && data.length === 1) {
+            select.value = data[0].id;
+            select.dispatchEvent(new Event('change'));
+        }
     }
-
-    // Define o valor padrão SE ele foi fornecido
-    if (defaultValueId) {
-        select.value = defaultValueId;
-    } 
-    // Se não houver valor padrão, seleciona a única opção se houver apenas uma
-    else if (Array.isArray(data) && data.length === 1) {
-        select.value = data[0].id;
-        select.dispatchEvent(new Event('change'));
-    }
-}
     async function handleAreaChange(areaSelectElement, tipoSelectId, prioridadeSelectId, grupoSelectId, alertaSelectId) {
         const areaId = areaSelectElement.value;
 
@@ -1640,14 +1649,14 @@ btnSaveNewStatus?.addEventListener('click', async () => {
 
         if (canManage) {
 
-    btnShowAddArea?.classList.remove('hidden');
-    btnShowAddStatus?.classList.remove('hidden');
+            btnShowAddArea?.classList.remove('hidden');
+            btnShowAddStatus?.classList.remove('hidden');
 
 
-    if (areaId) {
-        [btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.remove('hidden'));
-    }
-}
+            if (areaId) {
+                [btnShowAddGrupo, btnShowAddTipo, btnShowAddPrioridade, btnShowAddAlerta].forEach(btn => btn?.classList.remove('hidden'));
+            }
+        }
 
         const selects = [
             { element: tipoSelect, placeholder: 'Selecione uma Área' },
@@ -1709,59 +1718,59 @@ btnSaveNewStatus?.addEventListener('click', async () => {
         }
     }
     async function popularDropdownsTicket() {
-    const fetchAndPopulate = async (selectId, url, placeholder) => {
+        const fetchAndPopulate = async (selectId, url, placeholder) => {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Falha na requisição para ${url}`);
+                const items = await response.json();
+                popularDropdown(selectId, items, placeholder);
+            } catch (error) {
+                console.error(`Erro ao popular o seletor #${selectId}:`, error);
+                popularDropdown(selectId, [], 'Erro ao carregar');
+            }
+        };
+
+        fetchAndPopulate('ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
+        fetchAndPopulate('edit-ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
+
         try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Falha na requisição para ${url}`);
-            const items = await response.json();
-            popularDropdown(selectId, items, placeholder);
+            const response = await fetch('/api/tickets/options/status');
+            if (!response.ok) throw new Error('Falha ao carregar status');
+            const statusItems = await response.json();
+
+            currentStatusList = statusItems;
+
+            const defaultStatus = statusItems.find(s => s.nome === 'Em Atendimento');
+            const defaultStatusId = defaultStatus ? defaultStatus.id : null;
+
+            popularDropdown('ticket-status', statusItems, 'Selecione o Status', defaultStatusId);
+
+            popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
         } catch (error) {
-            console.error(`Erro ao popular o seletor #${selectId}:`, error);
-            popularDropdown(selectId, [], 'Erro ao carregar');
+            console.error('Erro ao popular os seletores de Status:', error);
+            popularDropdown('ticket-status', [], 'Erro ao carregar');
+            popularDropdown('edit-ticket-status', [], 'Erro ao carregar');
         }
-    };
-    
-    fetchAndPopulate('ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
-    fetchAndPopulate('edit-ticket-area', '/api/tickets/options/areas', 'Selecione a Área');
-    
-    try {
-        const response = await fetch('/api/tickets/options/status');
-        if (!response.ok) throw new Error('Falha ao carregar status');
-        const statusItems = await response.json();
-        
-        currentStatusList = statusItems;
-        
-        const defaultStatus = statusItems.find(s => s.nome === 'Em Atendimento');
-        const defaultStatusId = defaultStatus ? defaultStatus.id : null;
-        
-        popularDropdown('ticket-status', statusItems, 'Selecione o Status', defaultStatusId);
-        
-        popularDropdown('edit-ticket-status', statusItems, 'Selecione o Status');
-    } catch (error) {
-        console.error('Erro ao popular os seletores de Status:', error);
-        popularDropdown('ticket-status', [], 'Erro ao carregar');
-        popularDropdown('edit-ticket-status', [], 'Erro ao carregar');
     }
-}
-async function carregarInfoCards() {
-    try {
-        const params = new URLSearchParams(currentFilters);
-        const queryString = params.toString();
-        
-        const response = await fetch(`/api/tickets/cards-info?${queryString}`);
-        if (!response.ok) throw new Error('Falha ao carregar cards');
-        const data = await response.json(); 
+    async function carregarInfoCards() {
+        try {
+            const params = new URLSearchParams(currentFilters);
+            const queryString = params.toString();
 
-        const cardContainer = document.getElementById('card-container');
-        if (!cardContainer) return;
+            const response = await fetch(`/api/tickets/cards-info?${queryString}`);
+            if (!response.ok) throw new Error('Falha ao carregar cards');
+            const data = await response.json();
 
-        cardContainer.innerHTML = ''; 
+            const cardContainer = document.getElementById('card-container');
+            if (!cardContainer) return;
 
-        const activeStatus = currentFilters.status || 'all';
-        
-        // 1. Cria o card "Todos Tickets"
-        const totalSelected = (activeStatus === 'all') ? 'ring-4 ring-blue-500' : '';
-        let todosCardHtml = `
+            cardContainer.innerHTML = '';
+
+            const activeStatus = currentFilters.status || 'all';
+
+            // 1. Cria o card "Todos Tickets"
+            const totalSelected = (activeStatus === 'all') ? 'ring-4 ring-blue-500' : '';
+            let todosCardHtml = `
             <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform ${totalSelected}" data-status-name="all">
                 <div class="flex justify-between items-start">
                     <img src="/images/total.png" alt="Ícone Todos Tickets" class="w-15 h-12" />
@@ -1772,14 +1781,14 @@ async function carregarInfoCards() {
                 </div>
             </div>
         `;
-        cardContainer.innerHTML += todosCardHtml;
+            cardContainer.innerHTML += todosCardHtml;
 
-        // 2. Cria um card para cada status vindo da API
-        data.counts.forEach(item => {
-            const iconSrc = '/images/aberto.png'; 
-            const itemSelected = (activeStatus === item.nome) ? 'ring-4 ring-blue-500' : '';
-            
-            const cardHtml = `
+            // 2. Cria um card para cada status vindo da API
+            data.counts.forEach(item => {
+                const iconSrc = '/images/aberto.png';
+                const itemSelected = (activeStatus === item.nome) ? 'ring-4 ring-blue-500' : '';
+
+                const cardHtml = `
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform ${itemSelected}" data-status-name="${item.nome}">
                     <div class="flex justify-between items-start">
                         <img src="${iconSrc}" alt="Ícone ${item.nome}" class="w-15 h-12" />
@@ -1790,69 +1799,69 @@ async function carregarInfoCards() {
                     </div>
                 </div>
             `;
-            cardContainer.innerHTML += cardHtml;
-        });
-
-        // 3. Adiciona a lógica de clique
-        const allCards = document.querySelectorAll('.status-card');
-        allCards.forEach(card => {
-            card.addEventListener('click', () => {
-                
-                // ===== CORREÇÃO AQUI =====
-                // Remove as classes de anel uma por uma
-                allCards.forEach(c => c.classList.remove('ring-4', 'ring-blue-500'));
-                
-                // Adiciona as classes de anel uma por uma
-                card.classList.add('ring-4', 'ring-blue-500');
-                // ===== FIM DA CORREÇÃO =====
-
-                const statusName = card.dataset.statusName;
-                
-                if (statusName === 'all') {
-                    delete currentFilters.status;
-                } else {
-                    currentFilters.status = statusName;
-                }
-                
-                // Recarrega AMBOS
-                carregarTickets(1); 
-                carregarInfoCards(); 
+                cardContainer.innerHTML += cardHtml;
             });
-        });
 
-    } catch (error) {
-        console.error("Erro ao carregar info dos cards:", error);
-        const cardContainer = document.getElementById('card-container'); // Declaração movida para o catch
-        if (cardContainer) cardContainer.innerHTML = '<p class="text-sm text-red-500">Erro ao carregar status.</p>';
+            // 3. Adiciona a lógica de clique
+            const allCards = document.querySelectorAll('.status-card');
+            allCards.forEach(card => {
+                card.addEventListener('click', () => {
+
+                    // ===== CORREÇÃO AQUI =====
+                    // Remove as classes de anel uma por uma
+                    allCards.forEach(c => c.classList.remove('ring-4', 'ring-blue-500'));
+
+                    // Adiciona as classes de anel uma por uma
+                    card.classList.add('ring-4', 'ring-blue-500');
+                    // ===== FIM DA CORREÇÃO =====
+
+                    const statusName = card.dataset.statusName;
+
+                    if (statusName === 'all') {
+                        delete currentFilters.status;
+                    } else {
+                        currentFilters.status = statusName;
+                    }
+
+                    // Recarrega AMBOS
+                    carregarTickets(1);
+                    carregarInfoCards();
+                });
+            });
+
+        } catch (error) {
+            console.error("Erro ao carregar info dos cards:", error);
+            const cardContainer = document.getElementById('card-container'); // Declaração movida para o catch
+            if (cardContainer) cardContainer.innerHTML = '<p class="text-sm text-red-500">Erro ao carregar status.</p>';
+        }
     }
-}
     async function carregarTickets(pagina = 1) {
-    paginaAtual = pagina;
-    
-    const porPagina = document.getElementById('qtdPorPagina')?.value || 20;
-    
-    const criterio = document.getElementById('ordenarPor')?.value || 'id_desc';
+        paginaAtual = pagina;
 
-    let url = `/api/tickets?pagina=${paginaAtual}&limite=${porPagina}&ordenar=${criterio}`;
+        const porPagina = document.getElementById('qtdPorPagina')?.value || 20;
 
-    const params = new URLSearchParams(currentFilters);
-    const queryString = params.toString();
-    if (queryString) {
-        url += `&${queryString}`;
+        const criterio = document.getElementById('ordenarPor')?.value || 'id_desc';
+
+        let url = `/api/tickets?pagina=${paginaAtual}&limite=${porPagina}&ordenar=${criterio}`;
+
+        const params = new URLSearchParams(currentFilters);
+        const queryString = params.toString();
+        if (queryString) {
+            url += `&${queryString}`;
+        }
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Falha ao carregar tickets');
+            const dados = await response.json();
+            renderTable(dados.tickets);
+            atualizarPaginacao(dados.total, dados.pagina, porPagina);
+        } catch (error) {
+            console.error("Erro em carregarTickets:", error);
+            const tbody = document.querySelector('#tickets-table tbody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center text-red-500 p-4">Erro ao carregar dados.</td></tr>`;
+        }
     }
-
-    try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Falha ao carregar tickets');
-        const dados = await response.json();
-        renderTable(dados.tickets);
-        atualizarPaginacao(dados.total, dados.pagina, porPagina); 
-    } catch (error) {
-        console.error("Erro em carregarTickets:", error);
-        const tbody = document.querySelector('#tickets-table tbody');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="12" class="text-center text-red-500 p-4">Erro ao carregar dados.</td></tr>`;
-    }
-}
 
     function atualizarPaginacao(total, pagina, porPagina) {
         const container = document.getElementById('paginacao');
@@ -1892,10 +1901,10 @@ async function carregarInfoCards() {
         container.appendChild(btnNext);
     }
     function criarSeletorItensPorPagina() {
-    const container = document.getElementById('items-por-pagina-container');
-    if (!container) return;
+        const container = document.getElementById('items-por-pagina-container');
+        if (!container) return;
 
-    container.innerHTML = `
+        container.innerHTML = `
         <label for="qtdPorPagina" class="text-sm font-medium">Itens por pág:</label>
         <select id="qtdPorPagina" class="border rounded px-2 py-1 bg-white text-sm">
             <option value="10">10</option>
@@ -1905,8 +1914,8 @@ async function carregarInfoCards() {
         </select>
     `;
 
-    document.getElementById('qtdPorPagina').addEventListener('change', () => carregarTickets(1));
-}
+        document.getElementById('qtdPorPagina').addEventListener('change', () => carregarTickets(1));
+    }
     const btnAbrirModalExportar = document.getElementById('btn-abrir-modal-exportar');
     const yearSelect = document.getElementById('export-year-select');
     const areasContainer = document.getElementById('export-areas-container');
@@ -1966,11 +1975,11 @@ async function carregarInfoCards() {
                 // Lógica "Todos" para Áreas
                 const allAreasCheckbox = document.getElementById('check-all-areas');
                 const individualAreaCheckboxes = areasContainer.querySelectorAll('.area-export-checkbox');
-                
+
                 allAreasCheckbox.addEventListener('change', () => {
                     individualAreaCheckboxes.forEach(cb => cb.checked = allAreasCheckbox.checked);
                 });
-                
+
                 individualAreaCheckboxes.forEach(cb => {
                     cb.addEventListener('change', () => {
                         allAreasCheckbox.checked = [...individualAreaCheckboxes].every(c => c.checked);
@@ -1999,14 +2008,14 @@ async function carregarInfoCards() {
             return showStatusModal('Erro', 'Por favor, selecione um ano.', true);
         }
 
-    
+
         let queryString = `?format=${format}&year=${year}`;
-        
+
         if (months.length > 0) {
             queryString += '&months=' + months.join(',');
         }
-        
-       
+
+
         if (areas.length > 0) {
             queryString += '&areas=' + areas.join(',');
         }
@@ -2016,126 +2025,126 @@ async function carregarInfoCards() {
         toggleModal('modalExportarRelatorio', false);
     });
 
- async function abrirModalEditar(ticketId) {
-    pastedFileEdit = null;
-    const preview = document.getElementById('paste-preview-edit');
-    if (preview) preview.innerHTML = '';
-    const formEditarTicket = document.getElementById('formEditarTicket');
-    formEditarTicket.reset();
+    async function abrirModalEditar(ticketId) {
+        pastedFileEdit = null;
+        const preview = document.getElementById('paste-preview-edit');
+        if (preview) preview.innerHTML = '';
+        const formEditarTicket = document.getElementById('formEditarTicket');
+        formEditarTicket.reset();
 
-    try {
-        const ticketResponse = await fetch(`/api/tickets/${ticketId}`);
-        if (!ticketResponse.ok) throw new Error('Ticket não encontrado');
-        const ticket = await ticketResponse.json();
-        ticketAbertoParaEdicao = ticket;
+        try {
+            const ticketResponse = await fetch(`/api/tickets/${ticketId}`);
+            if (!ticketResponse.ok) throw new Error('Ticket não encontrado');
+            const ticket = await ticketResponse.json();
+            ticketAbertoParaEdicao = ticket;
 
-        // Formata as datas que vêm do banco
-        const alarmeInicio = getFormattedDateTime(ticket.alarme_inicio);
-        const horarioAcionamento = getFormattedDateTime(ticket.horario_acionamento);
-        const alarmeFim = getFormattedDateTime(ticket.alarme_fim);
+            // Formata as datas que vêm do banco
+            const alarmeInicio = getFormattedDateTime(ticket.alarme_inicio);
+            const horarioAcionamento = getFormattedDateTime(ticket.horario_acionamento);
+            const alarmeFim = getFormattedDateTime(ticket.alarme_fim);
 
-        // Preenche os campos de data
-        document.getElementById('edit-alarme-inicio-date').value = alarmeInicio.date;
-        document.getElementById('edit-horario-acionamento-date').value = horarioAcionamento.date;
-        document.getElementById('edit-alarme-fim-date').value = alarmeFim.date;
+            // Preenche os campos de data
+            document.getElementById('edit-alarme-inicio-date').value = alarmeInicio.date;
+            document.getElementById('edit-horario-acionamento-date').value = horarioAcionamento.date;
+            document.getElementById('edit-alarme-fim-date').value = alarmeFim.date;
 
-        // Preenche os campos de hora (gerenciando o IMask)
-        const alarmeInicioTimeInput = document.getElementById('edit-alarme-inicio-time');
-        if (alarmeInicioTimeInput.imask) {
-            alarmeInicioTimeInput.imask.value = alarmeInicio.time;
-        } else {
-            alarmeInicioTimeInput.value = alarmeInicio.time;
-        }
-
-        const horarioAcionamentoTimeInput = document.getElementById('edit-horario-acionamento-time');
-        if (horarioAcionamentoTimeInput.imask) {
-            horarioAcionamentoTimeInput.imask.value = horarioAcionamento.time;
-        } else {
-            horarioAcionamentoTimeInput.value = horarioAcionamento.time;
-        }
-
-        const alarmeFimTimeInput = document.getElementById('edit-alarme-fim-time');
-        if (alarmeFimTimeInput.imask) {
-            alarmeFimTimeInput.imask.value = alarmeFim.time;
-        } else {
-            alarmeFimTimeInput.value = alarmeFim.time;
-        }
-
-        // Preenche dados básicos
-        document.getElementById('edit-ticket-id').value = ticket.id;
-        document.getElementById('edit-ticket-descricao').value = ticket.descricao;
-
-        const statusItem = currentStatusList.find(s => s.nome === ticket.status);
-        if (statusItem) {
-            document.getElementById('edit-ticket-status').value = statusItem.id;
-        }
-
-        // --- LÓGICA DE ANEXO CORRIGIDA PARA LINUX/VM ---
-        const linkContainer = document.getElementById('current-attachment-container');
-        const linkSpan = document.getElementById('current-attachment-link');
-        const removeAnexoInput = document.getElementById('edit-remove-anexo');
-
-        if (linkContainer && linkSpan && removeAnexoInput) {
-            removeAnexoInput.value = '0';
-            linkContainer.classList.add('hidden');
-
-            if (ticket.anexo_path) {
-                // 1. Normaliza barras (converte \ do Windows para /)
-                let webPath = ticket.anexo_path.replace(/\\/g, '/');
-
-                // 2. Remove barra inicial se existir, para padronizar a verificação
-                if (webPath.startsWith('/')) {
-                    webPath = webPath.substring(1);
-                }
-
-                // 3. Garante que começa com 'public/' (necessário pois configuramos app.use('/public'))
-                if (!webPath.startsWith('public/')) {
-                    webPath = 'public/' + webPath;
-                }
-
-                // 4. Adiciona a barra absoluta no início
-                webPath = '/' + webPath;
-
-                linkSpan.innerHTML = `Anexo atual: <a href="${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
-                linkContainer.classList.remove('hidden');
+            // Preenche os campos de hora (gerenciando o IMask)
+            const alarmeInicioTimeInput = document.getElementById('edit-alarme-inicio-time');
+            if (alarmeInicioTimeInput.imask) {
+                alarmeInicioTimeInput.imask.value = alarmeInicio.time;
+            } else {
+                alarmeInicioTimeInput.value = alarmeInicio.time;
             }
+
+            const horarioAcionamentoTimeInput = document.getElementById('edit-horario-acionamento-time');
+            if (horarioAcionamentoTimeInput.imask) {
+                horarioAcionamentoTimeInput.imask.value = horarioAcionamento.time;
+            } else {
+                horarioAcionamentoTimeInput.value = horarioAcionamento.time;
+            }
+
+            const alarmeFimTimeInput = document.getElementById('edit-alarme-fim-time');
+            if (alarmeFimTimeInput.imask) {
+                alarmeFimTimeInput.imask.value = alarmeFim.time;
+            } else {
+                alarmeFimTimeInput.value = alarmeFim.time;
+            }
+
+            // Preenche dados básicos
+            document.getElementById('edit-ticket-id').value = ticket.id;
+            document.getElementById('edit-ticket-descricao').value = ticket.descricao;
+
+            const statusItem = currentStatusList.find(s => s.nome === ticket.status);
+            if (statusItem) {
+                document.getElementById('edit-ticket-status').value = statusItem.id;
+            }
+
+            // --- LÓGICA DE ANEXO CORRIGIDA PARA LINUX/VM ---
+            const linkContainer = document.getElementById('current-attachment-container');
+            const linkSpan = document.getElementById('current-attachment-link');
+            const removeAnexoInput = document.getElementById('edit-remove-anexo');
+
+            if (linkContainer && linkSpan && removeAnexoInput) {
+                removeAnexoInput.value = '0';
+                linkContainer.classList.add('hidden');
+
+                if (ticket.anexo_path) {
+                    // 1. Normaliza barras (converte \ do Windows para /)
+                    let webPath = ticket.anexo_path.replace(/\\/g, '/');
+
+                    // 2. Remove barra inicial se existir, para padronizar a verificação
+                    if (webPath.startsWith('/')) {
+                        webPath = webPath.substring(1);
+                    }
+
+                    // 3. Garante que começa com 'public/' (necessário pois configuramos app.use('/public'))
+                    if (!webPath.startsWith('public/')) {
+                        webPath = 'public/' + webPath;
+                    }
+
+                    // 4. Adiciona a barra absoluta no início
+                    webPath = '/' + webPath;
+
+                    linkSpan.innerHTML = `Anexo atual: <a href="${webPath}" target="_blank" class="text-blue-600 hover:underline">Ver Arquivo</a>`;
+                    linkContainer.classList.remove('hidden');
+                }
+            }
+            // ------------------------------------------------
+
+            // Lógica de Área e Dropdowns em Cascata
+            const areaSelect = document.getElementById('edit-ticket-area');
+            areaSelect.value = ticket.area_id;
+
+            await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
+
+            // Pequeno delay para garantir que o DOM atualizou
+            await new Promise(resolve => setTimeout(resolve, 150));
+
+            document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
+            document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id;
+            document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
+            document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
+
+            // Permissões do botão deletar
+            const deleteButton = document.getElementById('btn-delete-ticket');
+            if (deleteButton) {
+                deleteButton.classList.toggle('hidden', !(currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support')));
+            }
+
+            // Carregar Comentários
+            const commentsResponse = await fetch(`/api/tickets/${ticketId}/comments`);
+            if (commentsResponse.ok) {
+                const comments = await commentsResponse.json();
+                renderComments(comments);
+            }
+
+            toggleModal('modalEditarTicket', true);
+
+        } catch (error) {
+            console.error("Erro ao abrir modal de edição:", error);
+            showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
         }
-        // ------------------------------------------------
-
-        // Lógica de Área e Dropdowns em Cascata
-        const areaSelect = document.getElementById('edit-ticket-area');
-        areaSelect.value = ticket.area_id;
-
-        await handleAreaChange(areaSelect, 'edit-ticket-tipo', 'edit-ticket-prioridade', 'edit-ticket-grupo', 'edit-ticket-alerta');
-
-        // Pequeno delay para garantir que o DOM atualizou
-        await new Promise(resolve => setTimeout(resolve, 150));
-
-        document.getElementById('edit-ticket-tipo').value = ticket.tipo_solicitacao_id;
-        document.getElementById('edit-ticket-prioridade').value = ticket.prioridade_id;
-        document.getElementById('edit-ticket-grupo').value = ticket.grupo_id;
-        document.getElementById('edit-ticket-alerta').value = ticket.alerta_id;
-
-        // Permissões do botão deletar
-        const deleteButton = document.getElementById('btn-delete-ticket');
-        if (deleteButton) {
-            deleteButton.classList.toggle('hidden', !(currentUser && (currentUser.perfil === 'admin' || currentUser.perfil === 'support')));
-        }
-
-        // Carregar Comentários
-        const commentsResponse = await fetch(`/api/tickets/${ticketId}/comments`);
-        if (commentsResponse.ok) {
-            const comments = await commentsResponse.json();
-            renderComments(comments);
-        }
-
-        toggleModal('modalEditarTicket', true);
-
-    } catch (error) {
-        console.error("Erro ao abrir modal de edição:", error);
-        showStatusModal('Erro!', 'Não foi possível carregar os dados do ticket.', true);
     }
-}
 
     document.getElementById('ticket-area')?.addEventListener('change', (event) => {
         handleAreaChange(event.target, 'ticket-tipo', 'ticket-prioridade', 'ticket-grupo', 'ticket-alerta');
@@ -2327,93 +2336,94 @@ async function carregarInfoCards() {
 
     if (formCriarUsuario) {
         const selectPerfil = document.getElementById('selectPerfil');
-        selectPerfil?.addEventListener('change', async () => {
-            const perfil = selectPerfil.value;
-            const areaContainer = document.getElementById('container-selecao-area');
-            const areaCheckboxContainer = document.getElementById('area-checkbox-container');
+selectPerfil?.addEventListener('change', async () => {
+    const perfil = selectPerfil.value;
+    const areaContainer = document.getElementById('container-selecao-area');
+    const areaCheckboxContainer = document.getElementById('area-checkbox-container');
 
-            document.getElementById('campos-user').classList.toggle('hidden', perfil !== 'user');
-            document.getElementById('campos-support').classList.toggle('hidden', perfil !== 'support' && perfil !== 'admin' && perfil !== 'gerente');
+    document.getElementById('campos-user').classList.toggle('hidden', perfil !== 'user');
+    const isInternal = (perfil === 'support' || perfil === 'admin' || perfil === 'gerente' || perfil === 'engenharia');
+    document.getElementById('campos-support').classList.toggle('hidden', !isInternal);
 
-            if (areaContainer) {
-                areaContainer.classList.toggle('hidden', !perfil);
-                if (perfil && areaCheckboxContainer) {
-                    areaCheckboxContainer.innerHTML = 'Carregando áreas...';
-                    const allAreas = await getAreasList();
-                    createAreaCheckboxes(areaCheckboxContainer, allAreas, []);
+    if (areaContainer) {
+        areaContainer.classList.toggle('hidden', !perfil);
+        if (perfil && areaCheckboxContainer) {
+            areaCheckboxContainer.innerHTML = 'Carregando áreas...';
+            const allAreas = await getAreasList();
+            createAreaCheckboxes(areaCheckboxContainer, allAreas, []);
+        }
+    }
+
+    document.getElementById('botao-salvar-container').classList.toggle('hidden', !perfil);
+});
+
+        formCriarUsuario.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const submitButton = document.querySelector('button[form="formCriarUsuario"]');
+
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Salvando...';
+            }
+
+            try {
+                const formData = new FormData(formCriarUsuario);
+                const data = Object.fromEntries(formData.entries());
+                data.area_ids = formData.getAll('area_ids').map(Number);
+
+                const email = data.login_user || data.login_support;
+
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!email || !emailRegex.test(email)) {
+                    showStatusModal('Erro de Validação', 'Por favor, insira um formato de e-mail válido.', true);
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Salvar Usuário';
+                    }
+                    return;
+                }
+
+                delete data.login_user;
+                delete data.login_support;
+                data.login = email;
+
+                data.nome = data.nome_user || data.nome_support;
+                data.sobrenome = data.sobrenome_user || data.sobrenome_support;
+                delete data.nome_user;
+                delete data.nome_support;
+                delete data.sobrenome_user;
+                delete data.sobrenome_support;
+
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatusModal('Sucesso!', result.message, false);
+                    toggleModal('modalCriarUsuario', false);
+                    formCriarUsuario.reset();
+
+                    const selectPerfil = document.getElementById('selectPerfil');
+                    if (selectPerfil) {
+                        selectPerfil.value = '';
+                        selectPerfil.dispatchEvent(new Event('change'));
+                    }
+                } else {
+                    showStatusModal('Erro!', result.message, true);
+                }
+            } catch (error) {
+                showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Salvar Usuário';
                 }
             }
-
-            document.getElementById('botao-salvar-container').classList.toggle('hidden', !perfil);
         });
-
-       formCriarUsuario.addEventListener('submit', async (event) => {
-    event.preventDefault();
-
-    const submitButton = document.querySelector('button[form="formCriarUsuario"]');
-    
-    if (submitButton) {
-        submitButton.disabled = true;
-        submitButton.textContent = 'Salvando...';
-    }
-
-    try {
-        const formData = new FormData(formCriarUsuario);
-        const data = Object.fromEntries(formData.entries());
-        data.area_ids = formData.getAll('area_ids').map(Number);
-
-        const email = data.login_user || data.login_support;
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!email || !emailRegex.test(email)) {
-            showStatusModal('Erro de Validação', 'Por favor, insira um formato de e-mail válido.', true);
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Salvar Usuário';
-            }
-            return;
-        }
-        
-        delete data.login_user;
-        delete data.login_support;
-        data.login = email;
-        
-        data.nome = data.nome_user || data.nome_support;
-        data.sobrenome = data.sobrenome_user || data.sobrenome_support;
-        delete data.nome_user;
-        delete data.nome_support;
-        delete data.sobrenome_user;
-        delete data.sobrenome_support;
-
-        const response = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-        const result = await response.json();
-        
-        if (response.ok) {
-            showStatusModal('Sucesso!', result.message, false);
-            toggleModal('modalCriarUsuario', false);
-            formCriarUsuario.reset();
-            
-            const selectPerfil = document.getElementById('selectPerfil');
-            if (selectPerfil) {
-                selectPerfil.value = '';
-                selectPerfil.dispatchEvent(new Event('change'));
-            }
-        } else {
-            showStatusModal('Erro!', result.message, true);
-        }
-    } catch (error) {
-        showStatusModal('Erro de Conexão', 'Não foi possível se comunicar com o servidor.', true);
-    } finally {
-        if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Salvar Usuário';
-        }
-    }
-});
     }
     const btnCancelCreateUser = document.getElementById('btn-cancel-create-user');
     if (btnCancelCreateUser) {
@@ -2483,147 +2493,147 @@ async function carregarInfoCards() {
         return new Date(dateParts[2], dateParts[1] - 1, dateParts[0], timeParts[0], timeParts[1]);
     }
 
- formAbrirTicket?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const formData = new FormData(formAbrirTicket);
+    formAbrirTicket?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(formAbrirTicket);
 
-    const alarmeInicioDate = formData.get('alarme_inicio_date');
-    const alarmeInicioTime = formData.get('alarme_inicio_time');
-    const horarioAcionamentoDate = formData.get('horario_acionamento_date');
-    const horarioAcionamentoTime = formData.get('horario_acionamento_time');
+        const alarmeInicioDate = formData.get('alarme_inicio_date');
+        const alarmeInicioTime = formData.get('alarme_inicio_time');
+        const horarioAcionamentoDate = formData.get('horario_acionamento_date');
+        const horarioAcionamentoTime = formData.get('horario_acionamento_time');
 
-    // Validação de campos obrigatórios
-    if (!alarmeInicioDate || !alarmeInicioTime || alarmeInicioTime.includes('h') || 
-        !horarioAcionamentoDate || !horarioAcionamentoTime || horarioAcionamentoTime.includes('h')) {
-        return showStatusModal('Campos Obrigatórios', 'As datas e horas para "Início do Alarme" e "Início do Atendimento" são obrigatórias.', true);
-    }
-
-    // Combina os campos
-    const alarmeInicio = combineDateAndTime(alarmeInicioDate, alarmeInicioTime, false);
-    const horarioAcionamento = combineDateAndTime(horarioAcionamentoDate, horarioAcionamentoTime, false);
-    // CORREÇÃO: Passa 'true' para o Fim do Alarme, indicando que ele é opcional
-    const alarmeFim = combineDateAndTime(formData.get('alarme_fim_date'), formData.get('alarme_fim_time'), true);
-
-    // Validação de lógica de datas
-    if (horarioAcionamento && alarmeFim) {
-        const inicioDate = new Date(horarioAcionamento.replace(' ', 'T'));
-        const fimDate = new Date(alarmeFim.replace(' ', 'T'));
-        if (fimDate && inicioDate && fimDate < inicioDate) {
-            return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
+        // Validação de campos obrigatórios
+        if (!alarmeInicioDate || !alarmeInicioTime || alarmeInicioTime.includes('h') ||
+            !horarioAcionamentoDate || !horarioAcionamentoTime || horarioAcionamentoTime.includes('h')) {
+            return showStatusModal('Campos Obrigatórios', 'As datas e horas para "Início do Alarme" e "Início do Atendimento" são obrigatórias.', true);
         }
-    }
 
-    formData.set('alarme_inicio', alarmeInicio);
-    formData.set('horario_acionamento', horarioAcionamento);
-    formData.set('alarme_fim', alarmeFim);
+        // Combina os campos
+        const alarmeInicio = combineDateAndTime(alarmeInicioDate, alarmeInicioTime, false);
+        const horarioAcionamento = combineDateAndTime(horarioAcionamentoDate, horarioAcionamentoTime, false);
+        // CORREÇÃO: Passa 'true' para o Fim do Alarme, indicando que ele é opcional
+        const alarmeFim = combineDateAndTime(formData.get('alarme_fim_date'), formData.get('alarme_fim_time'), true);
 
-    // Limpa os campos extras
-    ['alarme_inicio_date', 'alarme_inicio_time', 'horario_acionamento_date', 'horario_acionamento_time', 'alarme_fim_date', 'alarme_fim_time']
-     .forEach(key => formData.delete(key));
-
-    const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
-    if (pastedFileCreate && (!fileInput || !fileInput.files || fileInput.files.length === 0)) {
-    formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
-}
-    try {
-        const response = await fetch('/api/tickets', { method: 'POST', body: formData });
-        const result = await response.json();
-        
-        if (response.ok) {
-            toggleModal('modalTicket', false);
-            showStatusModal('Sucesso!', result.message, false, () => {
-                carregarTickets(paginaAtual);
-                carregarInfoCards();
-            });
-            formAbrirTicket.reset();
-        } else {
-            showStatusModal('Erro!', result.message, true);
+        // Validação de lógica de datas
+        if (horarioAcionamento && alarmeFim) {
+            const inicioDate = new Date(horarioAcionamento.replace(' ', 'T'));
+            const fimDate = new Date(alarmeFim.replace(' ', 'T'));
+            if (fimDate && inicioDate && fimDate < inicioDate) {
+                return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
+            }
         }
-    } catch (error) {
-        showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
-    } finally {
-        pastedFileCreate = null;
-        const preview = document.getElementById('paste-preview-create');
-        if (preview) preview.innerHTML = '';
-    }
-});
- formEditarTicket?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const ticketId = document.getElementById('edit-ticket-id').value;
-    const formData = new FormData(formEditarTicket);
 
-    const alarmeInicioDate = formData.get('alarme_inicio_date');
-    const alarmeInicioTime = formData.get('alarme_inicio_time');
-    const horarioAcionamentoDate = formData.get('horario_acionamento_date');
-    const horarioAcionamentoTime = formData.get('horario_acionamento_time');
+        formData.set('alarme_inicio', alarmeInicio);
+        formData.set('horario_acionamento', horarioAcionamento);
+        formData.set('alarme_fim', alarmeFim);
 
-    if (!alarmeInicioDate || !alarmeInicioTime || alarmeInicioTime.includes('h') || 
-        !horarioAcionamentoDate || !horarioAcionamentoTime || horarioAcionamentoTime.includes('h')) {
-        return showStatusModal('Campos Obrigatórios', 'As datas e horas para "Início do Alarme" e "Início do Atendimento" são obrigatórias.', true);
-    }
+        // Limpa os campos extras
+        ['alarme_inicio_date', 'alarme_inicio_time', 'horario_acionamento_date', 'horario_acionamento_time', 'alarme_fim_date', 'alarme_fim_time']
+            .forEach(key => formData.delete(key));
 
-    const alarmeInicio = combineDateAndTime(alarmeInicioDate, alarmeInicioTime, false);
-    const horarioAcionamento = combineDateAndTime(horarioAcionamentoDate, horarioAcionamentoTime, false);
-    // CORREÇÃO: Passa 'true' para o Fim do Alarme, indicando que ele é opcional
-    const alarmeFim = combineDateAndTime(formData.get('alarme_fim_date'), formData.get('alarme_fim_time'), true);
-
-    if (horarioAcionamento && alarmeFim) {
-        const inicioDate = new Date(horarioAcionamento.replace(' ', 'T'));
-        const fimDate = new Date(alarmeFim.replace(' ', 'T'));
-        if (fimDate && inicioDate && fimDate < inicioDate) {
-            return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
+        const fileInput = formAbrirTicket.querySelector('input[type="file"][name="anexo"]');
+        if (pastedFileCreate && (!fileInput || !fileInput.files || fileInput.files.length === 0)) {
+            formData.set('anexo', pastedFileCreate, pastedFileCreate.name);
         }
-    }
+        try {
+            const response = await fetch('/api/tickets', { method: 'POST', body: formData });
+            const result = await response.json();
 
-    formData.set('alarme_inicio', alarmeInicio);
-    formData.set('horario_acionamento', horarioAcionamento);
-    formData.set('alarme_fim', alarmeFim);
-
-    ['alarme_inicio_date', 'alarme_inicio_time', 'horario_acionamento_date', 'horario_acionamento_time', 'alarme_fim_date', 'alarme_fim_time']
-     .forEach(key => formData.delete(key));
-
-    const newCommentTextValue = document.getElementById('new-comment-text').value.trim();
-    if (newCommentTextValue) {
-        formData.append('new_comment_text', newCommentTextValue);
-    }
-    const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
-    if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
-        formData.set('anexo', pastedFileEdit, pastedFileEdit.name);
-        formData.set('remove_anexo', '0');
-    }
-
-    try {
-        const response = await fetch(`/api/tickets/${ticketId}`, { method: 'PUT', body: formData });
-        const result = await response.json();
-        if (response.ok) {
-            toggleModal('modalEditarTicket', false);
-            showStatusModal('Sucesso!', result.message, false, () => {
-                carregarTickets(paginaAtual);
-                carregarInfoCards();
-            });
-        } else {
-            showStatusModal('Erro!', `Ocorreu um erro ao salvar: ${result.message}`, true);
+            if (response.ok) {
+                toggleModal('modalTicket', false);
+                showStatusModal('Sucesso!', result.message, false, () => {
+                    carregarTickets(paginaAtual);
+                    carregarInfoCards();
+                });
+                formAbrirTicket.reset();
+            } else {
+                showStatusModal('Erro!', result.message, true);
+            }
+        } catch (error) {
+            showStatusModal('Erro de Conexão', 'Não foi possível criar o ticket.', true);
+        } finally {
+            pastedFileCreate = null;
+            const preview = document.getElementById('paste-preview-create');
+            if (preview) preview.innerHTML = '';
         }
-    } catch (error) {
-        showStatusModal('Erro de Conexão', 'Não foi possível salvar as alterações.', true);
-    } finally {
-        pastedFileEdit = null;
-        const preview = document.getElementById('paste-preview-edit');
-        if (preview) preview.innerHTML = '';
-        document.getElementById('new-comment-text').value = '';
-    }
-});
-   tabelaTicketsBody?.addEventListener('click', (event) => {
-    
-    if (event.target.classList.contains('JCLRgrip')) {
-        return; 
-    }
-    const clickedRow = event.target.closest('tr[data-ticket-id]');
-    
-    if (clickedRow) {
-        abrirModalEditar(clickedRow.dataset.ticketId);
-    }
-});
+    });
+    formEditarTicket?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const ticketId = document.getElementById('edit-ticket-id').value;
+        const formData = new FormData(formEditarTicket);
+
+        const alarmeInicioDate = formData.get('alarme_inicio_date');
+        const alarmeInicioTime = formData.get('alarme_inicio_time');
+        const horarioAcionamentoDate = formData.get('horario_acionamento_date');
+        const horarioAcionamentoTime = formData.get('horario_acionamento_time');
+
+        if (!alarmeInicioDate || !alarmeInicioTime || alarmeInicioTime.includes('h') ||
+            !horarioAcionamentoDate || !horarioAcionamentoTime || horarioAcionamentoTime.includes('h')) {
+            return showStatusModal('Campos Obrigatórios', 'As datas e horas para "Início do Alarme" e "Início do Atendimento" são obrigatórias.', true);
+        }
+
+        const alarmeInicio = combineDateAndTime(alarmeInicioDate, alarmeInicioTime, false);
+        const horarioAcionamento = combineDateAndTime(horarioAcionamentoDate, horarioAcionamentoTime, false);
+        // CORREÇÃO: Passa 'true' para o Fim do Alarme, indicando que ele é opcional
+        const alarmeFim = combineDateAndTime(formData.get('alarme_fim_date'), formData.get('alarme_fim_time'), true);
+
+        if (horarioAcionamento && alarmeFim) {
+            const inicioDate = new Date(horarioAcionamento.replace(' ', 'T'));
+            const fimDate = new Date(alarmeFim.replace(' ', 'T'));
+            if (fimDate && inicioDate && fimDate < inicioDate) {
+                return showStatusModal('Erro de Validação', 'O "Fim do Alarme" não pode ser anterior ao "Início do Atendimento".', true);
+            }
+        }
+
+        formData.set('alarme_inicio', alarmeInicio);
+        formData.set('horario_acionamento', horarioAcionamento);
+        formData.set('alarme_fim', alarmeFim);
+
+        ['alarme_inicio_date', 'alarme_inicio_time', 'horario_acionamento_date', 'horario_acionamento_time', 'alarme_fim_date', 'alarme_fim_time']
+            .forEach(key => formData.delete(key));
+
+        const newCommentTextValue = document.getElementById('new-comment-text').value.trim();
+        if (newCommentTextValue) {
+            formData.append('new_comment_text', newCommentTextValue);
+        }
+        const fileInput = formEditarTicket.querySelector('input[type="file"][name="anexo"]');
+        if (pastedFileEdit && (!fileInput.files || fileInput.files.length === 0)) {
+            formData.set('anexo', pastedFileEdit, pastedFileEdit.name);
+            formData.set('remove_anexo', '0');
+        }
+
+        try {
+            const response = await fetch(`/api/tickets/${ticketId}`, { method: 'PUT', body: formData });
+            const result = await response.json();
+            if (response.ok) {
+                toggleModal('modalEditarTicket', false);
+                showStatusModal('Sucesso!', result.message, false, () => {
+                    carregarTickets(paginaAtual);
+                    carregarInfoCards();
+                });
+            } else {
+                showStatusModal('Erro!', `Ocorreu um erro ao salvar: ${result.message}`, true);
+            }
+        } catch (error) {
+            showStatusModal('Erro de Conexão', 'Não foi possível salvar as alterações.', true);
+        } finally {
+            pastedFileEdit = null;
+            const preview = document.getElementById('paste-preview-edit');
+            if (preview) preview.innerHTML = '';
+            document.getElementById('new-comment-text').value = '';
+        }
+    });
+    tabelaTicketsBody?.addEventListener('click', (event) => {
+
+        if (event.target.classList.contains('JCLRgrip')) {
+            return;
+        }
+        const clickedRow = event.target.closest('tr[data-ticket-id]');
+
+        if (clickedRow) {
+            abrirModalEditar(clickedRow.dataset.ticketId);
+        }
+    });
     document.getElementById('btn-delete-ticket')?.addEventListener('click', () => {
         ticketIdToDelete = document.getElementById('edit-ticket-id').value;
         toggleModal('modalConfirmarDelete', true);
@@ -2660,74 +2670,780 @@ async function carregarInfoCards() {
         }
     });
     function addOptionButtonListeners(selectId, btnDeleteId, btnEditId = null) {
-    const selectElement = document.getElementById(selectId);
-    if (!selectElement) {
-        console.error(`[ERRO de Configuração] O dropdown #${selectId} não foi encontrado.`);
-        return;
+        const selectElement = document.getElementById(selectId);
+        if (!selectElement) {
+            console.error(`[ERRO de Configuração] O dropdown #${selectId} não foi encontrado.`);
+            return;
+        }
+
+        selectElement.addEventListener('change', (event) => {
+            const canManage = currentUser && (currentUser.perfil === 'admin');
+            const valorSelecionado = event.target.value;
+
+            // Lógica do botão Deletar
+            const btnDelete = document.getElementById(btnDeleteId);
+            if (btnDelete) {
+                btnDelete.classList.toggle('hidden', !valorSelecionado || !canManage);
+            } else {
+                console.error(`[ERRO] O botão de exclusão #${btnDeleteId} não foi encontrado!`);
+            }
+
+            // Lógica do botão Editar
+            if (btnEditId) {
+                const btnEdit = document.getElementById(btnEditId);
+                if (btnEdit) {
+                    btnEdit.classList.toggle('hidden', !valorSelecionado || !canManage);
+                } else {
+                    console.error(`[ERRO] O botão de edição #${btnEditId} não foi encontrado!`);
+                }
+            }
+        });
+    }
+    document.getElementById('btn-remove-anexo')?.addEventListener('click', () => {
+        // Esconde o link do anexo atual
+        document.getElementById('current-attachment-container')?.classList.add('hidden');
+        // Marca o anexo para remoção no backend
+        document.getElementById('edit-remove-anexo').value = '1';
+        // Limpa o campo de seleção de novo arquivo, se houver
+        const fileInput = document.querySelector('#formEditarTicket input[type="file"][name="anexo"]');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    });
+   async function initEngineeringDashboard(user) {
+    console.log("Iniciando Dashboard de Engenharia...");
+
+    // 1. FORÇA A OCULTAÇÃO DO SUPORTE E MOSTRA A ENGENHARIA
+    const painelSuporte = document.getElementById('dashboard-suporte');
+    const painelEng = document.getElementById('dashboard-engenharia');
+
+    if (painelSuporte) {
+        painelSuporte.style.display = 'none'; 
+        painelSuporte.classList.add('hidden');
+    }
+    if (painelEng) {
+        painelEng.style.display = 'block';
+        painelEng.classList.remove('hidden');
     }
 
-    selectElement.addEventListener('change', (event) => {
-        const canManage = currentUser && (currentUser.perfil === 'admin');
-        const valorSelecionado = event.target.value;
+    // 2. Lógica do Botão da Sidebar (Agora robusta usando ID)
+    const sidebarBtn = document.getElementById('btn-sidebar-open-ticket');
+    if (sidebarBtn) {
+        // Remove listeners antigos clonando o botão
+        const newBtn = sidebarBtn.cloneNode(true);
+        sidebarBtn.parentNode.replaceChild(newBtn, sidebarBtn);
         
-        // Lógica do botão Deletar
-        const btnDelete = document.getElementById(btnDeleteId);
-        if (btnDelete) {
-            btnDelete.classList.toggle('hidden', !valorSelecionado || !canManage);
-        } else {
-            console.error(`[ERRO] O botão de exclusão #${btnDeleteId} não foi encontrado!`);
-        }
-        
-        // Lógica do botão Editar
-        if (btnEditId) {
-            const btnEdit = document.getElementById(btnEditId);
-            if (btnEdit) {
-                btnEdit.classList.toggle('hidden', !valorSelecionado || !canManage);
+        // Define o comportamento baseado no perfil
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (user.perfil === 'cliente' || user.perfil === 'user'|| user.perfil === 'engenharia') {
+                // Cliente: Abre modal de engenharia
+                abrirModalEngenharia();
             } else {
-                console.error(`[ERRO] O botão de edição #${btnEditId} não foi encontrado!`);
+                // Outros (Fallback): Abre modal padrão antigo
+                toggleModal('modalTicket', true);
             }
+        });
+    }
+
+    if (user.perfil === 'cliente' || user.perfil === 'user') {
+        const btnNew = document.getElementById('btn-novo-ticket-eng');
+        if (btnNew) {
+            btnNew.classList.remove('hidden');
+            btnNew.onclick = abrirModalEngenharia;
+        }
+    }
+    try {
+        const resp = await fetch('/api/engineering/users/engineers');
+        if (resp.ok) engineersListCache = await resp.json();
+    } catch (e) { console.error("Erro ao carregar engenheiros", e); }
+
+  await carregarTicketsEngenharia(); 
+    setupEngineeringForms();        
+    setupCascadingDropdowns();         
+    setupCascadingDropdownsEdit();     
+    setupEngineeringFilters();         
+}
+
+function abrirModalEngenharia() {
+    const form = document.getElementById('formCreateEngTicket');
+    if (form) form.reset();
+    resetDropdownsToInitialState();
+    toggleModal('modalCreateEngTicket', true);
+}
+
+function setupCascadingDropdownsEdit() {
+    const cloudSel = document.getElementById('edit-eng-cloud');
+    const catSel = document.getElementById('edit-eng-categoria');
+    const subSel = document.getElementById('edit-eng-subcategoria');
+    const servSel = document.getElementById('edit-eng-servico');
+    const slaInput = document.getElementById('edit-eng-sla');
+
+    if (!cloudSel) return;
+
+    // (Lógica idêntica à de criação, mas apontando para os IDs de edição)
+    cloudSel.addEventListener('change', async () => {
+        const cloud = cloudSel.value;
+        resetSelect(catSel, 'Selecione'); resetSelect(subSel, 'Selecione'); resetSelect(servSel, 'Selecione');
+        if(cloud) {
+            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}`).then(r=>r.json());
+            populateSelect(catSel, data, 'categoria', 'categoria', 'Selecione');
+            catSel.disabled = false;
+        }
+    });
+
+    catSel.addEventListener('change', async () => {
+        const cloud = cloudSel.value;
+        const cat = catSel.value;
+        resetSelect(subSel, 'Selecione'); resetSelect(servSel, 'Selecione');
+        if(cat) {
+            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&categoria=${encodeURIComponent(cat)}`).then(r=>r.json());
+            populateSelect(subSel, data, 'sub_categoria', 'sub_categoria', 'Selecione');
+            subSel.disabled = false;
+        }
+    });
+
+    subSel.addEventListener('change', async () => {
+        const cloud = cloudSel.value;
+        const cat = catSel.value;
+        const sub = subSel.value;
+        resetSelect(servSel, 'Selecione');
+        if(sub) {
+            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&categoria=${encodeURIComponent(cat)}&sub_categoria=${encodeURIComponent(sub)}`).then(r=>r.json());
+            populateSelect(servSel, data, 'id', 'servico', 'Selecione', 'sla');
+            servSel.disabled = false;
+        }
+    });
+
+    servSel.addEventListener('change', () => {
+        const opt = servSel.options[servSel.selectedIndex];
+        slaInput.value = opt.getAttribute('data-extra') || '';
+    });
+}
+
+function setupCascadingDropdowns() {
+    const cloudSel = document.getElementById('eng-cloud');
+    const catSel = document.getElementById('eng-categoria');
+    const subSel = document.getElementById('eng-subcategoria');
+    const servSel = document.getElementById('eng-servico');
+    const slaInput = document.getElementById('eng-sla');
+
+    if (!cloudSel) return;
+
+    cloudSel.addEventListener('change', async () => {
+        const cloud = cloudSel.value;
+        resetSelect(catSel, 'Selecione a Categoria');
+        resetSelect(subSel, 'Selecione a Categoria primeiro');
+        resetSelect(servSel, 'Selecione a Sub Categoria primeiro');
+        if(slaInput) slaInput.value = '';
+        
+        if (cloud) {
+            try {
+                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}`);
+                const data = await response.json();
+                populateSelect(catSel, data, 'categoria', 'categoria', 'Selecione a Categoria');
+                catSel.disabled = false;
+                catSel.classList.remove('bg-gray-100');
+            } catch (e) { console.error(e); }
+        }
+    });
+
+    catSel.addEventListener('change', async () => {
+        const cloud = cloudSel.value;
+        const cat = catSel.value;
+        resetSelect(subSel, 'Selecione a Sub Categoria');
+        resetSelect(servSel, 'Selecione a Sub Categoria primeiro');
+        if(slaInput) slaInput.value = '';
+
+        if (cat) {
+            try {
+                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&categoria=${encodeURIComponent(cat)}`);
+                const data = await response.json();
+                populateSelect(subSel, data, 'sub_categoria', 'sub_categoria', 'Selecione a Sub Categoria');
+                subSel.disabled = false;
+                subSel.classList.remove('bg-gray-100');
+            } catch (e) { console.error(e); }
+        }
+    });
+
+    subSel.addEventListener('change', async () => {
+        const cloud = cloudSel.value;
+        const cat = catSel.value;
+        const sub = subSel.value;
+        resetSelect(servSel, 'Selecione o Serviço');
+        if(slaInput) slaInput.value = '';
+
+        if (sub) {
+            try {
+                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&categoria=${encodeURIComponent(cat)}&sub_categoria=${encodeURIComponent(sub)}`);
+                const data = await response.json();
+                populateSelect(servSel, data, 'id', 'servico', 'Selecione o Serviço', 'sla'); 
+                servSel.disabled = false;
+                servSel.classList.remove('bg-gray-100');
+            } catch (e) { console.error(e); }
+        }
+    });
+
+    servSel.addEventListener('change', () => {
+        const selectedOption = servSel.options[servSel.selectedIndex];
+        const sla = selectedOption.getAttribute('data-extra');
+        if(slaInput) slaInput.value = sla || 'N/A';
+    });
+}
+
+
+
+function resetSelect(sel, placeholder) {
+    if(sel) {
+        sel.innerHTML = `<option value="">${placeholder}</option>`;
+        sel.disabled = true;
+        sel.classList.add('bg-gray-100');
+    }
+}
+
+function populateSelect(sel, data, valKey, textKey, placeholder, extraKey = null) {
+    if(sel) {
+        sel.innerHTML = `<option value="">${placeholder}</option>`;
+        data.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item[valKey];
+            opt.textContent = item[textKey];
+            if(extraKey) opt.setAttribute('data-extra', item[extraKey]);
+            sel.appendChild(opt);
+        });
+    }
+}
+
+function resetDropdownsToInitialState() {
+    const catSel = document.getElementById('eng-categoria');
+    const subSel = document.getElementById('eng-subcategoria');
+    const servSel = document.getElementById('eng-servico');
+    const slaInput = document.getElementById('eng-sla');
+    const cloudSel = document.getElementById('eng-cloud');
+
+    if(cloudSel) cloudSel.value = "";
+    resetSelect(catSel, 'Selecione a Cloud primeiro');
+    resetSelect(subSel, 'Selecione a Categoria primeiro');
+    resetSelect(servSel, 'Selecione a Sub Categoria primeiro');
+    if(slaInput) slaInput.value = "";
+}
+window.filtrarEngCard = (status) => {
+    const select = document.getElementById('filter-eng-status');
+    if (select) {
+        select.value = status === 'all' ? '' : status;
+        carregarTicketsEngenharia();
+    }
+};
+
+async function carregarTicketsEngenharia() {
+    const tbody = document.getElementById('lista-tickets-eng');
+    if(!tbody) return;
+    
+    // Define colspan 14 para cobrir todas as colunas enquanto carrega
+    tbody.innerHTML = '<tr><td colspan="14" class="text-center p-4">Carregando...</td></tr>';
+
+    // Captura os filtros do DOM
+    const tipoFilter = document.getElementById('filter-eng-tipo')?.value || '';
+    const statusFilter = document.getElementById('filter-eng-status')?.value || '';
+    const prioFilter = document.getElementById('filter-eng-prioridade')?.value || '';
+    const sortOrder = document.getElementById('eng-ordenar')?.value || 'id_desc';
+
+    try {
+        const res = await fetch('/api/engineering/tickets');
+        if (!res.ok) throw new Error('Erro ao buscar tickets');
+        
+        let tickets = await res.json();
+        currentTicketsCache = tickets; // Atualiza o cache global para o modal de edição
+
+        // 1. Atualiza os Cards de Contagem (antes de filtrar)
+        atualizarCardsEngenharia(tickets);
+
+        // 2. Aplica Filtros
+        if (tipoFilter) tickets = tickets.filter(t => t.tipo_solicitacao === tipoFilter);
+        if (statusFilter) tickets = tickets.filter(t => t.status === statusFilter);
+        if (prioFilter) tickets = tickets.filter(t => t.prioridade === prioFilter);
+
+        // 3. Aplica Ordenação
+        if (sortOrder === 'id_desc') {
+            tickets.sort((a,b) => b.id - a.id);
+        } else if (sortOrder === 'prio_desc') {
+            const prioMap = {'Critica': 4, 'Alta': 3, 'Media': 2, 'Baixa': 1};
+            tickets.sort((a,b) => (prioMap[b.prioridade]||0) - (prioMap[a.prioridade]||0));
+        } else if (sortOrder === 'status_asc') {
+            tickets.sort((a,b) => a.status.localeCompare(b.status));
+        }
+
+        // Atualiza o contador de registros visíveis
+        if(document.getElementById('eng-total-count')) 
+            document.getElementById('eng-total-count').innerText = tickets.length;
+
+        // Se não houver tickets após o filtro
+        if (tickets.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="14" class="text-center p-4 text-gray-500">Nenhum ticket encontrado.</td></tr>';
+            return;
+        }
+
+        // 4. Renderiza as Linhas
+        tbody.innerHTML = tickets.map(t => {
+            // --- Estilização de Badges e Cores ---
+            let statusBadge = 'bg-gray-100 text-gray-800';
+            if (t.status === 'Aberto') statusBadge = 'bg-yellow-100 text-yellow-800';
+            else if (t.status === 'Em Analise') statusBadge = 'bg-blue-100 text-blue-800';
+            else if (t.status === 'Desenvolvimento') statusBadge = 'bg-purple-100 text-purple-800';
+            else if (t.status === 'Resolvido') statusBadge = 'bg-green-100 text-green-800';
+
+            let prioColor = 'text-gray-600';
+            if (t.prioridade === 'Alta') prioColor = 'text-orange-600 font-bold';
+            if (t.prioridade === 'Critica') prioColor = 'text-red-600 font-bold';
+
+            // --- Lógica do Botão de Ação ---
+            let btnAction = '';
+            if (currentUser.perfil === 'engenharia' || currentUser.perfil === 'admin' || currentUser.perfil === 'gerente') {
+                btnAction = `<button onclick="abrirModalEdicaoEngenharia(${t.id})" 
+                                class="text-blue-600 hover:text-blue-800 font-bold border border-blue-600 px-2 py-1 rounded text-xs transition hover:bg-blue-50">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                             </button>`;
+            } else {
+                btnAction = `<span class="text-gray-400 text-xs px-2"><i class="fa-solid fa-lock"></i></span>`;
+            }
+
+            // --- Tratamento de Dados para Exibição ---
+            const cloudDisplay = t.cloud || '-';
+            const subCatDisplay = t.sub_categoria || '-';
+            const servicoDisplay = t.servico_nome || '<span class="text-gray-400 italic">Não categorizado</span>';
+            
+            // Trunca textos longos
+            const descricaoFull = t.descricao || '';
+            const descricaoCurta = descricaoFull.length > 30 ? descricaoFull.substring(0, 30) + '...' : (descricaoFull || '-');
+            
+            const analista = t.engenheiro_nome ? `<span class="font-semibold text-gray-700">${t.engenheiro_nome}</span>` : '<span class="text-gray-400 italic">Pendente</span>';
+            
+            const comentarioFull = t.comentario_tecnico || '';
+            const comentarioCurta = comentarioFull.length > 25 ? `<span title="${comentarioFull.replace(/"/g, '&quot;')}">${comentarioFull.substring(0,25)}...</span>` : (comentarioFull || '-');
+
+            // Formatação de Datas
+            const dataAbertura = new Date(t.data_abertura || t.data_criacao).toLocaleString('pt-BR', { 
+                day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' 
+            });
+            const dataConclusao = t.data_resolucao ? new Date(t.data_resolucao).toLocaleString('pt-BR', { 
+                day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' 
+            }) : '-';
+
+            // --- HTML da Linha (14 Colunas) ---
+            return `
+                <tr class="border-b hover:bg-gray-50 transition">
+                    <td class="px-4 py-3 font-bold text-gray-900">#${t.id}</td>
+                    
+                    <td class="px-4 py-3 text-xs font-semibold text-blue-800">${cloudDisplay}</td>
+                    
+                    <td class="px-4 py-3 text-xs">${t.tipo_solicitacao}</td>
+                    <td class="px-4 py-3 text-xs uppercase text-gray-500">${t.ambiente}</td>
+                    
+                    <td class="px-4 py-3 text-xs text-gray-700">${subCatDisplay}</td>
+                    
+                    <td class="px-4 py-3 text-sm font-semibold text-blue-900">${servicoDisplay}</td>
+                    <td class="px-4 py-3 text-xs text-gray-600" title="${descricaoFull.replace(/"/g, '&quot;')}">${descricaoCurta}</td>
+                    
+                    <td class="px-4 py-3 text-xs">${analista}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500">${comentarioCurta}</td>
+                    
+                    <td class="px-4 py-3 text-xs ${prioColor}">${t.prioridade}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusBadge}">${t.status}</span></td>
+                    
+                    <td class="px-4 py-3 text-xs text-gray-500">${dataAbertura}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500">${dataConclusao}</td>
+                    
+                    <td class="px-4 py-3 text-center">${btnAction}</td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (e) { 
+        console.error("Erro ao carregar tabela:", e);
+        tbody.innerHTML = '<tr><td colspan="14" class="text-center p-4 text-red-500">Erro ao carregar dados.</td></tr>';
+    }
+}
+window.abrirModalEdicaoEngenharia = async (ticketId) => {
+    // 1. Encontra ticket
+    const ticket = currentTicketsCache.find(t => t.id === ticketId);
+    if (!ticket) return alert("Erro ao carregar dados do ticket.");
+
+    // Helper para setar valor sem erro se o ID não existir
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (el.tagName === 'SPAN' || el.tagName === 'DIV') el.innerText = val;
+            else el.value = val;
+        } else {
+            console.warn(`Elemento não encontrado: ${id}`);
+        }
+    };
+
+    // 2. Preenche campos
+    setVal('edit-eng-id', ticket.id);
+    setVal('edit-eng-id-display', ticket.id);
+    const dataCriacao = ticket.data_abertura || ticket.data_criacao;
+    setVal('edit-eng-data-display', dataCriacao ? new Date(dataCriacao).toLocaleString('pt-BR') : '-');
+    
+    setVal('edit-eng-tipo', ticket.tipo_solicitacao);
+    setVal('edit-eng-ambiente', ticket.ambiente);
+    setVal('edit-eng-prioridade', ticket.prioridade);
+    setVal('edit-eng-descricao', ticket.descricao);
+    setVal('edit-eng-status', ticket.status);
+    setVal('edit-eng-comentario', ticket.comentario_tecnico || '');
+    setVal('edit-eng-sla', ticket.sla_estimado || '');
+
+    const linkContainer = document.getElementById('edit-eng-current-attachment-container');
+    const linkSpan = document.getElementById('edit-eng-current-attachment-link');
+    const removeInput = document.getElementById('edit-eng-remove-anexo');
+    const fileInput = document.getElementById('edit-eng-anexo');
+
+    // Reseta estado
+    fileInput.value = ''; 
+    removeInput.value = '0';
+    linkContainer.classList.add('hidden');
+
+    if (ticket.anexo_path) {
+        let webPath = ticket.anexo_path.replace(/\\/g, '/');
+        if (webPath.startsWith('/')) webPath = webPath.substring(1);
+        if (!webPath.startsWith('public/')) webPath = 'public/' + webPath;
+        webPath = '/' + webPath;
+
+        linkSpan.innerHTML = `<a href="${webPath}" target="_blank" class="text-blue-600 hover:underline flex items-center gap-2"><i class="fa-solid fa-paperclip"></i> Ver Anexo Atual</a>`;
+        linkContainer.classList.remove('hidden');
+    }
+
+    // Configura botão remover
+    document.getElementById('btn-remove-anexo-eng').onclick = () => {
+        linkContainer.classList.add('hidden');
+        removeInput.value = '1';
+    };
+
+    // 3. CASCATA
+    const cloudSel = document.getElementById('edit-eng-cloud');
+    const catSel = document.getElementById('edit-eng-categoria');
+    const subSel = document.getElementById('edit-eng-subcategoria');
+    const servSel = document.getElementById('edit-eng-servico');
+
+    if (cloudSel) {
+        cloudSel.value = ticket.cloud || 'Oracle';
+        
+        // Carrega Categorias
+        if(ticket.cloud) {
+            try {
+                const cats = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}`).then(r=>r.json());
+                populateSelect(catSel, cats, 'categoria', 'categoria', 'Selecione');
+                if(catSel) {
+                    catSel.value = ticket.categoria;
+                    catSel.disabled = false;
+                    catSel.classList.remove('bg-gray-100');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // Carrega Subcategorias
+        if(ticket.cloud && ticket.categoria) {
+            try {
+                const subs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&categoria=${encodeURIComponent(ticket.categoria)}`).then(r=>r.json());
+                populateSelect(subSel, subs, 'sub_categoria', 'sub_categoria', 'Selecione');
+                if(subSel) {
+                    subSel.value = ticket.sub_categoria;
+                    subSel.disabled = false;
+                    subSel.classList.remove('bg-gray-100');
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // Carrega Serviços
+        if(ticket.cloud && ticket.categoria && ticket.sub_categoria) {
+            try {
+                const servs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&categoria=${encodeURIComponent(ticket.categoria)}&sub_categoria=${encodeURIComponent(ticket.sub_categoria)}`).then(r=>r.json());
+                populateSelect(servSel, servs, 'id', 'servico', 'Selecione', 'sla');
+                if(servSel) {
+                    servSel.value = ticket.catalog_item_id;
+                    servSel.disabled = false;
+                    servSel.classList.remove('bg-gray-100');
+                }
+            } catch(e) { console.error(e); }
+        }
+    }
+
+    // 4. Analistas
+    const analistaSelect = document.getElementById('edit-eng-analista');
+    if (analistaSelect) {
+        analistaSelect.innerHTML = '<option value="">-- Selecione --</option>';
+        if (engineersListCache && engineersListCache.length > 0) {
+            engineersListCache.forEach(eng => {
+                const opt = document.createElement('option');
+                opt.value = eng.id;
+                opt.textContent = `${eng.nome} ${eng.sobre || ''}`;
+                analistaSelect.appendChild(opt);
+            });
+        }
+        analistaSelect.value = ticket.engenheiro_id || "";
+    }
+
+    toggleModal('modalEditEngTicket', true);
+};
+function atualizarCardsEngenharia(tickets) {
+    // Conta cada status separadamente
+    const total = tickets.length;
+    const abertos = tickets.filter(t => t.status === 'Aberto').length;
+    const analise = tickets.filter(t => t.status === 'Em Analise').length; // Contagem específica
+    const desenvolvimento = tickets.filter(t => t.status === 'Desenvolvimento').length; // Contagem específica
+    const resolvidos = tickets.filter(t => t.status === 'Resolvido').length;
+
+    // Atualiza o HTML
+    if(document.getElementById('card-eng-total')) document.getElementById('card-eng-total').innerText = total;
+    if(document.getElementById('card-eng-aberto')) document.getElementById('card-eng-aberto').innerText = abertos;
+    
+    // CORREÇÃO AQUI: Atualiza o ID correto do card de análise
+    if(document.getElementById('card-eng-analise')) document.getElementById('card-eng-analise').innerText = analise;
+    
+    if(document.getElementById('card-eng-dev')) document.getElementById('card-eng-dev').innerText = desenvolvimento;
+    if(document.getElementById('card-eng-resolvido')) document.getElementById('card-eng-resolvido').innerText = resolvidos;
+}
+
+// Global para o HTML acessar
+window.abrirModalResolucao = (id, titulo, desc, status) => {
+    document.getElementById('res-eng-id').innerText = id;
+    document.getElementById('res-eng-id-input').value = id;
+    document.getElementById('res-eng-desc-orig').innerText = desc;
+    document.getElementById('res-eng-status').value = status;
+    toggleModal('modalResolveEngTicket', true);
+};
+function setupEngineeringForms() {
+    // ==========================================
+    // 1. FORMULÁRIO DE CRIAÇÃO (CLIENTE) - COM ANEXO
+    // ==========================================
+    const formCreate = document.getElementById('formCreateEngTicket');
+    if (formCreate) {
+        formCreate.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const btn = formCreate.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+
+            try {
+
+                const formData = new FormData();
+                
+   
+                formData.append('tipo_solicitacao', document.getElementById('eng-tipo').value);
+                formData.append('ambiente', document.getElementById('eng-ambiente').value);
+                formData.append('catalog_item_id', document.getElementById('eng-servico').value);
+                formData.append('prioridade', document.getElementById('eng-prioridade').value);
+                formData.append('descricao', document.getElementById('eng-descricao').value);
+
+                const fileInput = document.getElementById('eng-anexo-create');
+                if (fileInput && fileInput.files.length > 0) {
+                    formData.append('anexo', fileInput.files[0]);
+                }
+
+                const res = await fetch('/api/engineering/create', {
+                    method: 'POST',
+                    body: formData 
+                });
+                
+                const result = await res.json();
+
+                if (res.ok) {
+                    toggleModal('modalCreateEngTicket', false);
+                    formCreate.reset();
+                    if(fileInput) fileInput.value = '';
+                    
+                    if(typeof resetDropdownsToInitialState === 'function') resetDropdownsToInitialState();
+                    
+                    showStatusModal('Sucesso', 'Solicitação aberta com sucesso!', false);
+                    carregarTicketsEngenharia();
+                } else {
+                    showStatusModal('Erro', result.message || 'Erro ao criar solicitação.', true);
+                }
+            } catch (err) {
+                console.error(err);
+                showStatusModal('Erro', 'Erro de conexão.', true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        };
+    }
+
+    const formEdit = document.getElementById('formEditEngTicket');
+    if (formEdit) {
+        formEdit.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const id = document.getElementById('edit-eng-id').value;
+            const btn = formEdit.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Salvando...';
+            
+            const formData = new FormData();
+
+            formData.append('status', document.getElementById('edit-eng-status').value);
+            formData.append('engenheiro_id', document.getElementById('edit-eng-analista').value);
+            formData.append('comentario_tecnico', document.getElementById('edit-eng-comentario').value);
+            formData.append('tipo_solicitacao', document.getElementById('edit-eng-tipo').value);
+            formData.append('ambiente', document.getElementById('edit-eng-ambiente').value);
+            formData.append('prioridade', document.getElementById('edit-eng-prioridade').value);
+            formData.append('descricao', document.getElementById('edit-eng-descricao').value);
+            formData.append('catalog_item_id', document.getElementById('edit-eng-servico').value);
+            
+            const removeAnexoVal = document.getElementById('edit-eng-remove-anexo')?.value || "0";
+            formData.append('remove_anexo', removeAnexoVal);
+
+            const fileInput = document.getElementById('edit-eng-anexo');
+            if (fileInput && fileInput.files.length > 0) {
+                formData.append('anexo', fileInput.files[0]);
+            }
+
+            try {
+                const res = await fetch(`/api/engineering/ticket/${id}`, {
+                    method: 'PUT',
+                    body: formData 
+                });
+                
+                let result;
+                try { result = await res.json(); } catch(e) { result = {}; }
+
+                if (res.ok) {
+                    toggleModal('modalEditEngTicket', false);
+                    showStatusModal('Sucesso', 'Ticket atualizado com sucesso!', false);
+                    carregarTicketsEngenharia();
+                } else {
+                    showStatusModal('Erro', result.message || 'Erro ao atualizar.', true);
+                }
+            } catch (err) { 
+                console.error(err); 
+                showStatusModal('Erro', 'Erro de conexão.', true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        };
+    }
+}
+function setupEngineeringFilters() {
+    // Lista de IDs dos filtros e ordenação
+    const ids = [
+        'filter-eng-tipo', 
+        'filter-eng-status', 
+        'filter-eng-prioridade', 
+        'eng-ordenar'
+    ];
+
+    ids.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          
+            element.addEventListener('change', () => {
+                carregarTicketsEngenharia();
+            });
         }
     });
 }
-    document.getElementById('btn-remove-anexo')?.addEventListener('click', () => {
-    // Esconde o link do anexo atual
-    document.getElementById('current-attachment-container')?.classList.add('hidden');
-    // Marca o anexo para remoção no backend
-    document.getElementById('edit-remove-anexo').value = '1';
-    // Limpa o campo de seleção de novo arquivo, se houver
-    const fileInput = document.querySelector('#formEditarTicket input[type="file"][name="anexo"]');
-    if (fileInput) {
-        fileInput.value = '';
-    }
-});
+
+// Torna a função acessível globalmente para o onclick do HTML
+window.abrirModalResolucao = (id, desc, status) => {
+    document.getElementById('res-eng-id').innerText = id;
+    document.getElementById('res-eng-id-input').value = id;
+    document.getElementById('res-eng-desc-orig').innerText = desc;
+    document.getElementById('res-eng-status').value = status;
+    toggleModal('modalResolveEngTicket', true);
+};
 
 
 
-   addOptionButtonListeners('ticket-area', 'btn-delete-area-selecionada');
-   addOptionButtonListeners('ticket-grupo', 'btn-delete-grupo-selecionado');
+    addOptionButtonListeners('ticket-area', 'btn-delete-area-selecionada');
+    addOptionButtonListeners('ticket-grupo', 'btn-delete-grupo-selecionado');
     addOptionButtonListeners('ticket-tipo', 'btn-delete-tipo-selecionado');
     addOptionButtonListeners('ticket-prioridade', 'btn-delete-prioridade-selecionada');
     addOptionButtonListeners('ticket-alerta', 'btn-delete-alerta-selecionado', 'btn-edit-alerta-selecionado');
 
 
-   addOptionButtonListeners('edit-ticket-area', 'btn-delete-area-selecionada-edit');
-   addOptionButtonListeners('edit-ticket-grupo', 'btn-delete-grupo-selecionado-edit');
+    addOptionButtonListeners('edit-ticket-area', 'btn-delete-area-selecionada-edit');
+    addOptionButtonListeners('edit-ticket-grupo', 'btn-delete-grupo-selecionado-edit');
     addOptionButtonListeners('edit-ticket-tipo', 'btn-delete-tipo-selecionado-edit');
-   addOptionButtonListeners('edit-ticket-prioridade', 'btn-delete-prioridade-selecionado-edit');
-   addOptionButtonListeners('edit-ticket-alerta', 'btn-delete-alerta-selecionado-edit');
+    addOptionButtonListeners('edit-ticket-prioridade', 'btn-delete-prioridade-selecionado-edit');
+    addOptionButtonListeners('edit-ticket-alerta', 'btn-delete-alerta-selecionado-edit');
     addOptionButtonListeners('ticket-status', 'btn-delete-status-selecionado');
-btnDeleteStatus?.addEventListener('click', () => {
-    handleDeleteOption('status', 'ticket-status', (val) => statusIdToDelete = val, 'modalConfirmarDeleteStatus');
-});
+    btnDeleteStatus?.addEventListener('click', () => {
+        handleDeleteOption('status', 'ticket-status', (val) => statusIdToDelete = val, 'modalConfirmarDeleteStatus');
+    });
 
     document.getElementById('ordenarPor')?.addEventListener('change', () => carregarTickets(1));
 
 
     loadColumnConfig();
-    criarSeletorItensPorPagina();
-    carregarDadosUsuario();
-    popularDropdownsTicket();
-    carregarInfoCards();
-    carregarTickets();
-    setupPasteFunctionality();
+criarSeletorItensPorPagina();
+(async function initSystem() {
+    loadColumnConfig();
+    if(typeof criarSeletorItensPorPagina === 'function') criarSeletorItensPorPagina();
+
+    try {
+        const response = await fetch('/api/auth/session');
+        if (!response.ok) {
+            window.location.href = '/login';
+            return;
+        }
+        currentUser = await response.json();
+        
+        // Atualiza UI do usuário
+        const nomeUsuarioEl = document.getElementById('nome-usuario');
+        if (nomeUsuarioEl) nomeUsuarioEl.textContent = `${currentUser.nome || ''} ${currentUser.sobrenome || ''}`.trim();
+        
+        if (document.getElementById('admin-menu') && currentUser.perfil === 'admin') {
+            document.getElementById('admin-menu').classList.remove('hidden');
+        }
+
+        // === DECISÃO DE FLUXO ===
+        // Se for Engenharia, Cliente ou 'user', vai para o novo painel
+        if (currentUser.perfil === 'engenharia' || currentUser.perfil === 'cliente' || currentUser.perfil === 'user') {
+            console.log("-> Fluxo Engenharia Ativado");
+            initEngineeringDashboard(currentUser);
+        } else {
+            // Fluxo Suporte/Admin/Gerente (Padrão Antigo)
+            console.log("-> Fluxo Suporte Ativado");
+            const painelSuporte = document.getElementById('dashboard-suporte');
+            const painelEng = document.getElementById('dashboard-engenharia');
+            
+            if (painelSuporte) {
+                painelSuporte.style.display = 'block';
+                painelSuporte.classList.remove('hidden');
+            }
+            if (painelEng) {
+                painelEng.style.display = 'none';
+                painelEng.classList.add('hidden');
+            }
+
+            // Lógica do botão Sidebar para o fluxo antigo
+            const sidebarBtn = document.getElementById('btn-sidebar-open-ticket');
+            if(sidebarBtn) {
+                // Garante o comportamento padrão
+                const newBtn = sidebarBtn.cloneNode(true);
+                sidebarBtn.parentNode.replaceChild(newBtn, sidebarBtn);
+                newBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    toggleModal('modalTicket', true);
+                });
+            }
+            
+            // Carrega dados do suporte
+            if (typeof popularDropdownsTicket === 'function') popularDropdownsTicket();
+            if (typeof carregarInfoCards === 'function') carregarInfoCards();
+            if (typeof carregarTickets === 'function') carregarTickets();
+        }
+
+    } catch (error) {
+        console.error("Erro fatal na inicialização:", error);
+    }
+})();
+
+setupPasteFunctionality();
+
+setupPasteFunctionality();
 });

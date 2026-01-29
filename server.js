@@ -9,17 +9,17 @@ const RedisStore = require('connect-redis')(session);
 
 // Inicializa o cliente do Redis (para a v4, com legacyMode)
 const redisClient = redis.createClient({
-    legacyMode: true 
+  legacyMode: true
 });
 redisClient.connect().catch(console.error);
 console.log('Conectando ao cliente Redis...');
 
 redisClient.on('connect', () => {
-    console.log('Cliente Redis conectado com sucesso!');
+  console.log('Cliente Redis conectado com sucesso!');
 });
 
 redisClient.on('error', err => {
-    console.error('Erro no cliente Redis:', err);
+  console.error('Erro no cliente Redis:', err);
 });
 
 // Inicializa o "armazém" de sessões do Redis
@@ -41,12 +41,15 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Configuração da sessão usando o RedisStore
 app.use(session({
-  store: redisStore, 
-  secret: process.env.SESSION_SECRET, 
+  store: redisStore,
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 } // 8 horas
 }));
+
+const engineeringRoutes = require('./routes/engineering');
+app.use('/api/engineering', engineeringRoutes);
 
 // Rotas da API
 app.use('/api/tickets', ticketRoutes);
@@ -61,7 +64,7 @@ app.get('/login', (req, res) => {
 app.get('/dashboard', requireLogin, (req, res) => {
   res.set({
     'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache', 
+    'Pragma': 'no-cache',
     'Expires': '0'
   });
   res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
@@ -80,7 +83,7 @@ app.get('/reset-password', (req, res) => {
 });
 
 app.get('/force-reset-password', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'force-reset-password.html'));
+  res.sendFile(path.join(__dirname, 'views', 'force-reset-password.html'));
 });
 
 app.get('/verify-2fa', (req, res) => {

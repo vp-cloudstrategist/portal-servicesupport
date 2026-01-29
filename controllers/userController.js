@@ -68,15 +68,16 @@ exports.createUser = async (req, res) => {
           <img src="https://support.nexxtcloud.app/images/Nexxt-Cloud-Logo-1.png" alt="Nexxt Cloud" width="200">
         </div>
         <div style="padding:30px; text-align:center; line-height:1.5;">
-          <h2 style="color:#0c1231;">Seu Código de Verificação</h2>
-          <p>Olá <strong>${user.nome}</strong>,</p>
-          <p>Use o código abaixo para completar seu login no Portal Nexxt Cloud Support.</p>
+          <h2 style="color:#0c1231;">Bem-vindo(a)!</h2>
+          <p>Olá <strong>${nomeCapitalized}</strong>,</p>
+          <p>Sua conta foi criada com sucesso no Portal Nexxt Cloud Support.</p>
+          <p>Abaixo está sua senha temporária para o primeiro acesso:</p>
           <div style="margin:30px 0;">
-            <p style="background-color:#e9ecef; font-size:24px; font-weight:bold; padding:10px 20px; border-radius:6px; display:inline-block; letter-spacing: 5px;">
-              ${otpToken}
+            <p style="background-color:#e9ecef; font-size:20px; font-weight:bold; padding:10px 20px; border-radius:6px; display:inline-block;">
+              ${senhaTemporaria}
             </p>
           </div>
-          <p style="font-size:12px; color:#777;">Este código é válido por 10 minutos.</p>
+          <p style="font-size:12px; color:#777;">Recomendamos alterar sua senha após realizar o login.</p>
         </div>
         <div style="background-color:#f8f8f8; padding:20px; text-align:center; font-size:12px; color:#555;">
           Nexxt Cloud © 2025 • Todos os direitos reservados
@@ -219,7 +220,7 @@ exports.getUserById = async (req, res) => {
     }
 };
 
-exports.updateUserById = async (req, res) => {
+exports.updateUser = async (req, res) => {
     const loggedInUser = req.session.user;
     const { id: targetUserId } = req.params;
     let { nome, sobre, login, telef, perfil, area_ids, novaSenha } = req.body;
