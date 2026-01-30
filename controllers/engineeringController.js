@@ -1,4 +1,14 @@
 const pool = require('../config/db.js');
+const nodemailer = require('nodemailer');
+const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    secure: false, 
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 const capitalize = (str) => {
     if (!str || typeof str !== 'string') return '';
@@ -165,6 +175,62 @@ exports.updateTicketStatus = async (req, res) => {
         params.push(id);
 
         await pool.query(sql, params);
+        if (status === 'Resolvido') {
+            // Busca dados do ticket e do cliente para o e-mail
+            const [ticketData] = await pool.query(`
+                SELECT t.id, t.tipo_solicitacao, t.descricao, t.comentario_tecnico, 
+                       u.login as email_cliente, u.nome as nome_cliente,
+                       eng.nome as nome_engenheiro
+                FROM tickets_engenharia t
+                JOIN user u ON t.cliente_id = u.id
+                LEFT JOIN user eng ON t.engenheiro_id = eng.id
+                WHERE t.id = ?
+            `, [id]);
+
+            if (ticketData.length > 0) {
+                const info = ticketData[0];
+                
+                const emailHtml = `
+                    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                        <div style="background-color: #2563EB; padding: 20px; text-align: center;">
+                            <h2 style="color: #fff; margin: 0;">Solicitação Resolvida</h2>
+                        </div>
+                        <div style="padding: 30px;">
+                            <p style="font-size: 16px;">Olá <strong>${info.nome_cliente}</strong>,</p>
+                            <p style="font-size: 14px; color: #555; line-height: 1.5;">
+                                Sua solicitação <strong>#${info.id}</strong> foi concluída pela nossa equipe de engenharia.
+                            </p>
+                            
+                            <div style="background-color: #f9fafb; border-left: 4px solid #2563EB; padding: 15px; margin: 20px 0;">
+                                <p style="margin: 5px 0;"><strong>Tipo:</strong> ${info.tipo_solicitacao}</p>
+                                <p style="margin: 5px 0;"><strong>Descrição:</strong> ${info.descricao}</p>
+                                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 10px 0;">
+                                <p style="margin: 5px 0; color: #2563EB;"><strong>Solução Técnica:</strong><br>${info.comentario_tecnico || 'Resolvido conforme solicitado.'}</p>
+                                <p style="margin: 5px 0; font-size: 12px; color: #6b7280;">Resolvido por: ${info.nome_engenheiro || 'Engenharia Nexxt Cloud'}</p>
+                            </div>
+
+                            <p style="font-size: 12px; color: #888; text-align: center; margin-top: 30px;">
+                                Se precisar de algo mais, estamos à disposição no portal.<br>
+                                Nexxt Cloud 2026 © 
+                            </p>
+                        </div>
+                    </div>
+                `;
+
+                try {
+                    await transporter.sendMail({
+                        from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
+                        to: info.email_cliente,
+                        subject: `[Resolvido] Solicitação #${info.id} - Nexxt Cloud`,
+                        html: emailHtml
+                    });
+                    console.log(`[EMAIL] Notificação de resolução enviada para ${info.email_cliente}`);
+                } catch (emailErr) {
+                    console.error("[EMAIL ERROR] Falha ao enviar notificação de resolução:", emailErr);
+                    // Não bloqueamos a resposta ao front-end se o e-mail falhar, apenas logamos
+                }
+            }
+        }
 
         res.status(200).json({ message: 'Ticket atualizado com sucesso!' });
 
