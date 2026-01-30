@@ -87,14 +87,10 @@ exports.getDashboardTickets = async (req, res) => {
             params = []; // Sem parâmetros de filtro
 
         } else if (user.perfil === 'engenharia' || user.perfil === 'admin' || user.perfil === 'gerente') {
-            if (user.perfil === 'admin') {
-                 sql = `${baseQuery} ORDER BY t.id DESC`;
-            } else {
-                // Engenharia vê tickets dele ou sem dono (ou pode ver tudo tbm, se quiser alterar aqui)
-                sql = `${baseQuery} WHERE t.engenheiro_id = ? OR t.engenheiro_id IS NULL ORDER BY t.status ASC`;
-                params = [user.id];
-            }
-        } else {
+            sql = `${baseQuery} ORDER BY t.status ASC, t.id DESC`;
+    params = []; 
+
+} else {
             return res.status(403).json({ message: 'Perfil não autorizado.' });
         }
 
