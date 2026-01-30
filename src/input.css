@@ -12,3 +12,24 @@
 body {
   font-family: 'Space Grotesk', sans-serif;
 }
+
+/* Sidebar */
+#sidebar { transition: all 0.3s ease-in-out; }
+.sidebar-collapsed { width: 5rem !important; }
+.sidebar-collapsed span.sidebar-text { display: none; opacity: 0; }
+.sidebar-collapsed .sidebar-icon { margin-right: 0; }
+.sidebar-link { transition: color 0.2s; }
+
+/* Cards */
+.status-card { transition: transform 0.2s, box-shadow 0.2s; }
+.status-card:hover { transform: scale(1.05); }
+
+/* Tabelas */
+.JCLRgrip { cursor: col-resize; width: 5px; background-color: transparent; }
+.JCLRgrip:hover { background-color: #ccc; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
