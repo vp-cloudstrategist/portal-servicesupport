@@ -13,6 +13,7 @@ let currentStatusList = [];
 let ticketAbertoParaEdicao = null;
 let userIdToDelete = null;
 let alertaIdToEdit = null;
+let engTicketIdToDelete = null;
 
 let currentAlertsList = [];
 let currentGruposList = [];
@@ -2762,7 +2763,8 @@ selectPerfil?.addEventListener('change', async () => {
     setupEngineeringForms();        
     setupCascadingDropdowns();         
     setupCascadingDropdownsEdit();     
-    setupEngineeringFilters();         
+    setupEngineeringFilters();
+    setupEngineeringDeleteListeners();         
 }
 
 function abrirModalEngenharia() {
@@ -3167,7 +3169,12 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
             } catch(e) { console.error(e); }
         }
     }
-
+    const btnDeleteEng = document.getElementById('btn-delete-eng-ticket');
+    if (btnDeleteEng) {
+        // Apenas Admin, Gerente ou Engenharia podem deletar
+        const canDelete = currentUser && (['admin', 'gerente', 'engenharia'].includes(currentUser.perfil));
+        btnDeleteEng.classList.toggle('hidden', !canDelete);
+    }
     // 4. Analistas
     const analistaSelect = document.getElementById('edit-eng-analista');
     if (analistaSelect) {
@@ -3442,6 +3449,69 @@ criarSeletorItensPorPagina();
         console.error("Erro fatal na inicialização:", error);
     }
 })();
+function setupEngineeringDeleteListeners() {
+    // 1. Clique no botão "Excluir" dentro do Modal de Edição
+    const btnDelete = document.getElementById('btn-delete-eng-ticket');
+    if (btnDelete) {
+        btnDelete.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Pega o ID do input hidden do formulário de edição
+            const id = document.getElementById('edit-eng-id').value;
+            if (id) {
+                engTicketIdToDelete = id;
+                toggleModal('modalEditEngTicket', false); // Fecha edição
+                toggleModal('modalConfirmarDeleteEng', true); // Abre confirmação
+            }
+        });
+    }
+
+    // 2. Clique em "Cancelar" no Modal de Confirmação
+    const btnCancel = document.getElementById('btn-cancel-delete-eng');
+    if (btnCancel) {
+        btnCancel.addEventListener('click', (e) => {
+            e.preventDefault();
+            engTicketIdToDelete = null;
+            toggleModal('modalConfirmarDeleteEng', false);
+            toggleModal('modalEditEngTicket', true); // Reabre a edição (opcional, boa UX)
+        });
+    }
+
+    // 3. Clique em "Sim, Excluir" no Modal de Confirmação
+    const btnConfirm = document.getElementById('btn-confirm-delete-eng');
+    if (btnConfirm) {
+        btnConfirm.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (!engTicketIdToDelete) return;
+
+            // Feedback visual no botão
+            const originalText = btnConfirm.innerHTML;
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Excluindo...';
+
+            try {
+                const response = await fetch(`/api/engineering/ticket/${engTicketIdToDelete}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    toggleModal('modalConfirmarDeleteEng', false);
+                    showStatusModal('Sucesso', 'Ticket excluído com sucesso!', false);
+                    await carregarTicketsEngenharia(); // Recarrega a tabela
+                } else {
+                    showStatusModal('Erro', result.message || 'Erro ao excluir ticket.', true);
+                }
+            } catch (error) {
+                console.error(error);
+                showStatusModal('Erro de Conexão', 'Não foi possível comunicar com o servidor.', true);
+            } finally {
+                btnConfirm.disabled = false;
+                btnConfirm.innerHTML = originalText;
+                engTicketIdToDelete = null;
+            }
+        });
+    }
+}
 
 setupPasteFunctionality();
 

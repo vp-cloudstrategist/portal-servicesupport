@@ -236,3 +236,27 @@ exports.getEngineersList = async (req, res) => {
         res.status(500).json({ message: 'Erro ao buscar engenheiros.' });
     }
 };
+exports.deleteTicket = async (req, res) => {
+    const { id } = req.params;
+    const user = req.session.user;
+    const perfisPermitidos = ['admin', 'gerente', 'engenharia'];
+    
+    if (!perfisPermitidos.includes(user.perfil)) {
+        return res.status(403).json({ message: 'Permissão negada. Apenas Admin, Gerente ou Engenharia podem excluir.' });
+    }
+
+    try {
+
+        const [result] = await pool.query('DELETE FROM tickets_engenharia WHERE id = ?', [id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Ticket não encontrado.' });
+        }
+
+        res.status(200).json({ message: 'Solicitação excluída com sucesso!' });
+
+    } catch (error) {
+        console.error("Erro ao deletar ticket:", error);
+        res.status(500).json({ message: 'Erro interno ao tentar excluir.' });
+    }
+};

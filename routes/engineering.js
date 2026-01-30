@@ -16,4 +16,6 @@ router.get('/catalog-options', requireLogin, engineeringController.getCatalogOpt
 
 router.get('/users/engineers', requireLogin, engineeringController.getEngineersList);
 
+router.delete('/ticket/:id', requireLogin, engineeringController.deleteTicket);
+
 module.exports = router;
