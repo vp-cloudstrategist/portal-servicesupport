@@ -2712,7 +2712,6 @@ selectPerfil?.addEventListener('change', async () => {
         }
     });
    async function initEngineeringDashboard(user) {
-    console.log("Iniciando Dashboard de Engenharia...");
 
     // 1. FORÇA A OCULTAÇÃO DO SUPORTE E MOSTRA A ENGENHARIA
     const painelSuporte = document.getElementById('dashboard-suporte');
@@ -3035,6 +3034,12 @@ async function carregarTicketsEngenharia() {
             return `
                 <tr class="border-b hover:bg-gray-50 transition">
                     <td class="px-4 py-3 font-bold text-gray-900">#${t.id}</td>
+
+                    <td class="px-4 py-3 text-xs">
+            <div class="font-bold text-gray-800">
+                ${t.cliente_nome || ''} ${t.cliente_sobrenome || ''}
+            </div>
+        </td>
                     
                     <td class="px-4 py-3 text-xs font-semibold text-blue-800">${cloudDisplay}</td>
                     
@@ -3084,6 +3089,8 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     // 2. Preenche campos
     setVal('edit-eng-id', ticket.id);
     setVal('edit-eng-id-display', ticket.id);
+    const nomeCompleto = `${ticket.cliente_nome || ''} ${ticket.cliente_sobrenome || ''}`.trim();
+setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
     const dataCriacao = ticket.data_abertura || ticket.data_criacao;
     setVal('edit-eng-data-display', dataCriacao ? new Date(dataCriacao).toLocaleString('pt-BR') : '-');
     
@@ -3410,11 +3417,9 @@ criarSeletorItensPorPagina();
         // === DECISÃO DE FLUXO ===
         // Se for Engenharia, Cliente ou 'user', vai para o novo painel
         if (currentUser.perfil === 'engenharia' || currentUser.perfil === 'cliente' || currentUser.perfil === 'user') {
-            console.log("-> Fluxo Engenharia Ativado");
             initEngineeringDashboard(currentUser);
         } else {
             // Fluxo Suporte/Admin/Gerente (Padrão Antigo)
-            console.log("-> Fluxo Suporte Ativado");
             const painelSuporte = document.getElementById('dashboard-suporte');
             const painelEng = document.getElementById('dashboard-engenharia');
             

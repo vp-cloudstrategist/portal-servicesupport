@@ -63,19 +63,21 @@ exports.getDashboardTickets = async (req, res) => {
         let params = [];
         
         let baseQuery = `
-            SELECT t.*, 
-                   cat.servico as servico_nome, 
-                   cat.sla as sla_estimado,
-                   cat.cloud,
-                   cat.categoria,
-                   cat.sub_categoria,
-                   u_cli.nome as cliente_nome, 
-                   u_eng.nome as engenheiro_nome 
-            FROM tickets_engenharia t
-            LEFT JOIN eng_catalog cat ON t.catalog_item_id = cat.id
-            LEFT JOIN user u_cli ON t.cliente_id = u_cli.id
-            LEFT JOIN user u_eng ON t.engenheiro_id = u_eng.id
-        `;
+    SELECT t.*, 
+           cat.servico as servico_nome, 
+           cat.sla as sla_estimado,
+           cat.cloud,
+           cat.categoria,
+           cat.sub_categoria,
+           u_cli.nome as cliente_nome, 
+           u_cli.sobre as cliente_sobrenome, /* <--- ADICIONADO */
+           u_cli.login as cliente_email,
+           u_eng.nome as engenheiro_nome 
+    FROM tickets_engenharia t
+    LEFT JOIN eng_catalog cat ON t.catalog_item_id = cat.id
+    LEFT JOIN user u_cli ON t.cliente_id = u_cli.id
+    LEFT JOIN user u_eng ON t.engenheiro_id = u_eng.id
+`;
 
         // --- ALTERAÇÃO AQUI: VISIBILIDADE GERAL ---
         if (user.perfil === 'cliente' || user.perfil === 'user') {
@@ -224,10 +226,8 @@ exports.updateTicketStatus = async (req, res) => {
                         subject: `[Resolvido] Solicitação #${info.id} - Nexxt Cloud`,
                         html: emailHtml
                     });
-                    console.log(`[EMAIL] Notificação de resolução enviada para ${info.email_cliente}`);
                 } catch (emailErr) {
                     console.error("[EMAIL ERROR] Falha ao enviar notificação de resolução:", emailErr);
-                    // Não bloqueamos a resposta ao front-end se o e-mail falhar, apenas logamos
                 }
             }
         }
