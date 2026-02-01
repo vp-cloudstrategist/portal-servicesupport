@@ -106,7 +106,6 @@ exports.getDashboardTickets = async (req, res) => {
 exports.updateTicketStatus = async (req, res) => {
     const { id } = req.params;
     
-    // FormData envia tudo como string, então tratamos aqui
     const { 
         status, 
         engenheiro_id, 
@@ -116,29 +115,35 @@ exports.updateTicketStatus = async (req, res) => {
         catalog_item_id,
         prioridade,
         descricao,
-        remove_anexo // Vem como string "0" ou "1"
+        remove_anexo 
     } = req.body;
 
     const loggedUserId = req.session.user.id;
 
     try {
-        const [check] = await pool.query('SELECT id, engenheiro_id, anexo_path FROM tickets_engenharia WHERE id = ?', [id]);
+        const [check] = await pool.query('SELECT id, status, engenheiro_id, anexo_path FROM tickets_engenharia WHERE id = ?', [id]);
+        
         if (check.length === 0) return res.status(404).json({ message: 'Ticket não encontrado.' });
         
+        if (check[0].status === 'Resolvido' && status !== 'Reaberto') {
+            return res.status(403).json({ 
+                message: 'Ticket resolvido só aceita edição se o status for alterado para "Reaberto".' 
+            });
+        }
+
         let targetEngId = engenheiro_id || check[0].engenheiro_id || loggedUserId;
-        // Se vier string vazia do front, converte pra null ou mantém o atual? Vamos manter null se vazio.
         if (targetEngId === "") targetEngId = null;
 
-        // Lógica de Anexo
-        let newAnexoPath = check[0].anexo_path; // Mantém o atual por padrão
+        let newAnexoPath = check[0].anexo_path; 
         
         if (remove_anexo === '1') {
-            newAnexoPath = null; // Remove se solicitado
+            newAnexoPath = null; 
         }
         
         if (req.file) {
-            newAnexoPath = req.file.path; // Substitui se vier novo arquivo
+            newAnexoPath = req.file.path; 
         }
+        
 
         let sql = `
             UPDATE tickets_engenharia SET 
@@ -173,8 +178,8 @@ exports.updateTicketStatus = async (req, res) => {
         params.push(id);
 
         await pool.query(sql, params);
+
         if (status === 'Resolvido') {
-            // Busca dados do ticket e do cliente para o e-mail
             const [ticketData] = await pool.query(`
                 SELECT t.id, t.tipo_solicitacao, t.descricao, t.comentario_tecnico, 
                        u.login as email_cliente, u.nome as nome_cliente,
@@ -190,26 +195,35 @@ exports.updateTicketStatus = async (req, res) => {
                 
                 const emailHtml = `
                     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                        <div style="background-color: #2563EB; padding: 20px; text-align: center;">
-                            <h2 style="color: #fff; margin: 0;">Solicitação Resolvida</h2>
+                        
+                        <div style="background-color: #3B82F6; padding: 20px; text-align: center;">
+                            <img src="https://service.nexxtcloud.app/images/Nexxt-Cloud-Logo-4.png" alt="Nexxt Cloud" style="max-width: 150px; display: block; margin: 0 auto;">
+                            <h2 style="color: #fff; margin: 15px 0 0 0; font-weight: 600;">Solicitação Resolvida</h2>
                         </div>
-                        <div style="padding: 30px;">
-                            <p style="font-size: 16px;">Olá <strong>${info.nome_cliente}</strong>,</p>
-                            <p style="font-size: 14px; color: #555; line-height: 1.5;">
-                                Sua solicitação <strong>#${info.id}</strong> foi concluída pela nossa equipe de engenharia.
+
+                        <div style="padding: 30px; background-color: #ffffff;">
+                            <p style="font-size: 16px; margin-bottom: 20px;">Olá <strong>${info.nome_cliente}</strong>,</p>
+                            
+                            <p style="font-size: 14px; color: #555; line-height: 1.6;">
+                                Informamos que sua solicitação <strong>#${info.id}</strong> foi concluída pela nossa equipe de engenharia.
                             </p>
                             
-                            <div style="background-color: #f9fafb; border-left: 4px solid #2563EB; padding: 15px; margin: 20px 0;">
+                            <div style="background-color: #F3F4F6; border-left: 4px solid #3B82F6; padding: 15px; margin: 25px 0; border-radius: 4px;">
                                 <p style="margin: 5px 0;"><strong>Tipo:</strong> ${info.tipo_solicitacao}</p>
                                 <p style="margin: 5px 0;"><strong>Descrição:</strong> ${info.descricao}</p>
-                                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 10px 0;">
-                                <p style="margin: 5px 0; color: #2563EB;"><strong>Solução Técnica:</strong><br>${info.comentario_tecnico || 'Resolvido conforme solicitado.'}</p>
-                                <p style="margin: 5px 0; font-size: 12px; color: #6b7280;">Resolvido por: ${info.nome_engenheiro || 'Engenharia Nexxt Cloud'}</p>
+                                <hr style="border: 0; border-top: 1px solid #E5E7EB; margin: 10px 0;">
+                                <p style="margin: 5px 0;"><strong>Solução Técnica:</strong><br>${info.comentario_tecnico || 'Resolvido conforme solicitado.'}</p>
+                                <p style="margin: 10px 0 0 0; font-size: 12px; color: #6B7280;">Analista responsável: ${info.nome_engenheiro || 'Equipe Nexxt Cloud'}</p>
                             </div>
 
-                            <p style="font-size: 12px; color: #888; text-align: center; margin-top: 30px;">
-                                Se precisar de algo mais, estamos à disposição no portal.<br>
-                                Nexxt Cloud 2026 © 
+                            <p style="font-size: 14px; color: #555; text-align: center; margin-top: 30px;">
+                                Estamos à disposição caso precise reabrir este ticket ou tirar dúvidas.
+                            </p>
+                        </div>
+
+                        <div style="background-color: #3B82F6; padding: 15px; text-align: center;">
+                            <p style="font-size: 12px; color: #fff; margin: 0;">
+                                Nexxt Cloud - Engenharia<br>
                             </p>
                         </div>
                     </div>

@@ -2757,13 +2757,42 @@ selectPerfil?.addEventListener('change', async () => {
         const resp = await fetch('/api/engineering/users/engineers');
         if (resp.ok) engineersListCache = await resp.json();
     } catch (e) { console.error("Erro ao carregar engenheiros", e); }
-
+atualizarDropdownStatusEngenharia();
   await carregarTicketsEngenharia(); 
     setupEngineeringForms();        
     setupCascadingDropdowns();         
     setupCascadingDropdownsEdit();     
     setupEngineeringFilters();
-    setupEngineeringDeleteListeners();         
+    setupEngineeringDeleteListeners();   
+    
+    const tooltip = document.getElementById('custom-tooltip');
+    const tbody = document.getElementById('lista-tickets-eng');
+
+    if (tooltip && tbody) {
+        tbody.addEventListener('mouseover', (e) => {
+            const row = e.target.closest('tr[data-servico]');
+            if (row) {
+                const servico = row.getAttribute('data-servico');
+                tooltip.innerHTML = `<span class="text-blue-600 font-bold">Serviço:</span> ${servico}`;
+                tooltip.classList.remove('hidden');
+                // Pequeno delay para animação suave
+                setTimeout(() => tooltip.classList.remove('opacity-0'), 10);
+            }
+        });
+
+        tbody.addEventListener('mousemove', (e) => {
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
+        });
+
+        tbody.addEventListener('mouseout', (e) => {
+            const row = e.target.closest('tr[data-servico]');
+            if (row) {
+                tooltip.classList.add('opacity-0');
+                tooltip.classList.add('hidden');
+            }
+        });
+    }
 }
 
 function abrirModalEngenharia() {
@@ -2928,13 +2957,53 @@ function resetDropdownsToInitialState() {
     resetSelect(servSel, 'Selecione a Sub Categoria primeiro');
     if(slaInput) slaInput.value = "";
 }
-window.filtrarEngCard = (status) => {
-    const select = document.getElementById('filter-eng-status');
-    if (select) {
-        select.value = status === 'all' ? '' : status;
-        carregarTicketsEngenharia();
-    }
+window.filtrarEngCard = function(statusFiltro) {
+    const rows = document.querySelectorAll('#lista-tickets-eng tr');
+
+    rows.forEach(row => {
+        // Pega o status que está escrito na coluna da tabela
+        const statusBadge = row.querySelector('span.rounded-full'); 
+        const statusTexto = statusBadge ? statusBadge.innerText.trim() : '';
+
+        // Lógica de compatibilidade (Para filtrar corretamente os antigos e novos)
+        let match = false;
+
+        if (statusFiltro === 'Todos' || statusFiltro === 'all') {
+            match = true;
+        } 
+        else if (statusFiltro === 'Em Atendimento') {
+            // Mostra se for "Em Atendimento" OU "Em Análise"
+            match = (statusTexto === 'Em Atendimento' || statusTexto === 'Em Análise' || statusTexto === 'Em Analise');
+        }
+        else if (statusFiltro === 'Reaberto') {
+            // Mostra se for "Reaberto" OU "Desenvolvimento"
+            match = (statusTexto === 'Reaberto' || statusTexto === 'Desenvolvimento');
+        }
+        else {
+            // Para "Aberto", "Resolvido", a comparação é direta
+            match = (statusTexto === statusFiltro);
+        }
+
+        // Mostra ou esconde a linha
+        if (match) {
+            row.classList.remove('hidden');
+        } else {
+            row.classList.add('hidden');
+        }
+    });
 };
+function atualizarDropdownStatusEngenharia() {
+    const select = document.getElementById('edit-eng-status');
+    if (!select) return;
+
+    // Recria as opções com os nomes novos
+    select.innerHTML = `
+        <option value="Aberto">Aberto</option>
+        <option value="Em Atendimento">Em Atendimento</option>
+        <option value="Reaberto">Reaberto</option>
+        <option value="Resolvido">Resolvido</option>
+    `;
+}
 
 async function carregarTicketsEngenharia() {
     const tbody = document.getElementById('lista-tickets-eng');
@@ -2986,12 +3055,21 @@ async function carregarTicketsEngenharia() {
 
         // 4. Renderiza as Linhas
         tbody.innerHTML = tickets.map(t => {
-            // --- Estilização de Badges e Cores ---
+            // --- Estilização de Badges e Cores (ATUALIZADO) ---
             let statusBadge = 'bg-gray-100 text-gray-800';
-            if (t.status === 'Aberto') statusBadge = 'bg-yellow-100 text-yellow-800';
-            else if (t.status === 'Em Analise') statusBadge = 'bg-blue-100 text-blue-800';
-            else if (t.status === 'Desenvolvimento') statusBadge = 'bg-purple-100 text-purple-800';
-            else if (t.status === 'Resolvido') statusBadge = 'bg-green-100 text-green-800';
+            
+            if (t.status === 'Aberto') {
+                statusBadge = 'bg-yellow-100 text-yellow-800';
+            } 
+            else if (t.status === 'Em Analise' || t.status === 'Em Atendimento') {
+                statusBadge = 'bg-blue-100 text-blue-800';
+            } 
+            else if (t.status === 'Desenvolvimento' || t.status === 'Reaberto') {
+                statusBadge = 'bg-purple-100 text-purple-800';
+            } 
+            else if (t.status === 'Resolvido') {
+                statusBadge = 'bg-green-100 text-green-800';
+            }
 
             let prioColor = 'text-gray-600';
             if (t.prioridade === 'Alta') prioColor = 'text-orange-600 font-bold';
@@ -3030,16 +3108,15 @@ async function carregarTicketsEngenharia() {
                 day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' 
             }) : '-';
 
-            // --- HTML da Linha (14 Colunas) ---
             return `
-                <tr class="border-b hover:bg-gray-50 transition">
+                <tr class="border-b hover:bg-gray-50 transition group relative" data-servico="${t.servico_nome || 'Não informado'}">
                     <td class="px-4 py-3 font-bold text-gray-900">#${t.id}</td>
 
                     <td class="px-4 py-3 text-xs">
-            <div class="font-bold text-gray-800">
-                ${t.cliente_nome || ''} ${t.cliente_sobrenome || ''}
-            </div>
-        </td>
+                        <div class="font-bold text-gray-800">
+                            ${t.cliente_nome || ''} ${t.cliente_sobrenome || ''}
+                        </div>
+                    </td>
                     
                     <td class="px-4 py-3 text-xs font-semibold text-blue-800">${cloudDisplay}</td>
                     
@@ -3048,7 +3125,6 @@ async function carregarTicketsEngenharia() {
                     
                     <td class="px-4 py-3 text-xs text-gray-700">${subCatDisplay}</td>
                     
-                    <td class="px-4 py-3 text-sm font-semibold text-blue-900">${servicoDisplay}</td>
                     <td class="px-4 py-3 text-xs text-gray-600" title="${descricaoFull.replace(/"/g, '&quot;')}">${descricaoCurta}</td>
                     
                     <td class="px-4 py-3 text-xs">${analista}</td>
@@ -3075,22 +3151,22 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     const ticket = currentTicketsCache.find(t => t.id === ticketId);
     if (!ticket) return alert("Erro ao carregar dados do ticket.");
 
-    // Helper para setar valor sem erro se o ID não existir
+    // Helper para setar valor
     const setVal = (id, val) => {
         const el = document.getElementById(id);
         if (el) {
             if (el.tagName === 'SPAN' || el.tagName === 'DIV') el.innerText = val;
             else el.value = val;
-        } else {
-            console.warn(`Elemento não encontrado: ${id}`);
         }
     };
 
-    // 2. Preenche campos
+    // 2. Preenche campos básicos
     setVal('edit-eng-id', ticket.id);
     setVal('edit-eng-id-display', ticket.id);
+    
     const nomeCompleto = `${ticket.cliente_nome || ''} ${ticket.cliente_sobrenome || ''}`.trim();
-setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
+    setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
+    
     const dataCriacao = ticket.data_abertura || ticket.data_criacao;
     setVal('edit-eng-data-display', dataCriacao ? new Date(dataCriacao).toLocaleString('pt-BR') : '-');
     
@@ -3098,21 +3174,37 @@ setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
     setVal('edit-eng-ambiente', ticket.ambiente);
     setVal('edit-eng-prioridade', ticket.prioridade);
     setVal('edit-eng-descricao', ticket.descricao);
-    setVal('edit-eng-status', ticket.status);
     setVal('edit-eng-comentario', ticket.comentario_tecnico || '');
     setVal('edit-eng-sla', ticket.sla_estimado || '');
 
+    // --- STATUS (COM TRADUÇÃO DE LEGADO) ---
+    const statusSelect = document.getElementById('edit-eng-status');
+    if (statusSelect) {
+        let statusParaExibir = ticket.status;
+
+        // Mapeia nomes antigos para os novos visualmente
+        if (statusParaExibir === 'Em Analise' || statusParaExibir === 'Em Análise') {
+            statusParaExibir = 'Em Atendimento';
+        } else if (statusParaExibir === 'Desenvolvimento' || statusParaExibir === 'Em Desenvolvimento') {
+            statusParaExibir = 'Reaberto';
+        }
+
+        statusSelect.value = statusParaExibir;
+    }
+
+    // --- Lógica de Anexo ---
     const linkContainer = document.getElementById('edit-eng-current-attachment-container');
     const linkSpan = document.getElementById('edit-eng-current-attachment-link');
     const removeInput = document.getElementById('edit-eng-remove-anexo');
     const fileInput = document.getElementById('edit-eng-anexo');
+    const btnRemoveAnexo = document.getElementById('btn-remove-anexo-eng');
 
-    // Reseta estado
-    fileInput.value = ''; 
-    removeInput.value = '0';
-    linkContainer.classList.add('hidden');
+    // Reseta estado do anexo
+    if(fileInput) fileInput.value = ''; 
+    if(removeInput) removeInput.value = '0';
+    if(linkContainer) linkContainer.classList.add('hidden');
 
-    if (ticket.anexo_path) {
+    if (ticket.anexo_path && linkContainer && linkSpan) {
         let webPath = ticket.anexo_path.replace(/\\/g, '/');
         if (webPath.startsWith('/')) webPath = webPath.substring(1);
         if (!webPath.startsWith('public/')) webPath = 'public/' + webPath;
@@ -3122,13 +3214,14 @@ setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
         linkContainer.classList.remove('hidden');
     }
 
-    // Configura botão remover
-    document.getElementById('btn-remove-anexo-eng').onclick = () => {
-        linkContainer.classList.add('hidden');
-        removeInput.value = '1';
-    };
+    if(btnRemoveAnexo) {
+        btnRemoveAnexo.onclick = () => {
+            linkContainer.classList.add('hidden');
+            removeInput.value = '1';
+        };
+    }
 
-    // 3. CASCATA
+    // 3. CASCATA (Popula os Selects)
     const cloudSel = document.getElementById('edit-eng-cloud');
     const catSel = document.getElementById('edit-eng-categoria');
     const subSel = document.getElementById('edit-eng-subcategoria');
@@ -3142,11 +3235,7 @@ setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
             try {
                 const cats = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}`).then(r=>r.json());
                 populateSelect(catSel, cats, 'categoria', 'categoria', 'Selecione');
-                if(catSel) {
-                    catSel.value = ticket.categoria;
-                    catSel.disabled = false;
-                    catSel.classList.remove('bg-gray-100');
-                }
+                if(catSel) catSel.value = ticket.categoria;
             } catch(e) { console.error(e); }
         }
 
@@ -3155,11 +3244,7 @@ setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
             try {
                 const subs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&categoria=${encodeURIComponent(ticket.categoria)}`).then(r=>r.json());
                 populateSelect(subSel, subs, 'sub_categoria', 'sub_categoria', 'Selecione');
-                if(subSel) {
-                    subSel.value = ticket.sub_categoria;
-                    subSel.disabled = false;
-                    subSel.classList.remove('bg-gray-100');
-                }
+                if(subSel) subSel.value = ticket.sub_categoria;
             } catch(e) { console.error(e); }
         }
 
@@ -3168,20 +3253,11 @@ setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
             try {
                 const servs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&categoria=${encodeURIComponent(ticket.categoria)}&sub_categoria=${encodeURIComponent(ticket.sub_categoria)}`).then(r=>r.json());
                 populateSelect(servSel, servs, 'id', 'servico', 'Selecione', 'sla');
-                if(servSel) {
-                    servSel.value = ticket.catalog_item_id;
-                    servSel.disabled = false;
-                    servSel.classList.remove('bg-gray-100');
-                }
+                if(servSel) servSel.value = ticket.catalog_item_id;
             } catch(e) { console.error(e); }
         }
     }
-    const btnDeleteEng = document.getElementById('btn-delete-eng-ticket');
-    if (btnDeleteEng) {
-        // Apenas Admin, Gerente ou Engenharia podem deletar
-        const canDelete = currentUser && (['admin', 'gerente', 'engenharia'].includes(currentUser.perfil));
-        btnDeleteEng.classList.toggle('hidden', !canDelete);
-    }
+
     // 4. Analistas
     const analistaSelect = document.getElementById('edit-eng-analista');
     if (analistaSelect) {
@@ -3197,24 +3273,110 @@ setVal('edit-eng-email-display', nomeCompleto || 'Cliente Desconhecido');
         analistaSelect.value = ticket.engenheiro_id || "";
     }
 
+    // Botão de Deletar
+    const btnDeleteEng = document.getElementById('btn-delete-eng-ticket');
+    if (btnDeleteEng) {
+        const canDelete = currentUser && (['admin', 'gerente', 'engenharia'].includes(currentUser.perfil));
+        btnDeleteEng.classList.toggle('hidden', !canDelete);
+    }
+
+    // ============================================================
+    // 5. LÓGICA DE TRAVA E REABERTURA (INTEGRADA)
+    // ============================================================
+    
+    const modalContainer = document.getElementById('modalEditEngTicket');
+    const btnSalvar = document.getElementById('btn-save-eng-ticket');
+    const inputs = modalContainer.querySelectorAll('input, select, textarea');
+
+    const toggleLock = (isLocked) => {
+        inputs.forEach(el => {
+            if (el.id === 'edit-eng-status') return; // Status nunca bloqueia
+            el.disabled = isLocked;
+            if (isLocked) el.classList.add('bg-gray-100', 'cursor-not-allowed');
+            else el.classList.remove('bg-gray-100', 'cursor-not-allowed');
+        });
+
+        if (isLocked) {
+            if (btnSalvar) btnSalvar.classList.add('hidden');
+            if (btnRemoveAnexo) btnRemoveAnexo.classList.add('hidden');
+        } else {
+            if (btnSalvar) btnSalvar.classList.remove('hidden');
+            if (btnRemoveAnexo) btnRemoveAnexo.classList.remove('hidden');
+        }
+
+        const msgId = 'aviso-ticket-resolvido';
+        const existingMsg = document.getElementById(msgId);
+        if (existingMsg) existingMsg.remove();
+
+        if (isLocked) {
+            const msg = document.createElement('div');
+            msg.id = msgId;
+            msg.className = 'bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded shadow-sm mx-6 mt-6';
+            msg.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fa-solid fa-lock mr-2 text-xl"></i>
+                    <div>
+                        <p class="font-bold">Ticket Finalizado</p>
+                        <p class="text-sm">Para editar este ticket, altere o status para <b>Reaberto</b>.</p>
+                    </div>
+                </div>
+            `;
+            const targetInsert = modalContainer.querySelector('.p-6') || modalContainer.querySelector('form') || modalContainer;
+            targetInsert.prepend(msg);
+        }
+    };
+
+    // Estado Inicial: Verifica status original
+    if (ticket.status === 'Resolvido') {
+        toggleLock(true);
+    } else {
+        toggleLock(false);
+    }
+
+    // Listener de Mudança de Status
+    if (statusSelect) {
+        // Remove listeners antigos para evitar duplicação
+        const newSelect = statusSelect.cloneNode(true);
+        statusSelect.parentNode.replaceChild(newSelect, statusSelect);
+        
+        newSelect.onchange = (e) => {
+            const novoStatus = e.target.value;
+            // Verifica status original
+            if (ticket.status === 'Resolvido') {
+                if (novoStatus === 'Reaberto') {
+                    toggleLock(false); // Libera
+                } else {
+                    toggleLock(true); // Bloqueia
+                }
+            }
+        };
+    }
+
     toggleModal('modalEditEngTicket', true);
 };
 function atualizarCardsEngenharia(tickets) {
-    // Conta cada status separadamente
+    // Conta cada status separadamente (Somando Novos e Antigos para compatibilidade)
     const total = tickets.length;
     const abertos = tickets.filter(t => t.status === 'Aberto').length;
-    const analise = tickets.filter(t => t.status === 'Em Analise').length; // Contagem específica
-    const desenvolvimento = tickets.filter(t => t.status === 'Desenvolvimento').length; // Contagem específica
+    
+    // Azul: Em Atendimento + Em Análise (Antigo)
+    const atendimento = tickets.filter(t => t.status === 'Em Atendimento' || t.status === 'Em Analise' || t.status === 'Em Análise').length;
+    
+    // Roxo: Reaberto + Desenvolvimento (Antigo)
+    const reaberto = tickets.filter(t => t.status === 'Reaberto' || t.status === 'Desenvolvimento').length;
+    
     const resolvidos = tickets.filter(t => t.status === 'Resolvido').length;
 
     // Atualiza o HTML
     if(document.getElementById('card-eng-total')) document.getElementById('card-eng-total').innerText = total;
     if(document.getElementById('card-eng-aberto')) document.getElementById('card-eng-aberto').innerText = abertos;
     
-    // CORREÇÃO AQUI: Atualiza o ID correto do card de análise
-    if(document.getElementById('card-eng-analise')) document.getElementById('card-eng-analise').innerText = analise;
+    // Atualiza o card Azul
+    if(document.getElementById('card-eng-analise')) document.getElementById('card-eng-analise').innerText = atendimento;
     
-    if(document.getElementById('card-eng-dev')) document.getElementById('card-eng-dev').innerText = desenvolvimento;
+    // Atualiza o card Roxo
+    if(document.getElementById('card-eng-dev')) document.getElementById('card-eng-dev').innerText = reaberto;
+    
     if(document.getElementById('card-eng-resolvido')) document.getElementById('card-eng-resolvido').innerText = resolvidos;
 }
 
