@@ -16,39 +16,111 @@ const capitalize = (str) => {
 };
 
 exports.createTicket = async (req, res) => {
-    const { 
-        tipo_solicitacao, 
-        ambiente, 
-        catalog_item_id, 
-        prioridade, 
-        descricao 
-    } = req.body;
-    
-    // Pega o ID de quem está logado (seja cliente ou engenheiro criando para si mesmo)
+    // Pega os dados do formulário e da sessão
+    const { tipo_solicitacao, ambiente, catalog_item_id, prioridade, descricao } = req.body;
     const cliente_id = req.session.user.id;
-    
-    // Trata o caminho do arquivo se houver upload
-    const anexo_path = req.file ? req.file.path : null; 
+    const cliente_nome = req.session.user.nome;
+    const cliente_email = req.session.user.login; // Assumindo que o login é o email
+
+    let anexo_path = null;
+    if (req.file) {
+        anexo_path = req.file.path;
+    }
 
     try {
+        // 1. Salva o Ticket no Banco
         const sql = `
             INSERT INTO tickets_engenharia 
-            (cliente_id, tipo_solicitacao, ambiente, catalog_item_id, prioridade, descricao, anexo_path) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (cliente_id, tipo_solicitacao, ambiente, catalog_item_id, prioridade, descricao, anexo_path, status, data_abertura) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Aberto', NOW())
         `;
         
-        const values = [
-            cliente_id, 
-            tipo_solicitacao, 
-            ambiente, 
-            catalog_item_id, 
-            prioridade, 
-            descricao, 
-            anexo_path // Apenas 7 itens, removendo qualquer NULL extra que havia antes
-        ];
-        
-        await pool.query(sql, values);
-        res.status(201).json({ message: 'Ticket criado com sucesso!' });
+        const [result] = await pool.query(sql, [
+            cliente_id, tipo_solicitacao, ambiente, catalog_item_id, prioridade, descricao, anexo_path
+        ]);
+
+        const novoTicketId = result.insertId;
+
+        // 2. Prepara o E-mail (Layout Azul Clean)
+        // Buscamos o nome do serviço para ficar bonito no email
+        let nomeServico = 'Geral';
+        if (catalog_item_id) {
+            const [servicoRows] = await pool.query('SELECT servico FROM eng_catalog WHERE id = ?', [catalog_item_id]);
+            if (servicoRows.length > 0) nomeServico = servicoRows[0].servico;
+        }
+
+        const emailHtml = `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                
+                <div style="background-color: #3B82F6; padding: 20px; text-align: center;">
+                    <img src="https://service.nexxtcloud.app/images/Nexxt-Cloud-Logo-4.png" alt="Nexxt Cloud" style="max-width: 150px; display: block; margin: 0 auto;">
+                    <h2 style="color: #fff; margin: 15px 0 0 0; font-weight: 600;">Chamado Aberto</h2>
+                </div>
+
+                <div style="padding: 30px; background-color: #ffffff;">
+                    <p style="font-size: 16px; margin-bottom: 20px;">Olá,</p>
+                    
+                    <p style="font-size: 14px; color: #555; line-height: 1.6;">
+                        Uma nova solicitação foi registrada com sucesso no Portal de Engenharia.
+                    </p>
+                    
+                    <div style="background-color: #F3F4F6; border-left: 4px solid #3B82F6; padding: 15px; margin: 25px 0; border-radius: 4px;">
+                        <p style="margin: 5px 0;"><strong>Ticket:</strong> #${novoTicketId}</p>
+                        <p style="margin: 5px 0;"><strong>Solicitante:</strong> ${cliente_nome}</p>
+                        <p style="margin: 5px 0;"><strong>Serviço:</strong> ${nomeServico}</p>
+                        <p style="margin: 5px 0;"><strong>Prioridade:</strong> ${prioridade}</p>
+                        <hr style="border: 0; border-top: 1px solid #E5E7EB; margin: 10px 0;">
+                        <p style="margin: 5px 0;"><strong>Descrição:</strong><br>${descricao}</p>
+                    </div>
+
+                    <p style="font-size: 14px; color: #555; text-align: center; margin-top: 30px;">
+                        Nossa equipe já foi notificada e iniciará a análise em breve.
+                    </p>
+                </div>
+
+                <div style="background-color: #3B82F6; padding: 15px; text-align: center;">
+                    <p style="font-size: 12px; color: #fff; margin: 0;">
+                        Nexxt Cloud - Engenharia<br>
+                        <a href="https://support.nexxtcloud.app" style="color: #fff; text-decoration: none; font-weight: bold;">Acessar Portal</a>
+                    </p>
+                </div>
+            </div>
+        `;
+
+        // 3. Envia para o Cliente
+        try {
+            await transporter.sendMail({
+                from: `"Suporte Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
+                to: cliente_email,
+                subject: `[Registrado] Solicitação #${novoTicketId} - Nexxt Cloud`,
+                html: emailHtml
+            });
+        } catch (err) {
+            console.error("[EMAIL ERROR] Falha ao enviar para cliente:", err);
+        }
+
+        // 4. Envia para a Equipe de Engenharia
+        try {
+            // Busca todos os emails de perfil 'engenharia'
+            const [engUsers] = await pool.query("SELECT login FROM user WHERE perfil = 'engenharia'");
+            
+            if (engUsers.length > 0) {
+                // Cria um array de emails (ex: ['eng1@nexxt.com', 'eng2@nexxt.com'])
+                const listaEngenharia = engUsers.map(u => u.login);
+
+                await transporter.sendMail({
+                    from: `"Portal Nexxt Cloud" <${process.env.EMAIL_FROM}>`,
+                    to: listaEngenharia, // O Nodemailer aceita array e envia para todos
+                    subject: `[Novo Chamado] #${novoTicketId} - ${prioridade} - ${cliente_nome}`,
+                    html: emailHtml
+                });
+            }
+        } catch (err) {
+            console.error("[EMAIL ERROR] Falha ao enviar para engenharia:", err);
+        }
+
+        res.status(201).json({ message: 'Ticket criado com sucesso!', ticketId: novoTicketId });
+
     } catch (error) {
         console.error("Erro ao criar ticket:", error);
         res.status(500).json({ message: 'Erro ao criar ticket.' });
