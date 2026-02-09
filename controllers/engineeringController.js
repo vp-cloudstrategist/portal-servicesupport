@@ -1,4 +1,5 @@
 const pool = require('../config/db.js');
+const axios = require('axios');
 const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
@@ -10,10 +11,16 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+const TEAMS_WEBHOOK_URL = 'https://default54b06350783c4d98b06e82936dec4b.d3.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/5332b5faf95144489f01dbecddd11bc7/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=2bQrMR_bfDyQc9yYqEKYipK2fFgJ73z-X9u0UUhUQx4';
+
 const capitalize = (str) => {
     if (!str || typeof str !== 'string') return '';
     return str.charAt(0).toUpperCase() + str.slice(1);
 };
+
+function formatarDataHora() {
+    return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
 
 exports.createTicket = async (req, res) => {
     // Pega os dados do formulário e da sessão
@@ -118,6 +125,18 @@ exports.createTicket = async (req, res) => {
         } catch (err) {
             console.error("[EMAIL ERROR] Falha ao enviar para engenharia:", err);
         }
+        const fatosAbertura = [
+            { name: "ID:", value: `#${novoTicketId}` },
+            { name: "Solicitante:", value: cliente_nome },
+            { name: "Categoria:", value: tipo_solicitacao }, // Ou nomeServico se preferir
+            { name: "Prioridade:", value: prioridade },
+            { name: "Descrição:", value: descricao.length > 100 ? descricao.substring(0, 100) + '...' : descricao }, // Resumida
+            { name: "⏰ Data/Hora:", value: formatarDataHora() }
+        ];
+
+        // Dispara sem esperar (fire and forget) para não travar o cliente
+        enviarNotificacaoTeams("🎫 Ticket ABERTO - 🚨 Novo ticket registrado", fatosAbertura, "A equipe responsável já foi notificada.");
+
 
         res.status(201).json({ message: 'Ticket criado com sucesso!', ticketId: novoTicketId });
 
@@ -197,6 +216,7 @@ exports.updateTicketStatus = async (req, res) => {
         
         if (check.length === 0) return res.status(404).json({ message: 'Ticket não encontrado.' });
         
+        // Trava de segurança para tickets resolvidos
         if (check[0].status === 'Resolvido' && status !== 'Reaberto') {
             return res.status(403).json({ 
                 message: 'Ticket resolvido só aceita edição se o status for alterado para "Reaberto".' 
@@ -251,6 +271,7 @@ exports.updateTicketStatus = async (req, res) => {
 
         await pool.query(sql, params);
 
+        // --- Lógica de Envio de Notificações (E-mail e Teams) ---
         if (status === 'Resolvido') {
             const [ticketData] = await pool.query(`
                 SELECT t.id, t.tipo_solicitacao, t.descricao, t.comentario_tecnico, 
@@ -263,23 +284,20 @@ exports.updateTicketStatus = async (req, res) => {
             `, [id]);
 
             if (ticketData.length > 0) {
-                const info = ticketData[0];
+                const info = ticketData[0]; // 'info' é criada aqui
                 
+                // 1. Envio de E-mail
                 const emailHtml = `
                     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
-                        
                         <div style="background-color: #3B82F6; padding: 20px; text-align: center;">
                             <img src="https://service.nexxtcloud.app/images/Nexxt-Cloud-Logo-4.png" alt="Nexxt Cloud" style="max-width: 150px; display: block; margin: 0 auto;">
                             <h2 style="color: #fff; margin: 15px 0 0 0; font-weight: 600;">Solicitação Resolvida</h2>
                         </div>
-
                         <div style="padding: 30px; background-color: #ffffff;">
                             <p style="font-size: 16px; margin-bottom: 20px;">Olá <strong>${info.nome_cliente}</strong>,</p>
-                            
                             <p style="font-size: 14px; color: #555; line-height: 1.6;">
                                 Informamos que sua solicitação <strong>#${info.id}</strong> foi concluída pela nossa equipe de engenharia.
                             </p>
-                            
                             <div style="background-color: #F3F4F6; border-left: 4px solid #3B82F6; padding: 15px; margin: 25px 0; border-radius: 4px;">
                                 <p style="margin: 5px 0;"><strong>Tipo:</strong> ${info.tipo_solicitacao}</p>
                                 <p style="margin: 5px 0;"><strong>Descrição:</strong> ${info.descricao}</p>
@@ -287,12 +305,10 @@ exports.updateTicketStatus = async (req, res) => {
                                 <p style="margin: 5px 0;"><strong>Solução Técnica:</strong><br>${info.comentario_tecnico || 'Resolvido conforme solicitado.'}</p>
                                 <p style="margin: 10px 0 0 0; font-size: 12px; color: #6B7280;">Analista responsável: ${info.nome_engenheiro || 'Equipe Nexxt Cloud'}</p>
                             </div>
-
                             <p style="font-size: 14px; color: #555; text-align: center; margin-top: 30px;">
                                 Estamos à disposição caso precise reabrir este ticket ou tirar dúvidas.
                             </p>
                         </div>
-
                         <div style="background-color: #3B82F6; padding: 15px; text-align: center;">
                             <p style="font-size: 12px; color: #fff; margin: 0;">
                                 Nexxt Cloud - Engenharia<br>
@@ -311,6 +327,17 @@ exports.updateTicketStatus = async (req, res) => {
                 } catch (emailErr) {
                     console.error("[EMAIL ERROR] Falha ao enviar notificação de resolução:", emailErr);
                 }
+
+       
+                const fatosFechamento = [
+                    { name: "ID:", value: `#${info.id}` },
+                    { name: "Solicitante:", value: info.nome_cliente },
+                    { name: "Categoria:", value: info.tipo_solicitacao },
+                    { name: "Responsável:", value: info.nome_engenheiro || 'N/A' },
+                    { name: "🕒 Data/Hora:", value: formatarDataHora() }
+                ];
+
+                enviarNotificacaoTeams("✅ Ticket FECHADO - ✔️ Ticket finalizado", fatosFechamento, "Caso precise de algo adicional, é só abrir um novo ticket. 😉");
             }
         }
 
@@ -408,3 +435,25 @@ exports.deleteTicket = async (req, res) => {
         res.status(500).json({ message: 'Erro interno ao tentar excluir.' });
     }
 };
+async function enviarNotificacaoTeams(titulo, fatos, textoFinal) {
+    if (!TEAMS_WEBHOOK_URL) return;
+
+    try {
+        // Monta o Card do Teams (Adaptive Card Simples)
+        const payload = {
+            "@type": "MessageCard",
+            "@context": "http://schema.org/extensions",
+            "themeColor": "0076D7",
+            "summary": titulo,
+            "sections": [{
+                "activityTitle": titulo,
+                "facts": fatos, // Array de {name, value}
+                "text": textoFinal
+            }]
+        };
+
+        await axios.post(TEAMS_WEBHOOK_URL, payload);
+    } catch (error) {
+        console.error("Erro ao enviar notificação para o Teams:", error.message);
+    }
+}
