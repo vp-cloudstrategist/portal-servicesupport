@@ -192,7 +192,7 @@
 
        <div id="dashboard-engenharia" class="hidden">
             
-            <div id="eng-card-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
+            <div id="eng-card-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
                 
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('all')">
                     <div class="flex justify-between items-start">
@@ -216,6 +216,13 @@
                         <p class="text-3xl font-black text-black" id="card-eng-analise">-</p>
                     </div>
                     <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Em<br>Atendimento</p></div>
+                </div>
+                <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('Pendente com Cliente')">
+                    <div class="flex justify-between items-start">
+                        <i class="fa-solid fa-user-clock text-3xl text-orange-600 opacity-70"></i>
+                        <p class="text-2xl font-black text-black" id="card-eng-pendente-cliente">-</p>
+                    </div>
+                    <div><p class="text-sm font-bold text-[#0A0E2B] leading-tight">Pendente<br>com Cliente</p></div>
                 </div>
 
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('Reaberto')">

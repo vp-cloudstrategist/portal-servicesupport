@@ -2961,30 +2961,27 @@ window.filtrarEngCard = function(statusFiltro) {
     const rows = document.querySelectorAll('#lista-tickets-eng tr');
 
     rows.forEach(row => {
-        // Pega o status que está escrito na coluna da tabela
         const statusBadge = row.querySelector('span.rounded-full'); 
         const statusTexto = statusBadge ? statusBadge.innerText.trim() : '';
-
-        // Lógica de compatibilidade (Para filtrar corretamente os antigos e novos)
         let match = false;
 
         if (statusFiltro === 'Todos' || statusFiltro === 'all') {
             match = true;
         } 
         else if (statusFiltro === 'Em Atendimento') {
-            // Mostra se for "Em Atendimento" OU "Em Análise"
             match = (statusTexto === 'Em Atendimento' || statusTexto === 'Em Análise' || statusTexto === 'Em Analise');
         }
         else if (statusFiltro === 'Reaberto') {
-            // Mostra se for "Reaberto" OU "Desenvolvimento"
             match = (statusTexto === 'Reaberto' || statusTexto === 'Desenvolvimento');
         }
+        // NOVO: Filtro exato para Pendente com Cliente
+        else if (statusFiltro === 'Pendente com Cliente') {
+            match = (statusTexto === 'Pendente com Cliente');
+        }
         else {
-            // Para "Aberto", "Resolvido", a comparação é direta
             match = (statusTexto === statusFiltro);
         }
 
-        // Mostra ou esconde a linha
         if (match) {
             row.classList.remove('hidden');
         } else {
@@ -2996,11 +2993,10 @@ function atualizarDropdownStatusEngenharia() {
     const select = document.getElementById('edit-eng-status');
     if (!select) return;
 
-    // Recria as opções com os nomes novos
     select.innerHTML = `
         <option value="Aberto">Aberto</option>
         <option value="Em Atendimento">Em Atendimento</option>
-        <option value="Reaberto">Reaberto</option>
+        <option value="Pendente com Cliente">Pendente com Cliente</option> <option value="Reaberto">Reaberto</option>
         <option value="Resolvido">Resolvido</option>
     `;
 }
@@ -3064,6 +3060,9 @@ async function carregarTicketsEngenharia() {
             else if (t.status === 'Em Analise' || t.status === 'Em Atendimento') {
                 statusBadge = 'bg-blue-100 text-blue-800';
             } 
+            else if (t.status === 'Pendente com Cliente') {
+                statusBadge = 'bg-orange-100 text-orange-800 border border-orange-200';
+            }
             else if (t.status === 'Desenvolvimento' || t.status === 'Reaberto') {
                 statusBadge = 'bg-purple-100 text-purple-800';
             } 
@@ -3355,14 +3354,16 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     toggleModal('modalEditEngTicket', true);
 };
 function atualizarCardsEngenharia(tickets) {
-    // Conta cada status separadamente (Somando Novos e Antigos para compatibilidade)
     const total = tickets.length;
     const abertos = tickets.filter(t => t.status === 'Aberto').length;
     
-    // Azul: Em Atendimento + Em Análise (Antigo)
+    // Azul: Em Atendimento + Em Análise (Legado)
     const atendimento = tickets.filter(t => t.status === 'Em Atendimento' || t.status === 'Em Analise' || t.status === 'Em Análise').length;
     
-    // Roxo: Reaberto + Desenvolvimento (Antigo)
+    // NOVO: Pendente com Cliente
+    const pendenteCliente = tickets.filter(t => t.status === 'Pendente com Cliente').length;
+
+    // Roxo: Reaberto + Desenvolvimento (Legado)
     const reaberto = tickets.filter(t => t.status === 'Reaberto' || t.status === 'Desenvolvimento').length;
     
     const resolvidos = tickets.filter(t => t.status === 'Resolvido').length;
@@ -3370,13 +3371,12 @@ function atualizarCardsEngenharia(tickets) {
     // Atualiza o HTML
     if(document.getElementById('card-eng-total')) document.getElementById('card-eng-total').innerText = total;
     if(document.getElementById('card-eng-aberto')) document.getElementById('card-eng-aberto').innerText = abertos;
-    
-    // Atualiza o card Azul
     if(document.getElementById('card-eng-analise')) document.getElementById('card-eng-analise').innerText = atendimento;
     
-    // Atualiza o card Roxo
+    // Atualiza o card novo
+    if(document.getElementById('card-eng-pendente-cliente')) document.getElementById('card-eng-pendente-cliente').innerText = pendenteCliente;
+
     if(document.getElementById('card-eng-dev')) document.getElementById('card-eng-dev').innerText = reaberto;
-    
     if(document.getElementById('card-eng-resolvido')) document.getElementById('card-eng-resolvido').innerText = resolvidos;
 }
 
