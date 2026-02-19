@@ -51,7 +51,7 @@ exports.createUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(senhaTemporaria, salt);
         
-        const userSql = `INSERT INTO user (perfil, nome, sobre, login, passwd, telef, statu, criado) VALUES (?, ?, ?, ?, ?, ?, 'novo', NOW())`;
+        const userSql = `INSERT INTO user (perfil, nome, sobre, login, passwd, statu, criado) VALUES (?, ?, ?, ?, ?, ?, 'novo', NOW())`;
         const userValues = [perfil, nomeCapitalized, sobrenomeCapitalized, login, hashedPassword, telefone || null];
         const [userResult] = await connection.query(userSql, userValues);
         const newUserId = userResult.insertId;
@@ -201,7 +201,7 @@ exports.getUserById = async (req, res) => {
         }
         
         const [rows] = await pool.query(
-            `SELECT u.id, u.nome, u.sobre, u.login, u.telef, u.perfil, GROUP_CONCAT(ua.area_id) as area_ids
+            `SELECT u.id, u.nome, u.sobre, u.login, u.perfil, GROUP_CONCAT(ua.area_id) as area_ids
              FROM user u
              LEFT JOIN user_areas ua ON u.id = ua.user_id
              WHERE u.id = ? GROUP BY u.id`,
@@ -223,7 +223,7 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
     const loggedInUser = req.session.user;
     const { id: targetUserId } = req.params;
-    let { nome, sobre, login, telef, perfil, area_ids, novaSenha } = req.body;
+    let { nome, sobre, login, perfil, area_ids, novaSenha } = req.body;
 
     if (area_ids === undefined || area_ids === null) {
         area_ids = [];
@@ -306,10 +306,11 @@ exports.getCurrentUser = async (req, res) => {
         return res.status(401).json({ message: 'Usuário não autenticado.' });
     }
     try {
+        // SEM TELEF
         const sql = `
             SELECT 
-                u.id, u.login, u.nome, u.sobre as sobrenome, u.telef as telefone, u.perfil,
-                GROUP_CONCAT(ta.nome SEPARATOR ', ') as areas_nome,
+                u.id, u.login, u.nome, u.sobre as sobrenome, u.perfil,
+                GROUP_CONCAT(ta.nome SEPARATOR ', ') as areas_nome, 
                 GROUP_CONCAT(ua.area_id) as area_ids
             FROM user u
             LEFT JOIN user_areas ua ON u.id = ua.user_id
@@ -318,9 +319,11 @@ exports.getCurrentUser = async (req, res) => {
             GROUP BY u.id
         `;
         const [rows] = await pool.query(sql, [userId]);
+        
         if (rows.length > 0) {
-            rows[0].area_ids = rows[0].area_ids ? rows[0].area_ids.split(',').map(Number) : [];
-            res.status(200).json(rows[0]);
+            const user = rows[0];
+            user.area_ids = user.area_ids ? user.area_ids.split(',').map(Number) : [];
+            res.status(200).json(user);
         } else {
             res.status(404).json({ message: 'Usuário não encontrado.' });
         }
@@ -330,16 +333,20 @@ exports.getCurrentUser = async (req, res) => {
     }
 };
 
+
 exports.updateCurrentUser = async (req, res) => {
     const userId = req.session.user.id;
     const userPerfil = req.session.user.perfil;
-    let { nome, sobrenome, telefone, login, novaSenha, area_ids } = req.body;
+    let { nome, sobrenome, login, novaSenha, area_ids } = req.body; 
 
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        let sql = 'UPDATE user SET nome = ?, sobre = ?, telef = ?, login = ?';
-        const values = [nome, sobrenome, telefone, login];
+        
+    
+        let sql = 'UPDATE user SET nome = ?, sobre = ?, login = ?';
+        const values = [nome, sobrenome, login];
+        
         if (novaSenha && novaSenha.trim() !== '') {
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(novaSenha, salt);
@@ -348,17 +355,27 @@ exports.updateCurrentUser = async (req, res) => {
         }
         sql += ' WHERE id = ?';
         values.push(userId);
+        
         await connection.query(sql, values);
+
         if (userPerfil === 'admin') {
-            if (!Array.isArray(area_ids)) area_ids = [];
+            if (!area_ids) area_ids = [];
+            if (!Array.isArray(area_ids)) area_ids = [area_ids];
+
             await connection.query('DELETE FROM user_areas WHERE user_id = ?', [userId]);
+            
             if (area_ids.length > 0) {
                 const areaValues = area_ids.map(areaId => [userId, areaId]);
                 await connection.query('INSERT INTO user_areas (user_id, area_id) VALUES ?', [areaValues]);
             }
         }
+
         await connection.commit();
+        
         req.session.user.login = login;
+        req.session.user.nome = nome;
+        req.session.user.sobrenome = sobrenome;
+
         res.status(200).json({ message: 'Seus dados foram atualizados com sucesso!' });
     } catch (error) {
         await connection.rollback();

@@ -1274,13 +1274,13 @@ document.addEventListener('DOMContentLoaded', () => {
             showStatusModal('Erro', error.message, true);
         }
     });
-    const btnMinhaConta = document.getElementById('btn-minha-conta');
+ const btnMinhaConta = document.getElementById('btn-minha-conta');
     const formMinhaConta = document.getElementById('formMinhaConta');
 
     btnMinhaConta?.addEventListener('click', async () => {
         toggleModal('modalMinhaConta', true);
         const areaContainer = document.getElementById('minha-conta-area-container');
-        areaContainer.innerHTML = 'Carregando...';
+        if (areaContainer) areaContainer.innerHTML = 'Carregando...';
 
         try {
             const response = await fetch('/api/users/me');
@@ -1289,22 +1289,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             currentUser = user;
 
-            formMinhaConta.elements['nome'].value = user.nome || '';
-            formMinhaConta.elements['sobrenome'].value = user.sobrenome || '';
-            formMinhaConta.elements['login'].value = user.login || '';
-            formMinhaConta.elements['telefone'].value = user.telefone || '';
-
-            if (user.perfil === 'admin') {
-                areaContainer.innerHTML = `<label class="block text-sm font-semibold text-gray-700 mb-2">Áreas</label><div class="p-2 border rounded-md max-h-32 overflow-y-auto bg-gray-50"></div>`;
-                const allAreas = await getAreasList();
-                createAreaCheckboxes(areaContainer.querySelector('.p-2'), allAreas, user.area_ids);
-            } else {
-                areaContainer.innerHTML = `<label class="block text-sm font-semibold text-gray-700">Áreas</label><input type="text" value="${user.areas_nome || 'Nenhuma'}" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed">`;
+            if (formMinhaConta.elements['nome']) formMinhaConta.elements['nome'].value = user.nome || '';
+            if (formMinhaConta.elements['sobrenome']) formMinhaConta.elements['sobrenome'].value = user.sobrenome || '';
+            if (formMinhaConta.elements['login']) formMinhaConta.elements['login'].value = user.login || '';
+            
+            if (areaContainer) {
+                if (user.perfil === 'admin') {
+                    areaContainer.innerHTML = `<label class="block text-sm font-semibold text-gray-700 mb-2">Áreas</label><div class="p-2 border rounded-md max-h-32 overflow-y-auto bg-gray-50"></div>`;
+                    const allAreas = await getAreasList();
+                    createAreaCheckboxes(areaContainer.querySelector('.p-2'), allAreas, user.area_ids);
+                } else {
+                    areaContainer.innerHTML = `<label class="block text-sm font-semibold text-gray-700">Áreas</label><input type="text" value="${user.areas_nome || 'Nenhuma'}" readonly class="w-full mt-1 border rounded p-2 bg-gray-200 cursor-not-allowed">`;
+                }
             }
 
-            formMinhaConta.elements['novaSenha'].value = '';
-            formMinhaConta.elements['confirmarSenha'].value = '';
-            document.getElementById('password-rules-minha-conta').innerHTML = '';
+            if (formMinhaConta.elements['novaSenha']) formMinhaConta.elements['novaSenha'].value = '';
+            if (formMinhaConta.elements['confirmarSenha']) formMinhaConta.elements['confirmarSenha'].value = '';
+            
+            const passRules = document.getElementById('password-rules-minha-conta');
+            if (passRules) passRules.innerHTML = '';
 
         } catch (error) {
             showStatusModal('Erro!', error.message, true, () => {
@@ -1313,7 +1316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    formMinhaConta?.elements['novaSenha'].addEventListener('input', (e) => {
+    formMinhaConta?.elements['novaSenha']?.addEventListener('input', (e) => {
         const rules = checkPasswordStrength(e.target.value);
         displayPasswordRules('password-rules-minha-conta', rules);
     });
@@ -1349,7 +1352,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             showStatusModal('Sucesso!', result.message, false, () => {
                 toggleModal('modalMinhaConta', false);
-                document.getElementById('nome-usuario').textContent = `${data.nome} ${data.sobrenome}`;
+                const nomeUserDisplay = document.getElementById('nome-usuario');
+                if (nomeUserDisplay) nomeUserDisplay.textContent = `${data.nome} ${data.sobrenome}`;
             });
 
         } catch (error) {
@@ -3000,6 +3004,70 @@ function atualizarDropdownStatusEngenharia() {
         <option value="Resolvido">Resolvido</option>
     `;
 }
+function calcularBadgeSLA(ticket) {
+    //  Pega o SLA 
+    let slaHoras = ticket.sla_estimado ? parseFloat(ticket.sla_estimado) : 24;
+    if (isNaN(slaHoras)) slaHoras = 24;
+
+    const dataAbertura = new Date(ticket.data_abertura || ticket.data_criacao);
+    let dataFim = new Date(); 
+
+    // Variável para controlar se forçamos a barra cheia
+    let forceFullBar = false;
+
+    //  Lógica de Status
+    if (ticket.status === 'Resolvido') {
+        if (ticket.data_resolucao) dataFim = new Date(ticket.data_resolucao);
+        forceFullBar = true; 
+    } 
+    else if (ticket.status === 'Pendente com Cliente') {
+        forceFullBar = true; // 
+    }
+
+    //  Cálculo da Porcentagem
+    const diffMs = dataFim - dataAbertura;
+    const diffHoras = diffMs / (1000 * 60 * 60); 
+    let percent = (diffHoras / slaHoras) * 100;
+
+    // Se estiver marcado para forçar cheio, ignora o cálculo
+    if (forceFullBar) percent = 100;
+
+    // Travas visuais
+    if (percent > 100) percent = 100;
+    if (percent < 5) percent = 5;
+
+    //  Definição de Cores
+    let corBarra = '#bef264'; // Verde Limão 
+    let classeTexto = 'text-lime-800 border-lime-200';
+
+    if (ticket.status === 'Resolvido') {
+        corBarra = '#86efac'; // Verde Claro Sólido
+        classeTexto = 'text-green-800 border-green-200';
+    } 
+    else if (ticket.status === 'Pendente com Cliente') {
+        corBarra = '#fdba74'; // Laranja Sólido
+        classeTexto = 'text-orange-900 border-orange-200';
+    } 
+    else {
+        // Tickets Rodando 
+        if (diffHoras > slaHoras) {
+            corBarra = '#fca5a5'; // Vermelho (Estourado)
+            classeTexto = 'text-red-800 font-bold border-red-200';
+        } else if (percent > 75) {
+            corBarra = '#fde047'; // Amarelo (Alerta)
+            classeTexto = 'text-yellow-800 border-yellow-200';
+        } else {
+            corBarra = '#bef264'; 
+            classeTexto = 'text-lime-800 border-lime-200';
+        }
+    }
+
+    const estilo = `background: linear-gradient(90deg, ${corBarra} ${percent}%, #f3f4f6 ${percent}%); border: 1px solid rgba(0,0,0,0.1);`;
+
+    return `<span class="px-3 py-1 rounded-md text-xs font-semibold block w-full text-center ${classeTexto} shadow-sm" style="${estilo}">
+                ${ticket.status}
+            </span>`;
+}
 
 async function carregarTicketsEngenharia() {
     const tbody = document.getElementById('lista-tickets-eng');
@@ -3019,17 +3087,30 @@ async function carregarTicketsEngenharia() {
         if (!res.ok) throw new Error('Erro ao buscar tickets');
         
         let tickets = await res.json();
-        currentTicketsCache = tickets; // Atualiza o cache global para o modal de edição
+        currentTicketsCache = tickets; // Atualiza o cache global
 
-        // 1. Atualiza os Cards de Contagem (antes de filtrar)
+        //  Atualiza os Cards de Contagem
         atualizarCardsEngenharia(tickets);
 
-        // 2. Aplica Filtros
+        // Aplica Filtros
         if (tipoFilter) tickets = tickets.filter(t => t.tipo_solicitacao === tipoFilter);
-        if (statusFilter) tickets = tickets.filter(t => t.status === statusFilter);
+        
+        // Filtro de Status 
+        if (statusFilter) {
+            if (statusFilter === 'Em Atendimento') {
+                tickets = tickets.filter(t => t.status === 'Em Atendimento' || t.status === 'Em Analise' || t.status === 'Em Análise');
+            } else if (statusFilter === 'Reaberto') {
+                tickets = tickets.filter(t => t.status === 'Reaberto' || t.status === 'Desenvolvimento');
+            } else if (statusFilter === 'Pendente com Cliente') {
+                tickets = tickets.filter(t => t.status === 'Pendente com Cliente');
+            } else {
+                tickets = tickets.filter(t => t.status === statusFilter);
+            }
+        }
+
         if (prioFilter) tickets = tickets.filter(t => t.prioridade === prioFilter);
 
-        // 3. Aplica Ordenação
+        // Aplica Ordenação
         if (sortOrder === 'id_desc') {
             tickets.sort((a,b) => b.id - a.id);
         } else if (sortOrder === 'prio_desc') {
@@ -3049,32 +3130,15 @@ async function carregarTicketsEngenharia() {
             return;
         }
 
-        // 4. Renderiza as Linhas
+        //  Renderiza as Linhas
         tbody.innerHTML = tickets.map(t => {
-            // --- Estilização de Badges e Cores (ATUALIZADO) ---
-            let statusBadge = 'bg-gray-100 text-gray-800';
             
-            if (t.status === 'Aberto') {
-                statusBadge = 'bg-yellow-100 text-yellow-800';
-            } 
-            else if (t.status === 'Em Analise' || t.status === 'Em Atendimento') {
-                statusBadge = 'bg-blue-100 text-blue-800';
-            } 
-            else if (t.status === 'Pendente com Cliente') {
-                statusBadge = 'bg-orange-100 text-orange-800 border border-orange-200';
-            }
-            else if (t.status === 'Desenvolvimento' || t.status === 'Reaberto') {
-                statusBadge = 'bg-purple-100 text-purple-800';
-            } 
-            else if (t.status === 'Resolvido') {
-                statusBadge = 'bg-green-100 text-green-800';
-            }
-
+            // Cor da Prioridade
             let prioColor = 'text-gray-600';
             if (t.prioridade === 'Alta') prioColor = 'text-orange-600 font-bold';
             if (t.prioridade === 'Critica') prioColor = 'text-red-600 font-bold';
 
-            // --- Lógica do Botão de Ação ---
+            // Botão de Ação
             let btnAction = '';
             if (currentUser.perfil === 'engenharia' || currentUser.perfil === 'admin' || currentUser.perfil === 'gerente') {
                 btnAction = `<button onclick="abrirModalEdicaoEngenharia(${t.id})" 
@@ -3085,12 +3149,11 @@ async function carregarTicketsEngenharia() {
                 btnAction = `<span class="text-gray-400 text-xs px-2"><i class="fa-solid fa-lock"></i></span>`;
             }
 
-            // --- Tratamento de Dados para Exibição ---
+            // Tratamento de Dados para Exibição
             const cloudDisplay = t.cloud || '-';
             const subCatDisplay = t.sub_categoria || '-';
             const servicoDisplay = t.servico_nome || '<span class="text-gray-400 italic">Não categorizado</span>';
             
-            // Trunca textos longos
             const descricaoFull = t.descricao || '';
             const descricaoCurta = descricaoFull.length > 30 ? descricaoFull.substring(0, 30) + '...' : (descricaoFull || '-');
             
@@ -3106,6 +3169,8 @@ async function carregarTicketsEngenharia() {
             const dataConclusao = t.data_resolucao ? new Date(t.data_resolucao).toLocaleString('pt-BR', { 
                 day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' 
             }) : '-';
+
+            const statusBadgeHTML = calcularBadgeSLA(t);
 
             return `
                 <tr class="border-b hover:bg-gray-50 transition group relative" data-servico="${t.servico_nome || 'Não informado'}">
@@ -3130,7 +3195,8 @@ async function carregarTicketsEngenharia() {
                     <td class="px-4 py-3 text-xs text-gray-500">${comentarioCurta}</td>
                     
                     <td class="px-4 py-3 text-xs ${prioColor}">${t.prioridade}</td>
-                    <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusBadge}">${t.status}</span></td>
+                    
+                    <td class="px-4 py-3 w-32">${statusBadgeHTML}</td>
                     
                     <td class="px-4 py-3 text-xs text-gray-500">${dataAbertura}</td>
                     <td class="px-4 py-3 text-xs text-gray-500">${dataConclusao}</td>
@@ -3146,7 +3212,7 @@ async function carregarTicketsEngenharia() {
     }
 }
 window.abrirModalEdicaoEngenharia = async (ticketId) => {
-    // 1. Encontra ticket
+    //  Encontra ticket
     const ticket = currentTicketsCache.find(t => t.id === ticketId);
     if (!ticket) return alert("Erro ao carregar dados do ticket.");
 
@@ -3159,7 +3225,7 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
         }
     };
 
-    // 2. Preenche campos básicos
+    // Preenche campos básicos
     setVal('edit-eng-id', ticket.id);
     setVal('edit-eng-id-display', ticket.id);
     
@@ -3176,7 +3242,6 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     setVal('edit-eng-comentario', ticket.comentario_tecnico || '');
     setVal('edit-eng-sla', ticket.sla_estimado || '');
 
-    // --- STATUS (COM TRADUÇÃO DE LEGADO) ---
     const statusSelect = document.getElementById('edit-eng-status');
     if (statusSelect) {
         let statusParaExibir = ticket.status;
@@ -3191,7 +3256,6 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
         statusSelect.value = statusParaExibir;
     }
 
-    // --- Lógica de Anexo ---
     const linkContainer = document.getElementById('edit-eng-current-attachment-container');
     const linkSpan = document.getElementById('edit-eng-current-attachment-link');
     const removeInput = document.getElementById('edit-eng-remove-anexo');
@@ -3220,7 +3284,7 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
         };
     }
 
-    // 3. CASCATA (Popula os Selects)
+    // Popula os Selects
     const cloudSel = document.getElementById('edit-eng-cloud');
     const catSel = document.getElementById('edit-eng-categoria');
     const subSel = document.getElementById('edit-eng-subcategoria');
@@ -3257,7 +3321,7 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
         }
     }
 
-    // 4. Analistas
+        // Analistas
     const analistaSelect = document.getElementById('edit-eng-analista');
     if (analistaSelect) {
         analistaSelect.innerHTML = '<option value="">-- Selecione --</option>';
@@ -3279,9 +3343,6 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
         btnDeleteEng.classList.toggle('hidden', !canDelete);
     }
 
-    // ============================================================
-    // 5. LÓGICA DE TRAVA E REABERTURA (INTEGRADA)
-    // ============================================================
     
     const modalContainer = document.getElementById('modalEditEngTicket');
     const btnSalvar = document.getElementById('btn-save-eng-ticket');
