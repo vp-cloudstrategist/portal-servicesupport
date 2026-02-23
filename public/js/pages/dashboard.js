@@ -227,6 +227,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const formFiltros = document.getElementById('formFiltros');
     const btnLimparFiltros = document.getElementById('btn-limpar-filtros');
     const customDateInputs = document.getElementById('custom-date-inputs');
+    const radiosDateRange = document.querySelectorAll('input[name="date_range"]');
+    if (radiosDateRange.length > 0 && customDateInputs) {
+        radiosDateRange.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'custom') {
+                    customDateInputs.classList.remove('hidden');
+                } else {
+                    customDateInputs.classList.add('hidden');
+                    const startDateInput = document.querySelector('input[name="startDate"]');
+                    const endDateInput = document.querySelector('input[name="endDate"]');
+                    if(startDateInput) startDateInput.value = '';
+                    if(endDateInput) endDateInput.value = '';
+                }
+            });
+        });
+    }
 
     document.getElementById('btn-customize-view')?.addEventListener('click', () => {
         populateCustomizerModal();
@@ -1011,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    formFiltros?.addEventListener('submit', (e) => {
+   formFiltros?.addEventListener('submit', (e) => {
         e.preventDefault();
         const formData = new FormData(formFiltros);
         currentFilters = {};
@@ -1027,10 +1043,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 7);
             currentFilters.startDate = startDate.toISOString().split('T')[0];
-            currentFilters.endDate = endDate.toISOString().split('T')[0];
+            currentFilters.endDate = endDate.toISOString().split('T')[0] + ' 23:59:59'; 
         } else if (dateRange === 'custom') {
-            currentFilters.startDate = formData.get('startDate');
-            currentFilters.endDate = formData.get('endDate');
+            const start = formData.get('startDate');
+            const end = formData.get('endDate');
+            
+            if (start && end) {
+                currentFilters.startDate = start;
+                currentFilters.endDate = end + ' 23:59:59';
+            }
         }
 
         Object.keys(currentFilters).forEach(key => {

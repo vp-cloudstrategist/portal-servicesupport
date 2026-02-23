@@ -896,11 +896,21 @@ const buildTicketFilters = async (query, user) => {
         whereClauses.push(`s.nome IN (?)`);
         queryParams.push(statusNames);
     }
-    if (startDate && endDate) {
-        whereClauses.push(`DATE(t.data_criacao) BETWEEN ? AND ?`);
-        queryParams.push(startDate, endDate);
-    }
+   if (startDate && endDate) {
+        whereClauses.push(`t.data_criacao BETWEEN ? AND ?`);
+        
+        let finalEndDate = endDate;
+        if (finalEndDate.length === 10) { 
+            finalEndDate += ' 23:59:59';
+        }
+        
+        let finalStartDate = startDate;
+        if (finalStartDate.length === 10) {
+            finalStartDate += ' 00:00:00';
+        }
 
+        queryParams.push(finalStartDate, finalEndDate);
+    }
     const finalWhereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
     const finalJoins = Array.from(requiredJoins).map(key => joins[key]).join(' ');
 

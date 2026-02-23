@@ -10,7 +10,7 @@ const capitalize = (str) => {
 
 exports.createUser = async (req, res) => {
     const loggedInUser = req.session.user;
-    let { perfil, nome, sobrenome, login, telefone, area_ids } = req.body;
+    let { perfil, nome, sobrenome, login, area_ids } = req.body;
 
     if (loggedInUser.perfil !== 'admin' && loggedInUser.perfil !== 'gerente') {
         return res.status(403).json({ message: 'Você não tem permissão para criar usuários.' });
@@ -51,8 +51,10 @@ exports.createUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(senhaTemporaria, salt);
         
-        const userSql = `INSERT INTO user (perfil, nome, sobre, login, passwd, statu, criado) VALUES (?, ?, ?, ?, ?, ?, 'novo', NOW())`;
-        const userValues = [perfil, nomeCapitalized, sobrenomeCapitalized, login, hashedPassword, telefone || null];
+ 
+        const userSql = `INSERT INTO user (perfil, nome, sobre, login, passwd, statu, criado) VALUES (?, ?, ?, ?, ?, 'novo', NOW())`;
+        const userValues = [perfil, nomeCapitalized, sobrenomeCapitalized, login, hashedPassword];
+        
         const [userResult] = await connection.query(userSql, userValues);
         const newUserId = userResult.insertId;
 
