@@ -6,6 +6,8 @@ const requireEngineering = require('../middleware/requireEngineering');
 
 const upload = require('../config/multerConfig.js'); 
 
+
+
 router.get('/tickets', requireLogin, engineeringController.getDashboardTickets);
 
 router.post('/create', requireLogin, upload.single('anexo'), engineeringController.createTicket);
@@ -17,5 +19,9 @@ router.get('/catalog-options', requireLogin, engineeringController.getCatalogOpt
 router.get('/users/engineers', requireLogin, engineeringController.getEngineersList);
 
 router.delete('/ticket/:id', requireLogin, engineeringController.deleteTicket);
+
+router.post('/catalog/crud', engineeringController.crudCatalog);
+
+router.get('/clients', requireLogin, engineeringController.getClientsList);
 
 module.exports = router;

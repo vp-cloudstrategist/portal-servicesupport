@@ -192,14 +192,14 @@
 
        <div id="dashboard-engenharia" class="hidden">
             
-            <div id="eng-card-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
+           <div id="eng-card-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
                 
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('all')">
                     <div class="flex justify-between items-start">
                         <i class="fa-solid fa-server text-4xl text-indigo-900 opacity-70"></i>
                         <p class="text-3xl font-black text-black" id="card-eng-total">-</p>
                     </div>
-                    <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Total<br>Solicitações</p></div>
+                    <div><p class="text-base font-bold text-[#0A0E2B] leading-tight">Total<br>Solicitações</p></div>
                 </div>
 
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('Aberto')">
@@ -207,7 +207,7 @@
                         <i class="fa-solid fa-folder-open text-4xl text-yellow-600 opacity-70"></i>
                         <p class="text-3xl font-black text-black" id="card-eng-aberto">-</p>
                     </div>
-                    <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Em<br>Aberto</p></div>
+                    <div><p class="text-base font-bold text-[#0A0E2B] leading-tight">Em<br>Aberto</p></div>
                 </div>
 
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('Em Atendimento')">
@@ -215,14 +215,15 @@
                         <i class="fa-solid fa-headset text-4xl text-blue-600 opacity-70"></i>
                         <p class="text-3xl font-black text-black" id="card-eng-analise">-</p>
                     </div>
-                    <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Em<br>Atendimento</p></div>
+                    <div><p class="text-base font-bold text-[#0A0E2B] leading-tight">Em<br>Atendimento</p></div>
                 </div>
+
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('Pendente com Cliente')">
                     <div class="flex justify-between items-start">
-                        <i class="fa-solid fa-user-clock text-3xl text-orange-600 opacity-70"></i>
-                        <p class="text-2xl font-black text-black" id="card-eng-pendente-cliente">-</p>
+                        <i class="fa-solid fa-user-clock text-4xl text-orange-600 opacity-70"></i>
+                        <p class="text-3xl font-black text-black" id="card-eng-pendente-cliente">-</p>
                     </div>
-                    <div><p class="text-sm font-bold text-[#0A0E2B] leading-tight">Pendente<br>com Cliente</p></div>
+                    <div><p class="text-base font-bold text-[#0A0E2B] leading-tight">Pendente<br>com Cliente</p></div>
                 </div>
 
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('Reaberto')">
@@ -230,14 +231,15 @@
                         <i class="fa-solid fa-rotate-right text-4xl text-purple-600 opacity-70"></i>
                         <p class="text-3xl font-black text-black" id="card-eng-dev">-</p>
                     </div>
-                    <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Reaberto</p></div>
+                    <div><p class="text-base font-bold text-[#0A0E2B] leading-tight">Reaberto<br>&nbsp;</p></div>
                 </div>
+
                 <div class="status-card bg-[#D4EAFF] rounded-xl p-4 flex flex-col justify-between h-36 w-full cursor-pointer hover:scale-105 transition-transform" onclick="filtrarEngCard('Resolvido')">
                     <div class="flex justify-between items-start">
                         <i class="fa-solid fa-check-double text-4xl text-green-600 opacity-70"></i>
                         <p class="text-3xl font-black text-black" id="card-eng-resolvido">-</p>
                     </div>
-                    <div><p class="text-lg font-bold text-[#0A0E2B] leading-tight">Resolvidos</p></div>
+                    <div><p class="text-base font-bold text-[#0A0E2B] leading-tight">Resolvidos<br>&nbsp;</p></div>
                 </div>
 
             </div>
@@ -312,6 +314,20 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="flex justify-between items-center p-4 bg-white border-t rounded-b-lg shadow-sm">
+    <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-600 font-medium">Exibir</span>
+        <select id="eng-qtd-por-pagina" onchange="mudarItensPorPaginaEng()" class="border border-gray-300 rounded px-2 py-1 text-sm bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+        </select>
+        <span class="text-sm text-gray-600 font-medium">chamados por página</span>
+    </div>
+    
+    <div id="eng-paginacao-botoes" class="flex space-x-1"></div>
+</div>
 
                 <div class="flex items-center justify-end gap-6 mt-4 mb-20">
                     <div class="flex items-center gap-2">
@@ -1408,96 +1424,147 @@
         </div>
         
         <div class="overflow-y-auto p-6">
-            <form id="formCreateEngTicket" class="space-y-4">
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Tipo de Solicitação</label>
-                        <select id="eng-tipo" class="w-full border rounded p-2 bg-gray-50" required>
-                            <option value="">Selecione...</option>
-                            <option value="Requisicao">Requisição</option>
-                            <option value="Incidente">Incidente</option>
-                            <option value="Problema">Problema</option>
-                            <option value="Mudanca">Mudança</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Ambiente</label>
-                        <select id="eng-ambiente" class="w-full border rounded p-2 bg-gray-50" required>
-                            <option value="">Selecione...</option>
-                            <option value="Desenvolvimento">Desenvolvimento</option>
-                            <option value="Homologacao">Homologação</option>
-                            <option value="Producao">Produção</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700">Cloud Provider</label>
-                    <select id="eng-cloud" class="w-full border rounded p-2 bg-gray-50" required>
-                        <option value="">Selecione a Cloud...</option>
-                        <option value="Oracle">Oracle</option>
-                        <option value="Amazon">Amazon</option>
-                        <option value="Microsoft">Microsoft</option>
-                        <option value="Google">Google</option>
-                    </select>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Categoria</label>
-                        <select id="eng-categoria" class="w-full border rounded p-2 bg-gray-100" disabled required>
-                            <option value="">Selecione a Cloud primeiro</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">Sub Categoria</label>
-                        <select id="eng-subcategoria" class="w-full border rounded p-2 bg-gray-100" disabled required>
-                            <option value="">Selecione a Categoria primeiro</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="col-span-2">
-                        <label class="block text-sm font-semibold text-gray-700">Serviço</label>
-                        <select id="eng-servico" class="w-full border rounded p-2 bg-gray-100" disabled required>
-                            <option value="">Selecione a Sub Categoria</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700">SLA Estimado</label>
-                        <input type="text" id="eng-sla" class="w-full border rounded p-2 bg-gray-200" readonly>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700">Prioridade</label>
-                    <select id="eng-prioridade" class="w-full border rounded p-2 bg-gray-50">
-                        <option value="Baixa">Baixa</option>
-                        <option value="Media" selected>Média</option>
-                        <option value="Alta">Alta</option>
-                        <option value="Critica">Crítica</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700">Descrição Detalhada</label>
-                    <textarea id="eng-descricao" rows="4" class="w-full border rounded p-2" required></textarea>
-                </div>
-
-                <div class="bg-blue-50 p-3 rounded border border-blue-100">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Anexar Arquivo (Opcional)</label>
-                            <input type="file" id="eng-anexo-create" name="anexo"
-                                class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
-                            <p class="text-xs text-gray-500 mt-1">Formatos aceitos: Imagens, PDF, Excel, Log.</p>
-                        </div>
-
-                <div class="flex justify-end pt-4 border-t">
-                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-semibold">Abrir Ticket</button>
-                </div>
-            </form>
+    <form id="formCreateEngTicket" class="space-y-4">
+        <div id="container-eng-cliente" class="hidden p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+            <label class="block text-sm font-bold text-gray-800">Abrir em nome do Cliente</label>
+            <select id="eng-cliente-abertura" name="cliente_id" class="w-full border rounded p-2 bg-white text-sm">
+                <option value="">-- Abrir no meu nome (Padrão) --</option>
+            </select>
         </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">Tipo de Solicitação</label>
+                <select id="eng-tipo" class="w-full border rounded p-2 bg-gray-50" required>
+                    <option value="">Selecione...</option>
+                    <option value="Requisicao">Requisição</option>
+                    <option value="Incidente">Incidente</option>
+                    <option value="Problema">Problema</option>
+                    <option value="Mudanca">Mudança</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">Ambiente</label>
+                <select id="eng-ambiente" class="w-full border rounded p-2 bg-gray-50" required>
+                    <option value="">Selecione...</option>
+                    <option value="Desenvolvimento">Desenvolvimento</option>
+                    <option value="Homologacao">Homologação</option>
+                    <option value="Producao">Produção</option>
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-semibold text-gray-700">Cloud Provider</label>
+            <select id="eng-cloud" class="w-full border rounded p-2 bg-gray-50" required>
+                <option value="">Selecione a Cloud...</option>
+                <option value="Oracle">Oracle</option>
+                <option value="Amazon">Amazon</option>
+                <option value="Microsoft">Microsoft</option>
+                <option value="Google">Google</option>
+            </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">Categoria</label>
+                <select id="eng-categoria" class="w-full border rounded p-2 bg-gray-100" disabled required>
+                    <option value="">Selecione a Cloud primeiro</option>
+                </select>
+                <div class="mt-2 flex justify-end items-center gap-3 eng-admin-actions hidden">
+                    <button type="button" id="btn-edit-eng-categoria" class="text-xs text-blue-600 hover:underline font-semibold hidden">Editar</button>
+                    <button type="button" id="btn-delete-eng-categoria" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir</button>
+                    <button type="button" id="btn-show-add-eng-categoria" class="text-xs text-blue-600 hover:underline font-semibold">+ Adicionar</button>
+                </div>
+                <div id="container-crud-eng-categoria" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
+                    <label id="label-eng-categoria" class="text-sm font-semibold text-gray-700">Nova Categoria:</label>
+                    <input type="text" id="input-eng-categoria" class="w-full border rounded p-2 text-sm" autocomplete="off">
+                    <div class="flex justify-end gap-2 mt-2">
+                        <button type="button" id="btn-cancel-eng-categoria" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 font-semibold">Cancelar</button>
+                        <button type="button" id="btn-save-eng-categoria" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 font-semibold">Salvar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">Sub Categoria</label>
+                <select id="eng-subcategoria" class="w-full border rounded p-2 bg-gray-100" disabled required>
+                    <option value="">Selecione a Categoria primeiro</option>
+                </select>
+                <div class="mt-2 flex justify-end items-center gap-3 eng-admin-actions hidden">
+                    <button type="button" id="btn-edit-eng-sub_categoria" class="text-xs text-blue-600 hover:underline font-semibold hidden">Editar</button>
+                    <button type="button" id="btn-delete-eng-sub_categoria" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir</button>
+                    <button type="button" id="btn-show-add-eng-sub_categoria" class="text-xs text-blue-600 hover:underline font-semibold">+ Adicionar</button>
+                </div>
+                <div id="container-crud-eng-sub_categoria" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
+                    <label id="label-eng-sub_categoria" class="text-sm font-semibold text-gray-700">Nova Sub Categoria:</label>
+                    <input type="text" id="input-eng-sub_categoria" class="w-full border rounded p-2 text-sm" autocomplete="off">
+                    <div class="flex justify-end gap-2 mt-2">
+                        <button type="button" id="btn-cancel-eng-sub_categoria" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 font-semibold">Cancelar</button>
+                        <button type="button" id="btn-save-eng-sub_categoria" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 font-semibold">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+            <div class="col-span-2">
+                <label class="block text-sm font-semibold text-gray-700">Serviço</label>
+                <select id="eng-servico" class="w-full border rounded p-2 bg-gray-100" disabled required>
+                    <option value="">Selecione a Sub Categoria</option>
+                </select>
+                <div class="mt-2 flex justify-end items-center gap-3 eng-admin-actions hidden">
+                    <button type="button" id="btn-edit-eng-servico" class="text-xs text-blue-600 hover:underline font-semibold hidden">Editar</button>
+                    <button type="button" id="btn-delete-eng-servico" class="text-xs text-red-600 hover:underline font-semibold hidden">Excluir</button>
+                    <button type="button" id="btn-show-add-eng-servico" class="text-xs text-blue-600 hover:underline font-semibold">+ Adicionar</button>
+                </div>
+                <div id="container-crud-eng-servico" class="hidden mt-2 p-3 border rounded-md bg-gray-50 space-y-2">
+                    <label id="label-eng-servico" class="text-sm font-semibold text-gray-700">Novo Serviço:</label>
+                    <input type="text" id="input-eng-servico" placeholder="Nome do Serviço" class="w-full border rounded p-2 text-sm" autocomplete="off">
+                    
+                    <label class="text-sm font-semibold text-gray-700 mt-2 block">Tempo de SLA:</label>
+                    <input type="text" id="input-eng-sla" placeholder="Ex: 24 horas" class="w-full border rounded p-2 text-sm" autocomplete="off">
+
+                    <div class="flex justify-end gap-2 mt-3">
+                        <button type="button" id="btn-cancel-eng-servico" class="text-xs bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 font-semibold">Cancelar</button>
+                        <button type="button" id="btn-save-eng-servico" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 font-semibold">Salvar</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-gray-700">SLA Estimado</label>
+                <input type="text" id="eng-sla" class="w-full border rounded p-2 bg-gray-200" readonly>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-semibold text-gray-700">Prioridade</label>
+            <select id="eng-prioridade" class="w-full border rounded p-2 bg-gray-50">
+                <option value="Baixa">Baixa</option>
+                <option value="Media" selected>Média</option>
+                <option value="Alta">Alta</option>
+                <option value="Critica">Crítica</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-sm font-semibold text-gray-700">Descrição Detalhada</label>
+            <textarea id="eng-descricao" rows="4" class="w-full border rounded p-2" required></textarea>
+        </div>
+
+        <div class="bg-blue-50 p-3 rounded border border-blue-100">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Anexar Arquivo (Opcional)</label>
+            <input type="file" id="eng-anexo-create" name="anexo"
+                class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
+            <p class="text-xs text-gray-500 mt-1">Formatos aceitos: Imagens, PDF, Excel, Log.</p>
+        </div>
+
+        <div class="flex justify-end pt-4 border-t">
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-semibold">Abrir Ticket</button>
+        </div>
+    </form>
+</div>
     </div>
 </div>
 
@@ -1512,6 +1579,18 @@
         </div>
         
         <div class="overflow-y-auto p-6">
+            <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-4 mb-6">
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider">Progresso do SLA</span>
+                            <span id="edit-eng-sla-status-text" class="text-sm font-semibold text-gray-700">Calculando...</span>
+                        </div>
+                        <span id="edit-eng-sla-percent-text" class="text-lg font-black">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <div id="edit-eng-sla-bar" class="h-2.5 rounded-full bg-blue-500 transition-all duration-1000 ease-out" style="width: 0%"></div>
+                    </div>
+                </div>
             <form id="formEditEngTicket" class="space-y-4">
                 <input type="hidden" id="edit-eng-id">
 
@@ -1652,6 +1731,26 @@
                 Cancelar
             </button>
             <button id="btn-confirm-delete-eng" class="px-5 py-2.5 text-white bg-red-600 rounded-lg hover:bg-red-700 font-semibold shadow-md transition-colors flex items-center gap-2">
+                <i class="fa-solid fa-trash-can"></i> Sim, Excluir
+            </button>
+        </div>
+    </div>
+</div>
+<div id="modalConfirmarDeleteCatalog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[160] hidden">
+    <div class="bg-white rounded-lg p-8 shadow-lg text-center w-full max-w-md animate-fade-in-down">
+        <div class="mb-4 text-red-100 bg-red-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-lg">
+            <i class="fa-solid fa-triangle-exclamation text-3xl text-white"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Excluir Item do Catálogo?</h3>
+        <p class="text-gray-600 mb-6 text-sm">
+            Tem certeza que deseja inativar este item? <br>
+            <span class="font-bold text-red-600">Isso ocultará automaticamente todos os itens dependentes dele.</span>
+        </p>
+        <div class="flex justify-center gap-3">
+            <button id="btn-cancel-delete-catalog" class="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-semibold transition-colors">
+                Cancelar
+            </button>
+            <button id="btn-confirm-delete-catalog" class="px-5 py-2.5 text-white bg-red-600 rounded-lg hover:bg-red-700 font-semibold shadow-md transition-colors flex items-center gap-2">
                 <i class="fa-solid fa-trash-can"></i> Sim, Excluir
             </button>
         </div>

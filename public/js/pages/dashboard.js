@@ -14,6 +14,8 @@ let ticketAbertoParaEdicao = null;
 let userIdToDelete = null;
 let alertaIdToEdit = null;
 let engTicketIdToDelete = null;
+let paginaAtualEng = 1;
+window.paginaAtualEng = 1;
 
 let currentAlertsList = [];
 let currentGruposList = [];
@@ -23,6 +25,16 @@ let currentAreasList = [];
 let currentTiposList = [];
 let currentPrioridadesList = [];
 let engineersListCache = [];
+
+window.mudarItensPorPaginaEng = function() {
+    window.paginaAtualEng = 1; 
+    carregarTicketsEngenharia();
+};
+
+window.mudarPaginaEng = function(novaPagina) {
+    window.paginaAtualEng = novaPagina;
+    carregarTicketsEngenharia();
+};
 
 function toggleModal(modalId, show) {
     const modal = document.getElementById(modalId);
@@ -318,7 +330,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (form) form.reset();
 
         const now = new Date();
-        // Se for duplicação, usa a data do ticket. Se for novo, usa a data de agora.
         const alarmeInicio = getFormattedDateTime(dadosParaPreencher.alarme_inicio ? new Date(dadosParaPreencher.alarme_inicio) : now);
         const horarioAcionamento = getFormattedDateTime(dadosParaPreencher.horario_acionamento ? new Date(dadosParaPreencher.horario_acionamento) : now);
 
@@ -361,7 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     async function handleConfirmDeleteOption(itemType, idHolder, endpoint, modalId, idResetter) {
         if (!idHolder || !idHolder.id) return;
-
         try {
             const response = await fetch(`${endpoint}/${idHolder.id}`, {
                 method: 'DELETE'
@@ -2789,6 +2799,7 @@ atualizarDropdownStatusEngenharia();
     setupCascadingDropdownsEdit();     
     setupEngineeringFilters();
     setupEngineeringDeleteListeners();   
+    setupEngineeringCatalogCRUD();
     
     const tooltip = document.getElementById('custom-tooltip');
     const tbody = document.getElementById('lista-tickets-eng');
@@ -2820,14 +2831,227 @@ atualizarDropdownStatusEngenharia();
     }
 }
 
-function abrirModalEngenharia() {
+async function abrirModalEngenharia() {
     const form = document.getElementById('formCreateEngTicket');
     if (form) form.reset();
     resetDropdownsToInitialState();
+
+    // LÓGICA DE ABRIR TICKET PARA CLIENTE
+    const containerCliente = document.getElementById('container-eng-cliente');
+    const selectCliente = document.getElementById('eng-cliente-abertura');
+    
+ 
+    if (currentUser && (currentUser.perfil === 'engenharia')) {
+        
+        if (containerCliente) {
+            containerCliente.classList.remove('hidden');
+        }
+        
+
+        if (selectCliente) {
+            selectCliente.innerHTML = '<option value="">Carregando clientes...</option>';
+        }
+
+        try {
+            const resp = await fetch('/api/engineering/clients');
+            
+            if (resp.ok) {
+                const clientes = await resp.json();
+                
+                if (selectCliente) {
+                    selectCliente.innerHTML = '<option value="">-- Abrir no meu nome (Padrão) --</option>';
+
+                    if (Array.isArray(clientes) && clientes.length > 0) {
+                        clientes.forEach(c => {
+                            const sobre = c.sobre ? ` ${c.sobre}` : '';
+                            selectCliente.innerHTML += `<option value="${c.id}">${c.nome}${sobre} (${c.login})</option>`;
+                        });
+                    } else {
+                        selectCliente.innerHTML = '<option value="">Nenhum cliente encontrado no sistema</option>';
+                    }
+                }
+            } else {
+                console.error("[ERRO] Falha ao buscar clientes. Status:", resp.status);
+                if (selectCliente) selectCliente.innerHTML = '<option value="">Erro ao carregar clientes</option>';
+            }
+        } catch(e) { 
+            console.error("[CATCH ERRO] Falha na requisição de clientes:", e); 
+            if (selectCliente) selectCliente.innerHTML = '<option value="">Erro de conexão</option>';
+        }
+
+    } else {
+        // Se for um usuário/cliente logado, esconde a caixa
+        if (containerCliente) {
+            containerCliente.classList.add('hidden');
+        }
+    }
+
     toggleModal('modalCreateEngTicket', true);
 }
 
+function setupEngineeringCatalogCRUD() {
+    const canManage = currentUser && currentUser.perfil === 'engenharia';
+    if (!canManage) return; 
+
+    document.querySelectorAll('.eng-admin-actions').forEach(el => el.classList.remove('hidden'));
+
+    window.pendingDeletePayload = null;
+
+    // Função global para enviar as requisições do CRUD
+    window.sendCrudRequest = async function(payload) {
+        try {
+            const res = await fetch('/api/engineering/catalog/crud', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Erro de servidor");
+            
+            showStatusModal('Sucesso', data.message, false);
+            
+            // Força a cascata a recarregar puxando a informação nova
+            if (payload.level === 'categoria') {
+                document.getElementById('eng-cloud').dispatchEvent(new Event('change'));
+            } else if (payload.level === 'sub_categoria') {
+                document.getElementById('eng-categoria').dispatchEvent(new Event('change'));
+            } else if (payload.level === 'servico') {
+                document.getElementById('eng-subcategoria').dispatchEvent(new Event('change'));
+            }
+        } catch (e) {
+            showStatusModal('Erro', e.message, true);
+        }
+    };
+
+    const levels = [
+        { id: 'categoria', selectId: 'eng-categoria', inputId: 'input-eng-categoria' },
+        { id: 'sub_categoria', selectId: 'eng-subcategoria', inputId: 'input-eng-sub_categoria' },
+        { id: 'servico', selectId: 'eng-servico', inputId: 'input-eng-servico', extraInput: 'input-eng-sla' }
+    ];
+
+    levels.forEach(level => {
+        const select = document.getElementById(level.selectId);
+        const btnEdit = document.getElementById(`btn-edit-eng-${level.id}`);
+        const btnDelete = document.getElementById(`btn-delete-eng-${level.id}`);
+        const btnAdd = document.getElementById(`btn-show-add-eng-${level.id}`);
+        const container = document.getElementById(`container-crud-eng-${level.id}`);
+        const btnCancel = document.getElementById(`btn-cancel-eng-${level.id}`);
+        const btnSave = document.getElementById(`btn-save-eng-${level.id}`);
+        const label = document.getElementById(`label-eng-${level.id}`);
+        const input = document.getElementById(level.inputId);
+        const extraInput = level.extraInput ? document.getElementById(level.extraInput) : null;
+
+        let currentAction = 'create'; 
+
+        // Mostra/Oculta botões de Editar/Excluir conforme seleção
+        select.addEventListener('change', () => {
+            const val = select.value;
+            btnEdit.classList.toggle('hidden', !val);
+            btnDelete.classList.toggle('hidden', !val);
+        });
+
+        // Botão ADD
+        btnAdd.addEventListener('click', () => {
+            if (level.id === 'categoria' && (!document.getElementById('eng-cloud').value || !document.getElementById('eng-tipo').value)) return showStatusModal('Atenção', 'Selecione Tipo de Solicitação e Cloud primeiro.', true);
+            if (level.id === 'sub_categoria' && !document.getElementById('eng-categoria').value) return showStatusModal('Atenção', 'Selecione a Categoria primeiro.', true);
+            if (level.id === 'servico' && !document.getElementById('eng-subcategoria').value) return showStatusModal('Atenção', 'Selecione a Sub Categoria primeiro.', true);
+            
+            currentAction = 'create';
+            label.innerText = `Novo(a) ${level.id.replace('_', ' ')}:`;
+            input.value = '';
+            if(extraInput) extraInput.value = '';
+            container.classList.remove('hidden');
+            btnAdd.classList.add('hidden');
+        });
+
+        // Botão EDIT
+        btnEdit.addEventListener('click', () => {
+            currentAction = 'edit';
+            label.innerText = `Editando: ${select.options[select.selectedIndex].text}`;
+            input.value = select.options[select.selectedIndex].text;
+            if(extraInput) extraInput.value = select.options[select.selectedIndex].getAttribute('data-extra') || '';
+            container.classList.remove('hidden');
+            btnAdd.classList.add('hidden');
+        });
+
+        // Botão CANCEL
+        btnCancel.addEventListener('click', () => {
+            container.classList.add('hidden');
+            btnAdd.classList.remove('hidden');
+        });
+
+        // Botão DELETE 
+        btnDelete.addEventListener('click', () => {
+            window.pendingDeletePayload = {
+                action: 'delete',
+                level: level.id,
+                cloud: document.getElementById('eng-cloud').value,
+                tipo: document.getElementById('eng-tipo').value,
+                categoria: document.getElementById('eng-categoria').value,
+                sub_categoria: document.getElementById('eng-subcategoria').value,
+                old_val: level.id === 'servico' ? null : select.value,
+                id: level.id === 'servico' ? select.value : null
+            };
+            toggleModal('modalConfirmarDeleteCatalog', true);
+        });
+
+        // Botão SAVE
+        btnSave.addEventListener('click', async () => {
+            if (!input.value.trim()) return showStatusModal('Erro', 'O nome não pode ser vazio.', true);
+            if (extraInput && !extraInput.value.trim()) return showStatusModal('Erro', 'A SLA não pode ser vazia.', true);
+
+            const payload = {
+                action: currentAction,
+                level: level.id,
+                cloud: document.getElementById('eng-cloud').value,
+                tipo: document.getElementById('eng-tipo').value,
+                categoria: document.getElementById('eng-categoria').value,
+                sub_categoria: document.getElementById('eng-subcategoria').value,
+                old_val: currentAction === 'edit' && level.id !== 'servico' ? select.value : null,
+                new_val: input.value.trim(),
+                sla: extraInput ? extraInput.value.trim() : null,
+                id: level.id === 'servico' ? select.value : null
+            };
+
+            await window.sendCrudRequest(payload);
+            container.classList.add('hidden');
+            btnAdd.classList.remove('hidden');
+        });
+    });
+
+    const btnConfirmModal = document.getElementById('btn-confirm-delete-catalog');
+    const btnCancelModal = document.getElementById('btn-cancel-delete-catalog');
+
+    if(btnCancelModal) {
+        btnCancelModal.onclick = () => {
+            window.pendingDeletePayload = null;
+            toggleModal('modalConfirmarDeleteCatalog', false);
+        };
+    }
+
+    if(btnConfirmModal) {
+        btnConfirmModal.onclick = async () => {
+            if(!window.pendingDeletePayload) return;
+            
+            // Adiciona efeito de carregamento no botão
+            const originalText = btnConfirmModal.innerHTML;
+            btnConfirmModal.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Excluindo...';
+            btnConfirmModal.disabled = true;
+
+            // Envia a exclusão
+            await window.sendCrudRequest(window.pendingDeletePayload);
+
+            // Restaura o botão e fecha o modal
+            btnConfirmModal.innerHTML = originalText;
+            btnConfirmModal.disabled = false;
+            window.pendingDeletePayload = null;
+            toggleModal('modalConfirmarDeleteCatalog', false);
+        };
+    }
+}
+
 function setupCascadingDropdownsEdit() {
+    const tipoSel = document.getElementById('edit-eng-tipo');
     const cloudSel = document.getElementById('edit-eng-cloud');
     const catSel = document.getElementById('edit-eng-categoria');
     const subSel = document.getElementById('edit-eng-subcategoria');
@@ -2836,12 +3060,20 @@ function setupCascadingDropdownsEdit() {
 
     if (!cloudSel) return;
 
-    // (Lógica idêntica à de criação, mas apontando para os IDs de edição)
+    if (tipoSel) {
+        tipoSel.addEventListener('change', () => {
+            if(cloudSel) cloudSel.value = "";
+            resetSelect(catSel, 'Selecione'); resetSelect(subSel, 'Selecione'); resetSelect(servSel, 'Selecione');
+            if(slaInput) slaInput.value = '';
+        });
+    }
+
     cloudSel.addEventListener('change', async () => {
         const cloud = cloudSel.value;
+        const tipo = tipoSel ? tipoSel.value : '';
         resetSelect(catSel, 'Selecione'); resetSelect(subSel, 'Selecione'); resetSelect(servSel, 'Selecione');
-        if(cloud) {
-            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}`).then(r=>r.json());
+        if(cloud && tipo) {
+            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}`).then(r=>r.json());
             populateSelect(catSel, data, 'categoria', 'categoria', 'Selecione');
             catSel.disabled = false;
         }
@@ -2850,9 +3082,10 @@ function setupCascadingDropdownsEdit() {
     catSel.addEventListener('change', async () => {
         const cloud = cloudSel.value;
         const cat = catSel.value;
+        const tipo = tipoSel ? tipoSel.value : '';
         resetSelect(subSel, 'Selecione'); resetSelect(servSel, 'Selecione');
-        if(cat) {
-            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&categoria=${encodeURIComponent(cat)}`).then(r=>r.json());
+        if(cat && tipo) {
+            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(cat)}`).then(r=>r.json());
             populateSelect(subSel, data, 'sub_categoria', 'sub_categoria', 'Selecione');
             subSel.disabled = false;
         }
@@ -2862,9 +3095,10 @@ function setupCascadingDropdownsEdit() {
         const cloud = cloudSel.value;
         const cat = catSel.value;
         const sub = subSel.value;
+        const tipo = tipoSel ? tipoSel.value : '';
         resetSelect(servSel, 'Selecione');
-        if(sub) {
-            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&categoria=${encodeURIComponent(cat)}&sub_categoria=${encodeURIComponent(sub)}`).then(r=>r.json());
+        if(sub && tipo) {
+            const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(cat)}&sub_categoria=${encodeURIComponent(sub)}`).then(r=>r.json());
             populateSelect(servSel, data, 'id', 'servico', 'Selecione', 'sla');
             servSel.disabled = false;
         }
@@ -2877,6 +3111,7 @@ function setupCascadingDropdownsEdit() {
 }
 
 function setupCascadingDropdowns() {
+    const tipoSel = document.getElementById('eng-tipo'); // NOVO: Captura o Tipo
     const cloudSel = document.getElementById('eng-cloud');
     const catSel = document.getElementById('eng-categoria');
     const subSel = document.getElementById('eng-subcategoria');
@@ -2885,16 +3120,36 @@ function setupCascadingDropdowns() {
 
     if (!cloudSel) return;
 
+    // Se mudar o TIPO, zera a Cloud e tudo abaixo
+    if(tipoSel) {
+        tipoSel.addEventListener('change', () => {
+            if(cloudSel) cloudSel.value = "";
+            resetSelect(catSel, 'Selecione a Cloud primeiro');
+            resetSelect(subSel, 'Selecione a Categoria primeiro');
+            resetSelect(servSel, 'Selecione a Sub Categoria primeiro');
+            if(slaInput) slaInput.value = '';
+        });
+    }
+
     cloudSel.addEventListener('change', async () => {
         const cloud = cloudSel.value;
+        const tipo = tipoSel ? tipoSel.value : '';
+
         resetSelect(catSel, 'Selecione a Categoria');
         resetSelect(subSel, 'Selecione a Categoria primeiro');
         resetSelect(servSel, 'Selecione a Sub Categoria primeiro');
         if(slaInput) slaInput.value = '';
         
-        if (cloud) {
+        // Trava: Exige que o Tipo esteja selecionado
+        if (cloud && !tipo) {
+            showStatusModal('Atenção', 'Selecione o Tipo de Solicitação primeiro.', true);
+            cloudSel.value = "";
+            return;
+        }
+
+        if (cloud && tipo) {
             try {
-                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}`);
+                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}`);
                 const data = await response.json();
                 populateSelect(catSel, data, 'categoria', 'categoria', 'Selecione a Categoria');
                 catSel.disabled = false;
@@ -2906,13 +3161,15 @@ function setupCascadingDropdowns() {
     catSel.addEventListener('change', async () => {
         const cloud = cloudSel.value;
         const cat = catSel.value;
+        const tipo = tipoSel ? tipoSel.value : '';
+
         resetSelect(subSel, 'Selecione a Sub Categoria');
         resetSelect(servSel, 'Selecione a Sub Categoria primeiro');
         if(slaInput) slaInput.value = '';
 
-        if (cat) {
+        if (cat && tipo) {
             try {
-                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&categoria=${encodeURIComponent(cat)}`);
+                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(cat)}`);
                 const data = await response.json();
                 populateSelect(subSel, data, 'sub_categoria', 'sub_categoria', 'Selecione a Sub Categoria');
                 subSel.disabled = false;
@@ -2925,12 +3182,14 @@ function setupCascadingDropdowns() {
         const cloud = cloudSel.value;
         const cat = catSel.value;
         const sub = subSel.value;
+        const tipo = tipoSel ? tipoSel.value : '';
+
         resetSelect(servSel, 'Selecione o Serviço');
         if(slaInput) slaInput.value = '';
 
-        if (sub) {
+        if (sub && tipo) {
             try {
-                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&categoria=${encodeURIComponent(cat)}&sub_categoria=${encodeURIComponent(sub)}`);
+                const response = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(cat)}&sub_categoria=${encodeURIComponent(sub)}`);
                 const data = await response.json();
                 populateSelect(servSel, data, 'id', 'servico', 'Selecione o Serviço', 'sla'); 
                 servSel.disabled = false;
@@ -2999,7 +3258,6 @@ window.filtrarEngCard = function(statusFiltro) {
         else if (statusFiltro === 'Reaberto') {
             match = (statusTexto === 'Reaberto' || statusTexto === 'Desenvolvimento');
         }
-        // NOVO: Filtro exato para Pendente com Cliente
         else if (statusFiltro === 'Pendente com Cliente') {
             match = (statusTexto === 'Pendente com Cliente');
         }
@@ -3012,6 +3270,8 @@ window.filtrarEngCard = function(statusFiltro) {
         } else {
             row.classList.add('hidden');
         }
+
+
     });
 };
 function atualizarDropdownStatusEngenharia() {
@@ -3026,17 +3286,14 @@ function atualizarDropdownStatusEngenharia() {
     `;
 }
 function calcularBadgeSLA(ticket) {
-    //  Pega o SLA 
     let slaHoras = ticket.sla_estimado ? parseFloat(ticket.sla_estimado) : 24;
     if (isNaN(slaHoras)) slaHoras = 24;
 
     const dataAbertura = new Date(ticket.data_abertura || ticket.data_criacao);
     let dataFim = new Date(); 
 
-    // Variável para controlar se forçamos a barra cheia
     let forceFullBar = false;
 
-    //  Lógica de Status
     if (ticket.status === 'Resolvido') {
         if (ticket.data_resolucao) dataFim = new Date(ticket.data_resolucao);
         forceFullBar = true; 
@@ -3045,15 +3302,12 @@ function calcularBadgeSLA(ticket) {
         forceFullBar = true; // 
     }
 
-    //  Cálculo da Porcentagem
     const diffMs = dataFim - dataAbertura;
     const diffHoras = diffMs / (1000 * 60 * 60); 
     let percent = (diffHoras / slaHoras) * 100;
 
-    // Se estiver marcado para forçar cheio, ignora o cálculo
     if (forceFullBar) percent = 100;
 
-    // Travas visuais
     if (percent > 100) percent = 100;
     if (percent < 5) percent = 5;
 
@@ -3094,7 +3348,7 @@ async function carregarTicketsEngenharia() {
     const tbody = document.getElementById('lista-tickets-eng');
     if(!tbody) return;
     
-    // Define colspan 14 para cobrir todas as colunas enquanto carrega
+    // Mostra "Carregando"
     tbody.innerHTML = '<tr><td colspan="14" class="text-center p-4">Carregando...</td></tr>';
 
     // Captura os filtros do DOM
@@ -3107,52 +3361,69 @@ async function carregarTicketsEngenharia() {
         const res = await fetch('/api/engineering/tickets');
         if (!res.ok) throw new Error('Erro ao buscar tickets');
         
-        let tickets = await res.json();
-        currentTicketsCache = tickets; // Atualiza o cache global
+        let allTickets = await res.json();
+        currentTicketsCache = allTickets; // Atualiza o cache global antes de filtrar
 
-        //  Atualiza os Cards de Contagem
-        atualizarCardsEngenharia(tickets);
+        // Atualiza os Cards de Contagem com TODOS os dados
+        if (typeof atualizarCardsEngenharia === 'function') {
+            atualizarCardsEngenharia(allTickets);
+        }
 
         // Aplica Filtros
-        if (tipoFilter) tickets = tickets.filter(t => t.tipo_solicitacao === tipoFilter);
+        if (tipoFilter) allTickets = allTickets.filter(t => t.tipo_solicitacao === tipoFilter);
         
         // Filtro de Status 
         if (statusFilter) {
             if (statusFilter === 'Em Atendimento') {
-                tickets = tickets.filter(t => t.status === 'Em Atendimento' || t.status === 'Em Analise' || t.status === 'Em Análise');
+                allTickets = allTickets.filter(t => t.status === 'Em Atendimento' || t.status === 'Em Analise' || t.status === 'Em Análise');
             } else if (statusFilter === 'Reaberto') {
-                tickets = tickets.filter(t => t.status === 'Reaberto' || t.status === 'Desenvolvimento');
+                allTickets = allTickets.filter(t => t.status === 'Reaberto' || t.status === 'Desenvolvimento');
             } else if (statusFilter === 'Pendente com Cliente') {
-                tickets = tickets.filter(t => t.status === 'Pendente com Cliente');
+                allTickets = allTickets.filter(t => t.status === 'Pendente com Cliente');
             } else {
-                tickets = tickets.filter(t => t.status === statusFilter);
+                allTickets = allTickets.filter(t => t.status === statusFilter);
             }
         }
 
-        if (prioFilter) tickets = tickets.filter(t => t.prioridade === prioFilter);
-
+        if (prioFilter) allTickets = allTickets.filter(t => t.prioridade === prioFilter);
+        
         // Aplica Ordenação
         if (sortOrder === 'id_desc') {
-            tickets.sort((a,b) => b.id - a.id);
+            allTickets.sort((a,b) => b.id - a.id);
         } else if (sortOrder === 'prio_desc') {
             const prioMap = {'Critica': 4, 'Alta': 3, 'Media': 2, 'Baixa': 1};
-            tickets.sort((a,b) => (prioMap[b.prioridade]||0) - (prioMap[a.prioridade]||0));
+            allTickets.sort((a,b) => (prioMap[b.prioridade]||0) - (prioMap[a.prioridade]||0));
         } else if (sortOrder === 'status_asc') {
-            tickets.sort((a,b) => a.status.localeCompare(b.status));
+            allTickets.sort((a,b) => a.status.localeCompare(b.status));
         }
 
-        // Atualiza o contador de registros visíveis
-        if(document.getElementById('eng-total-count')) 
-            document.getElementById('eng-total-count').innerText = tickets.length;
+        // Atualiza o contador de registros visíveis (filtrados)
+        const totalTicketsFiltrados = allTickets.length;
+        if (document.getElementById('eng-total-count')) {
+            document.getElementById('eng-total-count').innerText = totalTicketsFiltrados;
+        }
 
         // Se não houver tickets após o filtro
-        if (tickets.length === 0) {
+        if (totalTicketsFiltrados === 0) {
             tbody.innerHTML = '<tr><td colspan="14" class="text-center p-4 text-gray-500">Nenhum ticket encontrado.</td></tr>';
+            renderizarPaginacaoEngenharia(0, 20, 0); // Limpa botões
             return;
         }
 
-        //  Renderiza as Linhas
-        tbody.innerHTML = tickets.map(t => {
+       const selectQtd = document.getElementById('eng-qtd-por-pagina');
+        const itensPorPagina = selectQtd ? parseInt(selectQtd.value, 10) : 20;
+        const totalPaginas = Math.ceil(totalTicketsFiltrados / itensPorPagina);
+
+        if (window.paginaAtualEng > totalPaginas) window.paginaAtualEng = totalPaginas;
+        if (window.paginaAtualEng < 1) window.paginaAtualEng = 1;
+
+        const startIndex = (window.paginaAtualEng - 1) * itensPorPagina;
+        const endIndex = startIndex + itensPorPagina;
+        const ticketsDaPagina = allTickets.slice(startIndex, endIndex);
+
+        renderizarPaginacaoEngenharia(totalTicketsFiltrados, itensPorPagina, totalPaginas);
+
+        tbody.innerHTML = ticketsDaPagina.map(t => {
             
             // Cor da Prioridade
             let prioColor = 'text-gray-600';
@@ -3161,7 +3432,7 @@ async function carregarTicketsEngenharia() {
 
             // Botão de Ação
             let btnAction = '';
-            if (currentUser.perfil === 'engenharia' || currentUser.perfil === 'admin' || currentUser.perfil === 'gerente') {
+            if (currentUser && (currentUser.perfil === 'engenharia' || currentUser.perfil === 'admin' || currentUser.perfil === 'gerente')) {
                 btnAction = `<button onclick="abrirModalEdicaoEngenharia(${t.id})" 
                                 class="text-blue-600 hover:text-blue-800 font-bold border border-blue-600 px-2 py-1 rounded text-xs transition hover:bg-blue-50">
                                 <i class="fa-solid fa-pen-to-square"></i>
@@ -3173,7 +3444,6 @@ async function carregarTicketsEngenharia() {
             // Tratamento de Dados para Exibição
             const cloudDisplay = t.cloud || '-';
             const subCatDisplay = t.sub_categoria || '-';
-            const servicoDisplay = t.servico_nome || '<span class="text-gray-400 italic">Não categorizado</span>';
             
             const descricaoFull = t.descricao || '';
             const descricaoCurta = descricaoFull.length > 30 ? descricaoFull.substring(0, 30) + '...' : (descricaoFull || '-');
@@ -3191,7 +3461,8 @@ async function carregarTicketsEngenharia() {
                 day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' 
             }) : '-';
 
-            const statusBadgeHTML = calcularBadgeSLA(t);
+            // FUNÇÃO DOS STATUS CARREGÁVEIS QUE VOCÊ CRIOU
+            const statusBadgeHTML = typeof calcularBadgeSLA === 'function' ? calcularBadgeSLA(t) : `<span>${t.status}</span>`;
 
             return `
                 <tr class="border-b hover:bg-gray-50 transition group relative" data-servico="${t.servico_nome || 'Não informado'}">
@@ -3229,9 +3500,66 @@ async function carregarTicketsEngenharia() {
 
     } catch (e) { 
         console.error("Erro ao carregar tabela:", e);
-        tbody.innerHTML = '<tr><td colspan="14" class="text-center p-4 text-red-500">Erro ao carregar dados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="14" class="text-center p-4 text-red-500">Erro ao carregar dados. Verifique a conexão com o servidor.</td></tr>';
     }
 }
+function renderizarPaginacaoEngenharia(total, porPagina, totalPaginas) {
+    const container = document.getElementById('eng-paginacao-botoes');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (totalPaginas <= 1) return; // Se for só 1 página, não exibe os botões
+
+    const criarBotao = (texto, desabilitado, classesAtivas, paginaAlvo) => {
+        const btn = document.createElement('button');
+        btn.innerHTML = texto;
+        btn.className = `px-3 py-1 border rounded text-sm transition font-medium ${desabilitado ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : classesAtivas}`;
+        btn.disabled = desabilitado;
+        if (!desabilitado) {
+            // Usa a função global garantida
+            btn.onclick = () => window.mudarPaginaEng(paginaAlvo);
+        }
+        return btn;
+    };
+
+    // Botão Anterior (<<)
+    container.appendChild(criarBotao('&laquo;', window.paginaAtualEng === 1, 'bg-white hover:bg-blue-50 text-gray-700', window.paginaAtualEng - 1));
+
+    // Lógica de Reticências e Números
+    for (let i = 1; i <= totalPaginas; i++) {
+        if (i === 1 || i === totalPaginas || (i >= window.paginaAtualEng - 1 && i <= window.paginaAtualEng + 1)) {
+            const isAtual = i === window.paginaAtualEng;
+            const btnClass = isAtual ? 'bg-blue-600 text-white border-blue-600' : 'bg-white hover:bg-blue-50 text-gray-700';
+            container.appendChild(criarBotao(i, false, btnClass, i));
+        } else if (i === window.paginaAtualEng - 2 || i === window.paginaAtualEng + 2) {
+            const span = document.createElement('span');
+            span.innerHTML = '...';
+            span.className = 'px-2 py-1 text-gray-500 text-sm';
+            container.appendChild(span);
+        }
+    }
+
+    // Botão Próximo (>>)
+    container.appendChild(criarBotao('&raquo;', window.paginaAtualEng === totalPaginas, 'bg-white hover:bg-blue-50 text-gray-700', window.paginaAtualEng + 1));
+}
+// Escutador para quando trocar "Exibir 10/20/30"
+document.addEventListener('DOMContentLoaded', () => {
+    const selectPaginacao = document.getElementById('eng-qtd-por-pagina');
+    if(selectPaginacao){
+        selectPaginacao.addEventListener('change', () => {
+            paginaAtualEng = 1; // Reseta para a pág 1 ao mudar a qtd
+            carregarTicketsEngenharia();
+        });
+    }
+});
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('eng-qtd-por-pagina')?.addEventListener('change', () => {
+        paginaAtualEng = 1; 
+        carregarTicketsEngenharia();
+    });
+});
 window.abrirModalEdicaoEngenharia = async (ticketId) => {
     //  Encontra ticket
     const ticket = currentTicketsCache.find(t => t.id === ticketId);
@@ -3262,12 +3590,73 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     setVal('edit-eng-descricao', ticket.descricao);
     setVal('edit-eng-comentario', ticket.comentario_tecnico || '');
     setVal('edit-eng-sla', ticket.sla_estimado || '');
+    const barraSLA = document.getElementById('edit-eng-sla-bar');
+    const percentSLA = document.getElementById('edit-eng-sla-percent-text');
+    const textoStatusSLA = document.getElementById('edit-eng-sla-status-text');
+
+    if (barraSLA && percentSLA && textoStatusSLA) {
+        let slaHoras = ticket.sla_estimado ? parseFloat(ticket.sla_estimado) : 24;
+        if (isNaN(slaHoras)) slaHoras = 24;
+
+        const dataAbertura = new Date(ticket.data_abertura || ticket.data_criacao);
+        let dataFim = new Date(); 
+
+        let forceFullBar = false;
+        if (ticket.status === 'Resolvido') {
+            if (ticket.data_resolucao) dataFim = new Date(ticket.data_resolucao);
+            forceFullBar = true; 
+        } else if (ticket.status === 'Pendente com Cliente') {
+            forceFullBar = true; 
+        }
+
+        const diffMs = dataFim - dataAbertura;
+        let diffHoras = diffMs / (1000 * 60 * 60); 
+        if (diffHoras < 0) diffHoras = 0; 
+        
+        let percent = (diffHoras / slaHoras) * 100;
+
+        if (forceFullBar) percent = 100;
+        if (percent > 100) percent = 100;
+
+        let corBgClass = 'bg-lime-500'; 
+        let corTextClass = 'text-lime-600';
+        let textoDetalhe = `${diffHoras.toFixed(1)}h consumidas de ${slaHoras}h`;
+
+        if (ticket.status === 'Resolvido') {
+            corBgClass = 'bg-green-500';
+            corTextClass = 'text-green-600';
+            textoDetalhe = `Concluído em ${diffHoras.toFixed(1)}h (SLA Total: ${slaHoras}h)`;
+        } else if (ticket.status === 'Pendente com Cliente') {
+            corBgClass = 'bg-orange-400';
+            corTextClass = 'text-orange-600';
+            textoDetalhe = `Pausado (Pendente com o Cliente)`;
+        } else {
+            if (diffHoras > slaHoras) {
+                corBgClass = 'bg-red-500'; 
+                corTextClass = 'text-red-600';
+                textoDetalhe = `SLA Estourado! (${diffHoras.toFixed(1)}h de ${slaHoras}h)`;
+            } else if (percent > 75) {
+                corBgClass = 'bg-yellow-400'; 
+                corTextClass = 'text-yellow-600';
+            }
+        }
+
+
+        setTimeout(() => {
+            barraSLA.style.width = `${percent}%`;
+            barraSLA.className = `h-2.5 rounded-full transition-all duration-1000 ease-out ${corBgClass}`;
+            
+            percentSLA.innerText = `${Math.floor(percent)}%`;
+            percentSLA.className = `text-lg font-black ${corTextClass}`;
+            
+            textoStatusSLA.innerText = textoDetalhe;
+        }, 100); 
+    }
 
     const statusSelect = document.getElementById('edit-eng-status');
     if (statusSelect) {
         let statusParaExibir = ticket.status;
 
-        // Mapeia nomes antigos para os novos visualmente
         if (statusParaExibir === 'Em Analise' || statusParaExibir === 'Em Análise') {
             statusParaExibir = 'Em Atendimento';
         } else if (statusParaExibir === 'Desenvolvimento' || statusParaExibir === 'Em Desenvolvimento') {
@@ -3305,8 +3694,7 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
         };
     }
 
-    // Popula os Selects
-    const cloudSel = document.getElementById('edit-eng-cloud');
+   const cloudSel = document.getElementById('edit-eng-cloud');
     const catSel = document.getElementById('edit-eng-categoria');
     const subSel = document.getElementById('edit-eng-subcategoria');
     const servSel = document.getElementById('edit-eng-servico');
@@ -3314,28 +3702,31 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     if (cloudSel) {
         cloudSel.value = ticket.cloud || 'Oracle';
         
+        // NOVO: Pega o tipo de solicitação do ticket para mandar pro backend
+        const tipo = ticket.tipo_solicitacao || ''; 
+        
         // Carrega Categorias
-        if(ticket.cloud) {
+        if(ticket.cloud && tipo) {
             try {
-                const cats = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}`).then(r=>r.json());
+                const cats = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&tipo=${encodeURIComponent(tipo)}`).then(r=>r.json());
                 populateSelect(catSel, cats, 'categoria', 'categoria', 'Selecione');
                 if(catSel) catSel.value = ticket.categoria;
             } catch(e) { console.error(e); }
         }
 
         // Carrega Subcategorias
-        if(ticket.cloud && ticket.categoria) {
+        if(ticket.cloud && ticket.categoria && tipo) {
             try {
-                const subs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&categoria=${encodeURIComponent(ticket.categoria)}`).then(r=>r.json());
+                const subs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(ticket.categoria)}`).then(r=>r.json());
                 populateSelect(subSel, subs, 'sub_categoria', 'sub_categoria', 'Selecione');
                 if(subSel) subSel.value = ticket.sub_categoria;
             } catch(e) { console.error(e); }
         }
 
         // Carrega Serviços
-        if(ticket.cloud && ticket.categoria && ticket.sub_categoria) {
+        if(ticket.cloud && ticket.categoria && ticket.sub_categoria && tipo) {
             try {
-                const servs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&categoria=${encodeURIComponent(ticket.categoria)}&sub_categoria=${encodeURIComponent(ticket.sub_categoria)}`).then(r=>r.json());
+                const servs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(ticket.categoria)}&sub_categoria=${encodeURIComponent(ticket.sub_categoria)}`).then(r=>r.json());
                 populateSelect(servSel, servs, 'id', 'servico', 'Selecione', 'sla');
                 if(servSel) servSel.value = ticket.catalog_item_id;
             } catch(e) { console.error(e); }
@@ -3494,6 +3885,10 @@ function setupEngineeringForms() {
                 formData.append('catalog_item_id', document.getElementById('eng-servico').value);
                 formData.append('prioridade', document.getElementById('eng-prioridade').value);
                 formData.append('descricao', document.getElementById('eng-descricao').value);
+                const clienteIdSelect = document.getElementById('eng-cliente-abertura');
+                if (clienteIdSelect && clienteIdSelect.value) {
+                    formData.append('cliente_id', clienteIdSelect.value);
+                }
 
                 const fileInput = document.getElementById('eng-anexo-create');
                 if (fileInput && fileInput.files.length > 0) {

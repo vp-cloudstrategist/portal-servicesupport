@@ -23,11 +23,14 @@ function formatarDataHora() {
 }
 
 exports.createTicket = async (req, res) => {
-    // Pega os dados do formulário e da sessão
-    const { tipo_solicitacao, ambiente, catalog_item_id, prioridade, descricao } = req.body;
-    const cliente_id = req.session.user.id;
-    const cliente_nome = req.session.user.nome;
-    const cliente_email = req.session.user.login; // Assumindo que o login é o email
+    // Pega os dados do formulário e renomeia o cliente_id do body para evitar conflito com a sessão
+    const { tipo_solicitacao, ambiente, catalog_item_id, prioridade, descricao, cliente_id: clienteTargetId } = req.body;
+    
+    // Define os dados padrão como sendo da pessoa que está logada
+    let cliente_id = req.session.user.id;
+    let cliente_nome = req.session.user.nome;
+    let cliente_email = req.session.user.login; // Assumindo que o login é o email
+    const perfil_usuario = req.session.user.perfil;
 
     let anexo_path = null;
     if (req.file) {
@@ -35,7 +38,21 @@ exports.createTicket = async (req, res) => {
     }
 
     try {
-        // 1. Salva o Ticket no Banco
+        // --- NOVA LÓGICA: ABRIR EM NOME DE UM CLIENTE ---
+        // Se enviou um cliente alvo e quem tá logado tem permissão de equipe interna
+        if (clienteTargetId && ['admin', 'gerente', 'engenharia'].includes(perfil_usuario)) {
+            cliente_id = clienteTargetId; // Sobrescreve o ID do dono do ticket
+            
+            // Vai no banco buscar o nome e email do cliente selecionado para mandar os avisos pra ele
+            const [cliRows] = await pool.query('SELECT nome, sobre, login FROM user WHERE id = ?', [cliente_id]);
+            if (cliRows.length > 0) {
+                cliente_nome = cliRows[0].nome + (cliRows[0].sobre ? ' ' + cliRows[0].sobre : '');
+                cliente_email = cliRows[0].login;
+            }
+        }
+        // ------------------------------------------------
+
+        // 1. Salva o Ticket no Banco (usando a variável cliente_id que agora está dinâmica)
         const sql = `
             INSERT INTO tickets_engenharia 
             (cliente_id, tipo_solicitacao, ambiente, catalog_item_id, prioridade, descricao, anexo_path, status, data_abertura) 
@@ -125,18 +142,19 @@ exports.createTicket = async (req, res) => {
         } catch (err) {
             console.error("[EMAIL ERROR] Falha ao enviar para engenharia:", err);
         }
+
+        // 5. Notificação do Teams
         const fatosAbertura = [
             { name: "ID:", value: `#${novoTicketId}` },
             { name: "Solicitante:", value: cliente_nome },
-            { name: "Categoria:", value: tipo_solicitacao }, // Ou nomeServico se preferir
+            { name: "Categoria:", value: tipo_solicitacao }, 
             { name: "Prioridade:", value: prioridade },
-            { name: "Descrição:", value: descricao.length > 100 ? descricao.substring(0, 100) + '...' : descricao }, // Resumida
+            { name: "Descrição:", value: descricao.length > 100 ? descricao.substring(0, 100) + '...' : descricao }, 
             { name: "⏰ Data/Hora:", value: formatarDataHora() }
         ];
 
-        // Dispara sem esperar (fire and forget) para não travar o cliente
+       
         enviarNotificacaoTeams("🎫 Ticket ABERTO - 🚨 Novo ticket registrado", fatosAbertura, "A equipe responsável já foi notificada.");
-
 
         res.status(201).json({ message: 'Ticket criado com sucesso!', ticketId: novoTicketId });
 
@@ -371,35 +389,78 @@ exports.resolveTicket = async (req, res) => {
         res.status(500).json({ message: 'Erro ao atualizar.' });
     }
 };
+exports.getClientsList = async (req, res) => {
+    try {
+        const sql = `
+            SELECT id, nome, sobre, login, perfil 
+            FROM user 
+            WHERE perfil NOT IN ('admin', 'gerente', 'engenharia', 'support') 
+            ORDER BY nome ASC
+        `;
+        
+        const [rows] = await pool.query(sql);
+        
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error("Erro ao buscar clientes para engenharia:", error);
+        res.status(500).json({ message: 'Erro ao buscar clientes.' });
+    }
+};
 exports.getCatalogOptions = async (req, res) => {
-    const { cloud, categoria, sub_categoria } = req.query;
+    const { cloud, tipo, categoria, sub_categoria } = req.query;
 
     try {
-        let query = '';
+        let sql = '';
         let params = [];
 
-        if (!cloud) {
-            return res.json(['Amazon', 'Microsoft', 'Google', 'Oracle']);
-        } 
+        if (!cloud) return res.json(['Amazon', 'Microsoft', 'Google', 'Oracle']);
         
-        if (cloud && !categoria) {
-            query = 'SELECT DISTINCT categoria FROM eng_catalog WHERE cloud = ? ORDER BY categoria';
-            params = [cloud];
+        if (cloud && tipo && !categoria && !sub_categoria) {
+            sql = "SELECT DISTINCT categoria FROM eng_catalog WHERE cloud = ? AND tipo_solicitacao = ? AND ativo = 1 AND categoria != '' ORDER BY categoria";
+            params = [cloud, tipo];
         } 
-        else if (cloud && categoria && !sub_categoria) {
-            query = 'SELECT DISTINCT sub_categoria FROM eng_catalog WHERE cloud = ? AND categoria = ? ORDER BY sub_categoria';
-            params = [cloud, categoria];
+        else if (cloud && tipo && categoria && !sub_categoria) {
+            sql = "SELECT DISTINCT sub_categoria FROM eng_catalog WHERE cloud = ? AND tipo_solicitacao = ? AND categoria = ? AND ativo = 1 AND sub_categoria != '' ORDER BY sub_categoria";
+            params = [cloud, tipo, categoria];
         } 
-        else if (cloud && categoria && sub_categoria) {
-            query = 'SELECT id, servico, sla FROM eng_catalog WHERE cloud = ? AND categoria = ? AND sub_categoria = ? ORDER BY servico';
-            params = [cloud, categoria, sub_categoria];
+        else if (cloud && tipo && categoria && sub_categoria) {
+            sql = "SELECT id, servico, sla FROM eng_catalog WHERE cloud = ? AND tipo_solicitacao = ? AND categoria = ? AND sub_categoria = ? AND ativo = 1 AND servico != '' ORDER BY servico";
+            params = [cloud, tipo, categoria, sub_categoria];
+        } else {
+             return res.status(400).json({ error: 'Parâmetros insuficientes para a busca.' });
         }
 
-        const [rows] = await pool.query(query, params);
+        const [rows] = await pool.query(sql, params);
         res.json(rows);
     } catch (error) {
-        console.error(error);
+        console.error("Erro ao buscar no eng_catalog:", error);
         res.status(500).json({ error: 'Erro ao buscar catálogo' });
+    }
+};
+exports.crudCatalog = async (req, res) => {
+    const { action, level, cloud, tipo, categoria, sub_categoria, id, old_val, new_val, sla } = req.body;
+
+    try {
+        if (level === 'categoria') {
+            if (action === 'create') await pool.query("INSERT INTO eng_catalog (cloud, tipo_solicitacao, categoria, sub_categoria, servico, sla, ativo) VALUES (?, ?, ?, '', '', '', 1)", [cloud, tipo, new_val]);
+            if (action === 'edit') await pool.query("UPDATE eng_catalog SET categoria = ? WHERE cloud = ? AND tipo_solicitacao = ? AND categoria = ?", [new_val, cloud, tipo, old_val]);
+            if (action === 'delete') await pool.query("UPDATE eng_catalog SET ativo = 0 WHERE cloud = ? AND tipo_solicitacao = ? AND categoria = ?", [cloud, tipo, old_val]);
+        }
+        else if (level === 'sub_categoria') {
+            if (action === 'create') await pool.query("INSERT INTO eng_catalog (cloud, tipo_solicitacao, categoria, sub_categoria, servico, sla, ativo) VALUES (?, ?, ?, ?, '', '', 1)", [cloud, tipo, categoria, new_val]);
+            if (action === 'edit') await pool.query("UPDATE eng_catalog SET sub_categoria = ? WHERE cloud = ? AND tipo_solicitacao = ? AND categoria = ? AND sub_categoria = ?", [new_val, cloud, tipo, categoria, old_val]);
+            if (action === 'delete') await pool.query("UPDATE eng_catalog SET ativo = 0 WHERE cloud = ? AND tipo_solicitacao = ? AND categoria = ? AND sub_categoria = ?", [cloud, tipo, categoria, old_val]);
+        }
+        else if (level === 'servico') {
+            if (action === 'create') await pool.query("INSERT INTO eng_catalog (cloud, tipo_solicitacao, categoria, sub_categoria, servico, sla, ativo) VALUES (?, ?, ?, ?, ?, ?, 1)", [cloud, tipo, categoria, sub_categoria, new_val, sla]);
+            if (action === 'edit') await pool.query("UPDATE eng_catalog SET servico = ?, sla = ? WHERE id = ?", [new_val, sla, id]);
+            if (action === 'delete') await pool.query("UPDATE eng_catalog SET ativo = 0 WHERE id = ?", [id]);
+        }
+
+        res.status(200).json({ message: 'Operação realizada com sucesso no catálogo!' });
+    } catch (error) {
+        console.error("Erro no CRUD Engenharia:", error);
+        res.status(500).json({ message: 'Erro ao processar catálogo da engenharia.' });
     }
 };
 exports.getEngineersList = async (req, res) => {
