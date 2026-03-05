@@ -3076,6 +3076,7 @@ function setupCascadingDropdownsEdit() {
             const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}`).then(r=>r.json());
             populateSelect(catSel, data, 'categoria', 'categoria', 'Selecione');
             catSel.disabled = false;
+            catSel.classList.remove('bg-gray-100'); 
         }
     });
 
@@ -3088,6 +3089,7 @@ function setupCascadingDropdownsEdit() {
             const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(cat)}`).then(r=>r.json());
             populateSelect(subSel, data, 'sub_categoria', 'sub_categoria', 'Selecione');
             subSel.disabled = false;
+            subSel.classList.remove('bg-gray-100'); 
         }
     });
 
@@ -3101,6 +3103,7 @@ function setupCascadingDropdownsEdit() {
             const data = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(cat)}&sub_categoria=${encodeURIComponent(sub)}`).then(r=>r.json());
             populateSelect(servSel, data, 'id', 'servico', 'Selecione', 'sla');
             servSel.disabled = false;
+            servSel.classList.remove('bg-gray-100'); 
         }
     });
 
@@ -3561,7 +3564,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 window.abrirModalEdicaoEngenharia = async (ticketId) => {
-    //  Encontra ticket
+    // Encontra ticket
     const ticket = currentTicketsCache.find(t => t.id === ticketId);
     if (!ticket) return alert("Erro ao carregar dados do ticket.");
 
@@ -3590,6 +3593,7 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     setVal('edit-eng-descricao', ticket.descricao);
     setVal('edit-eng-comentario', ticket.comentario_tecnico || '');
     setVal('edit-eng-sla', ticket.sla_estimado || '');
+
     const barraSLA = document.getElementById('edit-eng-sla-bar');
     const percentSLA = document.getElementById('edit-eng-sla-percent-text');
     const textoStatusSLA = document.getElementById('edit-eng-sla-status-text');
@@ -3641,14 +3645,11 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
             }
         }
 
-
         setTimeout(() => {
             barraSLA.style.width = `${percent}%`;
             barraSLA.className = `h-2.5 rounded-full transition-all duration-1000 ease-out ${corBgClass}`;
-            
             percentSLA.innerText = `${Math.floor(percent)}%`;
             percentSLA.className = `text-lg font-black ${corTextClass}`;
-            
             textoStatusSLA.innerText = textoDetalhe;
         }, 100); 
     }
@@ -3656,13 +3657,11 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     const statusSelect = document.getElementById('edit-eng-status');
     if (statusSelect) {
         let statusParaExibir = ticket.status;
-
         if (statusParaExibir === 'Em Analise' || statusParaExibir === 'Em Análise') {
             statusParaExibir = 'Em Atendimento';
         } else if (statusParaExibir === 'Desenvolvimento' || statusParaExibir === 'Em Desenvolvimento') {
             statusParaExibir = 'Reaberto';
         }
-
         statusSelect.value = statusParaExibir;
     }
 
@@ -3672,7 +3671,6 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
     const fileInput = document.getElementById('edit-eng-anexo');
     const btnRemoveAnexo = document.getElementById('btn-remove-anexo-eng');
 
-    // Reseta estado do anexo
     if(fileInput) fileInput.value = ''; 
     if(removeInput) removeInput.value = '0';
     if(linkContainer) linkContainer.classList.add('hidden');
@@ -3694,46 +3692,84 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
         };
     }
 
-   const cloudSel = document.getElementById('edit-eng-cloud');
+    const cloudSel = document.getElementById('edit-eng-cloud');
     const catSel = document.getElementById('edit-eng-categoria');
     const subSel = document.getElementById('edit-eng-subcategoria');
     const servSel = document.getElementById('edit-eng-servico');
 
     if (cloudSel) {
-        cloudSel.value = ticket.cloud || 'Oracle';
+        const nuvemSegura = ticket.cloud || 'Oracle';
+        cloudSel.value = nuvemSegura;
         
-        // NOVO: Pega o tipo de solicitação do ticket para mandar pro backend
         const tipo = ticket.tipo_solicitacao || ''; 
         
-        // Carrega Categorias
-        if(ticket.cloud && tipo) {
+        // 1. Carrega Categorias
+        if(nuvemSegura && tipo) {
             try {
-                const cats = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&tipo=${encodeURIComponent(tipo)}`).then(r=>r.json());
-                populateSelect(catSel, cats, 'categoria', 'categoria', 'Selecione');
-                if(catSel) catSel.value = ticket.categoria;
+                const cats = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(nuvemSegura)}&tipo=${encodeURIComponent(tipo)}`).then(r=>r.json());
+                if (typeof populateSelect === 'function') populateSelect(catSel, cats, 'categoria', 'categoria', 'Selecione');
+                if(catSel) {
+                    catSel.disabled = false;
+                    catSel.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    
+                    // Verifica se a categoria do ticket foi inativada
+                    if (ticket.categoria) {
+                        const optionExiste = Array.from(catSel.options).some(o => o.value === ticket.categoria);
+                        if (!optionExiste) {
+                            catSel.add(new Option(ticket.categoria + " (Inativo)", ticket.categoria));
+                        }
+                        catSel.value = ticket.categoria;
+                    }
+                }
             } catch(e) { console.error(e); }
         }
 
-        // Carrega Subcategorias
-        if(ticket.cloud && ticket.categoria && tipo) {
+        // 2. Carrega Subcategorias
+        if(nuvemSegura && ticket.categoria && tipo) {
             try {
-                const subs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(ticket.categoria)}`).then(r=>r.json());
-                populateSelect(subSel, subs, 'sub_categoria', 'sub_categoria', 'Selecione');
-                if(subSel) subSel.value = ticket.sub_categoria;
+                const subs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(nuvemSegura)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(ticket.categoria)}`).then(r=>r.json());
+                if (typeof populateSelect === 'function') populateSelect(subSel, subs, 'sub_categoria', 'sub_categoria', 'Selecione');
+                if(subSel) {
+                    subSel.disabled = false;
+                    subSel.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    
+                    // Verifica se a subcategoria foi inativada
+                    if (ticket.sub_categoria) {
+                        const optionExiste = Array.from(subSel.options).some(o => o.value === ticket.sub_categoria);
+                        if (!optionExiste) {
+                            subSel.add(new Option(ticket.sub_categoria + " (Inativo)", ticket.sub_categoria));
+                        }
+                        subSel.value = ticket.sub_categoria;
+                    }
+                }
             } catch(e) { console.error(e); }
         }
 
-        // Carrega Serviços
-        if(ticket.cloud && ticket.categoria && ticket.sub_categoria && tipo) {
+        // 3. Carrega Serviços
+        if(nuvemSegura && ticket.categoria && ticket.sub_categoria && tipo) {
             try {
-                const servs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(ticket.cloud)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(ticket.categoria)}&sub_categoria=${encodeURIComponent(ticket.sub_categoria)}`).then(r=>r.json());
-                populateSelect(servSel, servs, 'id', 'servico', 'Selecione', 'sla');
-                if(servSel) servSel.value = ticket.catalog_item_id;
+                const servs = await fetch(`/api/engineering/catalog-options?cloud=${encodeURIComponent(nuvemSegura)}&tipo=${encodeURIComponent(tipo)}&categoria=${encodeURIComponent(ticket.categoria)}&sub_categoria=${encodeURIComponent(ticket.sub_categoria)}`).then(r=>r.json());
+                if (typeof populateSelect === 'function') populateSelect(servSel, servs, 'id', 'servico', 'Selecione', 'sla');
+                if(servSel) {
+                    servSel.disabled = false;
+                    servSel.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    
+                    // Verifica se o serviço foi inativado
+                    if (ticket.catalog_item_id) {
+                        const optionExiste = Array.from(servSel.options).some(o => String(o.value) === String(ticket.catalog_item_id));
+                        if (!optionExiste) {
+                            // Puxa o nome do serviço da query do Dashboard ou põe nome padrão
+                            const nomeInativo = ticket.servico_nome ? ticket.servico_nome + " (Inativo)" : "Serviço Inativo";
+                            servSel.add(new Option(nomeInativo, ticket.catalog_item_id));
+                        }
+                        servSel.value = ticket.catalog_item_id;
+                    }
+                }
             } catch(e) { console.error(e); }
         }
     }
 
-        // Analistas
+    // Analistas
     const analistaSelect = document.getElementById('edit-eng-analista');
     if (analistaSelect) {
         analistaSelect.innerHTML = '<option value="">-- Selecione --</option>';
@@ -3755,14 +3791,13 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
         btnDeleteEng.classList.toggle('hidden', !canDelete);
     }
 
-    
     const modalContainer = document.getElementById('modalEditEngTicket');
     const btnSalvar = document.getElementById('btn-save-eng-ticket');
     const inputs = modalContainer.querySelectorAll('input, select, textarea');
 
     const toggleLock = (isLocked) => {
         inputs.forEach(el => {
-            if (el.id === 'edit-eng-status') return; // Status nunca bloqueia
+            if (el.id === 'edit-eng-status') return; 
             el.disabled = isLocked;
             if (isLocked) el.classList.add('bg-gray-100', 'cursor-not-allowed');
             else el.classList.remove('bg-gray-100', 'cursor-not-allowed');
@@ -3807,18 +3842,16 @@ window.abrirModalEdicaoEngenharia = async (ticketId) => {
 
     // Listener de Mudança de Status
     if (statusSelect) {
-        // Remove listeners antigos para evitar duplicação
         const newSelect = statusSelect.cloneNode(true);
         statusSelect.parentNode.replaceChild(newSelect, statusSelect);
         
         newSelect.onchange = (e) => {
             const novoStatus = e.target.value;
-            // Verifica status original
             if (ticket.status === 'Resolvido') {
                 if (novoStatus === 'Reaberto') {
-                    toggleLock(false); // Libera
+                    toggleLock(false); 
                 } else {
-                    toggleLock(true); // Bloqueia
+                    toggleLock(true); 
                 }
             }
         };

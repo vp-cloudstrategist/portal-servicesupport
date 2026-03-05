@@ -500,7 +500,6 @@ async function enviarNotificacaoTeams(titulo, fatos, textoFinal) {
     if (!TEAMS_WEBHOOK_URL) return;
 
     try {
-        // Monta o Card do Teams (Adaptive Card Simples)
         const payload = {
             "@type": "MessageCard",
             "@context": "http://schema.org/extensions",
@@ -508,7 +507,7 @@ async function enviarNotificacaoTeams(titulo, fatos, textoFinal) {
             "summary": titulo,
             "sections": [{
                 "activityTitle": titulo,
-                "facts": fatos, // Array de {name, value}
+                "facts": fatos, 
                 "text": textoFinal
             }]
         };
@@ -518,3 +517,30 @@ async function enviarNotificacaoTeams(titulo, fatos, textoFinal) {
         console.error("Erro ao enviar notificação para o Teams:", error.message);
     }
 }
+exports.receiveZabbixWebhook = async (req, res) => {
+    // 1. Pega o token que a Petz enviou no cabeçalho
+    const authHeader = req.headers.authorization;
+    
+    // 2. Monta como o token deveria ser (usando o que tá no seu .env)
+    const expectedToken = `Bearer ${process.env.ZABBIX_WEBHOOK_TOKEN}`;
+
+    // 3. Verifica se a senha bate
+    if (!authHeader || authHeader !== expectedToken) {
+        console.warn("[ZABBIX] Tentativa de acesso bloqueada. Token inválido.");
+        return res.status(401).json({ error: 'Acesso negado. Token inválido.' });
+    }
+
+    try {
+        // 4. Pega os dados que o Zabbix mandou
+        const payload = req.body;
+        
+ 
+        console.log(" WEBHOOK ZABBIX RECEBIDO ");
+        console.log("Dados:", JSON.stringify(payload, null, 2));
+        res.status(200).json({ message: 'Webhook recebido com sucesso pela NexxtCloud!' });
+
+    } catch (error) {
+        console.error("[ZABBIX] Erro ao processar webhook:", error);
+        res.status(500).json({ error: 'Erro interno ao processar alerta.' });
+    }
+};

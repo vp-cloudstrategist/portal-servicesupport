@@ -24,4 +24,6 @@ router.post('/catalog/crud', engineeringController.crudCatalog);
 
 router.get('/clients', requireLogin, engineeringController.getClientsList);
 
+router.post('/webhooks/zabbix', engineeringController.receiveZabbixWebhook);
+
 module.exports = router;
