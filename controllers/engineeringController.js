@@ -518,29 +518,49 @@ async function enviarNotificacaoTeams(titulo, fatos, textoFinal) {
     }
 }
 exports.receiveZabbixWebhook = async (req, res) => {
-    // 1. Pega o token que a Petz enviou no cabeçalho
     const authHeader = req.headers.authorization;
-    
-    // 2. Monta como o token deveria ser (usando o que tá no seu .env)
     const expectedToken = `Bearer ${process.env.ZABBIX_WEBHOOK_TOKEN}`;
 
-    // 3. Verifica se a senha bate
     if (!authHeader || authHeader !== expectedToken) {
-        console.warn("[ZABBIX] Tentativa de acesso bloqueada. Token inválido.");
-        return res.status(401).json({ error: 'Acesso negado. Token inválido.' });
+        console.warn("[WEBHOOK] Tentativa bloqueada. Token inválido.");
+        return res.status(401).json({ error: 'Acesso negado.' });
     }
 
     try {
-        // 4. Pega os dados que o Zabbix mandou
         const payload = req.body;
+        console.log("🔥 WEBHOOK N8N/ZABBIX RECEBIDO 🔥", payload);
+
+        let prioridadeTicket = 'Media'; 
+        // ATUALIZADO: Agora busca payload.severity em vez de payload.severidade
+        const severidadeZabbix = payload.severity ? payload.severity.toLowerCase() : '';
         
- 
-        console.log(" WEBHOOK ZABBIX RECEBIDO ");
-        console.log("Dados:", JSON.stringify(payload, null, 2));
-        res.status(200).json({ message: 'Webhook recebido com sucesso pela NexxtCloud!' });
+        if (severidadeZabbix.includes('high')) prioridadeTicket = 'Alta';
+        if (severidadeZabbix.includes('disaster')) prioridadeTicket = 'Critica';
+
+        // ATUALIZADO: Agora busca description, alert_name e hostname
+        const descricaoTicket = payload.description || `Alerta: ${payload.alert_name} no host ${payload.hostname}`;
+
+        const cliente_id_petz = 10; 
+        const tipo_solicitacao = 'Incidente';
+        const ambiente = 'PRODUCAO';
+        const catalog_item_id = null; 
+
+        const sql = `
+            INSERT INTO tickets_engenharia 
+            (cliente_id, tipo_solicitacao, ambiente, catalog_item_id, prioridade, descricao, status, data_abertura) 
+            VALUES (?, ?, ?, ?, ?, ?, 'Aberto', NOW())
+        `;
+        
+        const [result] = await pool.query(sql, [
+            cliente_id_petz, tipo_solicitacao, ambiente, catalog_item_id, prioridadeTicket, descricaoTicket
+        ]);
+
+        console.log(`✅ Ticket Automático Aberto via n8n! ID: #${result.insertId}`);
+
+        res.status(201).json({ message: 'Ticket aberto no portal com sucesso!', ticketId: result.insertId });
 
     } catch (error) {
-        console.error("[ZABBIX] Erro ao processar webhook:", error);
-        res.status(500).json({ error: 'Erro interno ao processar alerta.' });
+        console.error("[WEBHOOK] Erro ao abrir ticket:", error);
+        res.status(500).json({ error: 'Erro interno ao processar webhook.' });
     }
 };
