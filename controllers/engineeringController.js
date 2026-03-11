@@ -528,19 +528,18 @@ exports.receiveZabbixWebhook = async (req, res) => {
 
     try {
         const payload = req.body;
-        console.log("🔥 WEBHOOK N8N/ZABBIX RECEBIDO 🔥", payload);
+        console.log(" WEBHOOK N8N/ZABBIX RECEBIDO ", payload);
 
         let prioridadeTicket = 'Media'; 
-        // ATUALIZADO: Agora busca payload.severity em vez de payload.severidade
         const severidadeZabbix = payload.severity ? payload.severity.toLowerCase() : '';
         
         if (severidadeZabbix.includes('high')) prioridadeTicket = 'Alta';
         if (severidadeZabbix.includes('disaster')) prioridadeTicket = 'Critica';
 
-        // ATUALIZADO: Agora busca description, alert_name e hostname
         const descricaoTicket = payload.description || `Alerta: ${payload.alert_name} no host ${payload.hostname}`;
 
-        const cliente_id_petz = 10; 
+        const cliente_id = payload.cliente_id || 101; 
+        
         const tipo_solicitacao = 'Incidente';
         const ambiente = 'PRODUCAO';
         const catalog_item_id = null; 
@@ -552,15 +551,20 @@ exports.receiveZabbixWebhook = async (req, res) => {
         `;
         
         const [result] = await pool.query(sql, [
-            cliente_id_petz, tipo_solicitacao, ambiente, catalog_item_id, prioridadeTicket, descricaoTicket
+            cliente_id, tipo_solicitacao, ambiente, catalog_item_id, prioridadeTicket, descricaoTicket
         ]);
 
-        console.log(`✅ Ticket Automático Aberto via n8n! ID: #${result.insertId}`);
+        console.log(` Ticket Automático Aberto via n8n! ID: #${result.insertId} para o Cliente ID: ${cliente_id}`);
 
         res.status(201).json({ message: 'Ticket aberto no portal com sucesso!', ticketId: result.insertId });
 
     } catch (error) {
         console.error("[WEBHOOK] Erro ao abrir ticket:", error);
-        res.status(500).json({ error: 'Erro interno ao processar webhook.' });
+        
+        res.status(500).json({ 
+            error: 'Erro interno ao processar webhook.',
+            detalhe: error.message,
+            erroBanco: error.sqlMessage || 'Nenhum erro SQL específico'
+        });
     }
 };
