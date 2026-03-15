@@ -45,7 +45,7 @@ exports.login = async (req, res) => {
             }
         }
 
-
+/*
         let otpToken;
         let responseMessage;
         const now = new Date();
@@ -99,7 +99,8 @@ const emailHtml = `
         });
         
         return res.status(206).json({ message: responseMessage, login: user.login });
-
+*/  req.session.user = { id: user.id, nome: user.nome, login: user.login, sobrenome: user.sobre, perfil: user.perfil };
+        return res.status(200).json({ message: 'Login bem-sucedido!' });
     } catch (error) {
         console.error('Erro no login:', error);
         res.status(500).json({ message: 'Erro interno no servidor.' });
